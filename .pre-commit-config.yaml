@@ -1,0 +1,22 @@
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+    -   id: trailing-whitespace
+        language: python
+    -   id: end-of-file-fixer
+        language: python
+    -   id: check-yaml
+    #-   id: check-added-large-files
+    -   id: check-json
+        language_version: python3.13
+-   repo: https://github.com/ambv/black
+    rev: 23.3.0
+    hooks:
+    -   id: black
+        language_version: python3.13
+-   repo: https://github.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+    -   id: flake8
+        language_version: python3.13
+        extend-ignore: E501,E402

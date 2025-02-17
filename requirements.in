@@ -1,0 +1,10 @@
+black
+flake8
+jupyterlab
+matplotlib
+notebook
+pandas
+pre-commit
+psycopg
+python-decouple
+unidecode
