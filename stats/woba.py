@@ -104,12 +104,18 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
         league_totals["1B"] + league_totals["BB"] + league_totals["HP"]
     )
     lg_sb_rate = league_totals["SB"] / (league_totals["SB"] + league_totals["CS"])
-    lg_ubr = league_totals["UBR"] / (
-        (league_totals["1B"] + league_totals["BB"] + league_totals["HP"]) * 3
-        + (league_totals["2B"] * 2)
-        + league_totals["3B"]
-        - league_totals["CS"] * 3
-        - league_totals["SB"]
+
+    lg_ubr = (
+        league_totals["UBR"]
+        / (
+            (league_totals["1B"] + league_totals["BB"] + league_totals["HP"]) * 3
+            + (league_totals["2B"] * 2)
+            + league_totals["3B"]
+            - league_totals["CS"] * 3
+            - league_totals["SB"]
+        )
+        if "UBR" in league_totals
+        else 0
     )
     lg_3B_rate = league_totals["3B"] / (league_totals["2B"] + league_totals["3B"])
     lg_k_rate = league_totals["SO"] / (
