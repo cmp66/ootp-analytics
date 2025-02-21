@@ -1,6 +1,7 @@
 black
 flake8
 jupyterlab
+itables
 matplotlib
 notebook
 pandas

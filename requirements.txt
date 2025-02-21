@@ -86,9 +86,13 @@ idna==3.10
 ipykernel==6.29.5
     # via jupyterlab
 ipython==8.32.0
-    # via ipykernel
+    # via
+    #   ipykernel
+    #   itables
 isoduration==20.11.0
     # via jsonschema
+itables==2.2.4
+    # via -r requirements.in
 jedi==0.19.2
     # via ipython
 jinja2==3.1.5
@@ -159,7 +163,7 @@ matplotlib-inline==0.1.7
     #   ipython
 mccabe==0.7.0
     # via flake8
-mistune==3.1.1
+mistune==3.1.2
     # via nbconvert
 mypy-extensions==1.0.0
     # via black
@@ -185,6 +189,7 @@ notebook-shim==0.2.4
 numpy==2.2.3
     # via
     #   contourpy
+    #   itables
     #   matplotlib
     #   pandas
 overrides==7.7.0
@@ -200,7 +205,9 @@ packaging==24.2
     #   matplotlib
     #   nbconvert
 pandas==2.2.3
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   itables
 pandocfilters==1.5.1
     # via nbconvert
 parso==0.8.4

@@ -1,26 +1,49 @@
 from pandas import DataFrame
 import math
 
-positions = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-of_positions = [7, 8, 9]
-if_positions = [3, 4, 5, 6]
-dp_positions = [4, 6]
+positions = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
+of_positions = ["LF", "CF", "RF"]
+if_positions = ["1B", "2B", "3B", "SS"]
+dp_positions = ["2B", "SS"]
 
 
 def get_season_adjustment(pos: int) -> int:
-    return 220 if pos == 1 else 900 if pos == 2 else 1200
+    return 220 if pos == "P" else 900 if pos == "C" else 1200
 
 
 def get_fielding_adjustment(pos: int) -> int:
-    return 220 if pos == 1 else 1000 if pos == 2 else 1200
+    return 220 if pos == "P" else 1000 if pos == "C" else 1200
 
 
 def get_out_run_value(pos: int) -> float:
-    return 0.9 if pos in [7, 8, 9] else 0.75
+    return 0.9 if pos in ["LF", "CF", "RF"] else 0.75
 
 
 def get_out_run_value_2B(pos: int) -> float:
-    return 0.75 if pos in [4] else 0.0
+    return 0.75 if pos in ["2B"] else 0.0
+
+
+def convert_fielding_position(pos: int) -> str:
+    if pos in [1]:
+        return "P"
+    elif pos in [2]:
+        return "C"
+    elif pos in [3]:
+        return "1B"
+    elif pos in [4]:
+        return "2B"
+    elif pos in [5]:
+        return "3B"
+    elif pos in [6]:
+        return "SS"
+    elif pos in [7]:
+        return "LF"
+    elif pos in [8]:
+        return "CF"
+    elif pos in [9]:
+        return "RF"
+    else:
+        return "DH"
 
 
 def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
@@ -38,7 +61,9 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
     }
 
     position_group = df_player_stats.groupby("POS")
-    df_positional_totals = DataFrame({"POS": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]})
+    df_positional_totals = DataFrame(
+        {"POS": ["DH", "P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]}
+    )
     df_positional_totals.set_index("POS", inplace=True)
 
     for position in positions:
@@ -112,6 +137,8 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
 
 
 def calculate_player_fielding_stats(df_player_stats: DataFrame) -> DataFrame:
+
+    df_player_stats["POS"] = df_player_stats["POS"].apply(convert_fielding_position)
 
     df_player_stats["DP"] = df_player_stats["DP"] * df_player_stats["POS"].apply(
         lambda x: 1 if x in dp_positions else 0
