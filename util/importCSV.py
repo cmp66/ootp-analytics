@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 
 def import_csv(
@@ -67,3 +68,49 @@ def import_csv(
     )
 
     return df_player_battings_stats, df_player_pitching_stats, df_player_fielding_stats
+
+
+def import_csv_flex(
+    league: str, season: int, basedir
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+
+    filedir = f"{basedir}/files/{league}/{season}"
+    fielding_index = 0
+    batting_index = 0
+    pitching_index = 0
+    fielding_dfs = [None] * 27
+    batting_dfs = [None] * 10
+    pitching_dfs = [None] * 10
+
+    for file in [
+        f for f in os.listdir(filedir) if os.path.isfile(os.path.join(filedir, f))
+    ]:
+        df_temp = pd.read_csv(f"{filedir}/{file}")
+
+        # check if the PI/PA column exists
+        if "PI/PA" in df_temp.columns:
+            batting_dfs[batting_index] = (
+                batting_dfs[batting_index - 1].merge(df_temp, how="outer")
+                if batting_index != 0
+                else df_temp
+            )
+            batting_index += 1
+        elif "IRS" in df_temp.columns:
+            pitching_dfs[pitching_index] = (
+                pitching_dfs[pitching_index - 1].merge(df_temp, how="outer")
+                if pitching_index != 0
+                else df_temp
+            )
+            pitching_index += 1
+        else:
+            fielding_dfs[fielding_index] = (
+                fielding_dfs[fielding_index - 1].merge(df_temp, how="outer")
+                if fielding_index != 0
+                else df_temp
+            )
+            fielding_index += 1
+
+    df_player_fielding_stats = fielding_dfs[fielding_index - 1]
+    df_player_batting_stats = batting_dfs[batting_index - 1]
+    df_player_pitching_stats = pitching_dfs[pitching_index - 1]
+    return df_player_batting_stats, df_player_pitching_stats, df_player_fielding_stats
