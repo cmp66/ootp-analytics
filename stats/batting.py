@@ -54,10 +54,12 @@ def calculate_player_batting_stats(
         (df_player_stats["wOBA"] - df_lg_stat.loc["wOBA"]["Value"])
         / df_lg_stat.loc["wOBA_SCALE"]["Value"]
     ) * df_player_stats["PA"]
+    df_player_stats["wRAA600"] = df_player_stats["wRAA"] * 600 / df_player_stats["PA"]
     df_player_stats["OBP"] = (
         df_player_stats["H"] + df_player_stats["BB"] + df_player_stats["HP"]
     ) / (df_player_stats["PA"])
     df_player_stats["BSR"] = df_player_stats["UBRAA"] + df_player_stats["wSB"]
+    df_player_stats["BSR600"] = df_player_stats["BSR"] * 600 / df_player_stats["PA"]
     df_player_stats["OFF"] = df_player_stats["BSR"] + df_player_stats["wRAA"]
     df_player_stats["OFFAdj"] = (df_player_stats["OFF"]) + (
         df_player_stats["ORG"].apply(
