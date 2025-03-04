@@ -1,26 +1,30 @@
 from pandas import DataFrame
 import math
 
-positions = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
-of_positions = ["LF", "CF", "RF"]
-if_positions = ["1B", "2B", "3B", "SS"]
-dp_positions = ["2B", "SS"]
+positions = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+of_positions = [7, 8, 9]
+if_positions = [3, 4, 5, 6]
+dp_positions = [4, 6]
 
 
 def get_season_adjustment(pos: int) -> int:
-    return 220 if pos == "P" else 900 if pos == "C" else 1200
+    return 220 if pos == 1 else 900 if pos == 2 else 1200
 
 
-def get_fielding_adjustment(pos: int) -> int:
-    return 220 if pos == "P" else 1000 if pos == "C" else 1200
+def get_fielding_adjustment(pos: str) -> int:
+    return 220 if pos == 1 else 1000 if pos == 2 else 1200
 
 
-def get_out_run_value(pos: int) -> float:
-    return 0.9 if pos in ["LF", "CF", "RF"] else 0.75
+def get_dp_adjustment(pos: int) -> int:
+    return 0.6 if pos in [4] else 0.4 if pos in [6] else 0.0
 
 
-def get_out_run_value_2B(pos: int) -> float:
-    return 0.75 if pos in ["2B"] else 0.0
+def get_out_run_value(pos: str) -> float:
+    return 0.9 if pos in [7, 8, 9] else 0.75
+
+
+def get_out_run_value_2B(pos: str) -> float:
+    return 0.75 if pos in [4] else 0.0
 
 
 def convert_fielding_position(pos: int) -> str:
@@ -46,7 +50,9 @@ def convert_fielding_position(pos: int) -> str:
         return "DH"
 
 
-def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
+def calculate_league_totals(
+    df_player_stats: DataFrame,
+) -> tuple[dict[str, float], DataFrame]:
 
     league_fielding_totals = {
         "IPClean": df_player_stats["IPClean"].sum(),
@@ -61,15 +67,14 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
     }
 
     position_group = df_player_stats.groupby("POS")
-    df_positional_totals = DataFrame(
-        {"POS": ["DH", "P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]}
-    )
+    df_positional_totals = DataFrame({"POS": positions})
     df_positional_totals.set_index("POS", inplace=True)
 
     for position in positions:
         df_positional_totals.loc[position, "PlayPercent"] = (
             position_group.get_group(position)["PlaysMade"].sum()
             / position_group.get_group(position)["PlaysAttempted"].sum()
+            * 100
         )
         df_positional_totals.loc[position, "PlayAttemptedPerSeason"] = (
             position_group.get_group(position)["PlaysAttempted"].sum()
@@ -89,6 +94,7 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
         df_positional_totals.loc[position, "ErrorPercentage"] = (
             position_group.get_group(position)["E"].sum()
             / position_group.get_group(position)["PlaysMade"].sum()
+            * 100
         )
 
         if position in of_positions:
@@ -133,19 +139,120 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
     ).set_index("Stat")
 
     # print(df_positional_totals)
-    return df_lg_fielding_stat, df_positional_totals
+    return df_lg_fielding_stat, df_positional_totals.round(2)
 
 
-def calculate_player_fielding_stats(df_player_stats: DataFrame) -> DataFrame:
+def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame:
 
-    df_player_stats["POS"] = df_player_stats["POS"].apply(convert_fielding_position)
+    df_fielding_averages = DataFrame()
+
+    for position in of_positions:
+        filter = df_player_stats["POS"] == position
+        iptotal = df_player_stats.loc[filter, "IPClean"].sum()
+
+        df_player_stats.loc[filter, "Weight"] = (
+            df_player_stats.loc[filter, "IPClean"] / iptotal
+        )
+        df_player_stats.loc[filter, "RangeWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[filter, "OF RNG"]
+        )
+        df_player_stats.loc[filter, "ErrorWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[filter, "OF ERR"]
+        )
+        df_player_stats.loc[filter, "ARMWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[filter, "OF ARM"]
+        )
+
+        df_fielding_averages.loc[position, "Range"] = df_player_stats.loc[
+            filter, "RangeWeight"
+        ].sum()
+        df_fielding_averages.loc[position, "Error"] = df_player_stats.loc[
+            filter, "ErrorWeight"
+        ].sum()
+        df_fielding_averages.loc[position, "Arm"] = df_player_stats.loc[
+            filter, "ARMWeight"
+        ].sum()
+        df_fielding_averages.loc[position, "DP"] = 0
+
+    for position in if_positions + [1]:
+        filter = df_player_stats["POS"] == position
+        iptotal = df_player_stats.loc[filter, "IPClean"].sum()
+
+        df_player_stats.loc[filter, "Weight"] = (
+            df_player_stats.loc[filter, "IPClean"] / iptotal
+        )
+        df_player_stats.loc[filter, "RangeWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[filter, "IF RNG"]
+        )
+        df_player_stats.loc[filter, "ErrorWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[filter, "IF ERR"]
+        )
+        df_player_stats.loc[filter, "ARMWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[filter, "IF ARM"]
+        )
+        df_player_stats.loc[filter, "DPWeight"] = (
+            df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "TDP"]
+        )
+
+        df_fielding_averages.loc[position, "Range"] = df_player_stats.loc[
+            filter, "RangeWeight"
+        ].sum()
+        df_fielding_averages.loc[position, "Error"] = df_player_stats.loc[
+            filter, "ErrorWeight"
+        ].sum()
+        df_fielding_averages.loc[position, "Arm"] = df_player_stats.loc[
+            filter, "ARMWeight"
+        ].sum()
+        df_fielding_averages.loc[position, "DP"] = df_player_stats.loc[
+            filter, "DPWeight"
+        ].sum()
+
+    filter = df_player_stats["POS"] == 2
+    iptotal = df_player_stats.loc[filter, "IPClean"].sum()
+    df_player_stats.loc[filter, "Weight"] = (
+        df_player_stats.loc[filter, "IPClean"] / iptotal
+    )
+    df_player_stats.loc[filter, "FRMWeight"] = (
+        df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "C FRM"]
+    )
+    df_player_stats.loc[filter, "BLKWeight"] = (
+        df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "C ABI"]
+    )
+    df_player_stats.loc[filter, "ARMWeight"] = (
+        df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "C ARM"]
+    )
+    df_fielding_averages.loc[2, "Frame"] = df_player_stats.loc[
+        filter, "FRMWeight"
+    ].sum()
+    df_fielding_averages.loc[2, "Block"] = df_player_stats.loc[
+        filter, "BLKWeight"
+    ].sum()
+    df_fielding_averages.loc[2, "Arm"] = df_player_stats.loc[filter, "ARMWeight"].sum()
+
+    return df_fielding_averages.round(2)
+
+
+def calculate_player_fielding_stats(
+    df_player_stats: DataFrame, df_player_ratings: DataFrame
+) -> tuple[DataFrame, DataFrame, DataFrame]:
+
+    # df_player_stats["POS"] = df_player_stats["POS"].apply(convert_fielding_position)
 
     df_player_stats["DP"] = df_player_stats["DP"] * df_player_stats["POS"].apply(
-        lambda x: 1 if x in dp_positions else 0
+        get_dp_adjustment
     )
+
     df_player_stats["ARM"] = df_player_stats["ARM"] * df_player_stats["POS"].apply(
         lambda x: 1 if x in of_positions else 0
     )
+
+    df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
 
     df_player_stats["PlaysAttempted"] = (
         df_player_stats["BIZ-R"]
@@ -173,6 +280,7 @@ def calculate_player_fielding_stats(df_player_stats: DataFrame) -> DataFrame:
     )
 
     df_lg_batting_stat, df_positional_totals = calculate_league_totals(df_player_stats)
+
     df_player_stats["PlayMadeAASeason"] = df_player_stats[
         "PlaysMadeSeason"
     ] - df_player_stats["POS"].apply(
@@ -344,4 +452,67 @@ def calculate_player_fielding_stats(df_player_stats: DataFrame) -> DataFrame:
         + df_player_stats["FRMAAAdj"]
     )
 
-    return df_player_stats
+    df_player_stats["runsPAdjSeason"] = (
+        df_player_stats["wPMAAAdj"]
+        / df_player_stats["IPClean"]
+        * df_player_stats["POS"].apply(get_fielding_adjustment)
+    )
+
+    df_fielding_attribute_averages = calculate_league_attribute_averages(
+        df_player_stats
+    )
+
+    df_player_stats["IFRngDelta"] = df_player_stats["IF RNG"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Range"])
+    df_player_stats["IFArmDelta"] = df_player_stats["IF ARM"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Arm"])
+    df_player_stats["IFErrDelta"] = df_player_stats["IF ERR"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Error"])
+    df_player_stats["IFTDPDelta"] = df_player_stats["TDP"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["DP"])
+    df_player_stats["OFRngDelta"] = df_player_stats["OF RNG"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Range"])
+    df_player_stats["OFArmDelta"] = df_player_stats["OF ARM"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Arm"])
+    df_player_stats["OFERRDelta"] = df_player_stats["OF ERR"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Error"])
+    df_player_stats["CFRMDelta"] = df_player_stats["C FRM"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Frame"])
+    df_player_stats["CBLKDelta"] = df_player_stats["C ABI"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Block"])
+    df_player_stats["CARMDelta"] = df_player_stats["C ARM"] - df_player_stats[
+        "POS"
+    ].apply(lambda x: df_fielding_attribute_averages.loc[x]["Arm"])
+
+    for x in [
+        "IFRngDelta",
+        "IFArmDelta",
+        "IFErrDelta",
+        "IFTDPDelta",
+        "OFRngDelta",
+        "OFArmDelta",
+        "OFERRDelta",
+        "CFRMDelta",
+        "CBLKDelta",
+        "CARMDelta",
+    ]:
+        df_player_stats = df_player_stats.astype({x: "float"})
+        df_player_stats = df_player_stats.round({x: 2})
+
+    df_player_stats = df_player_stats.dropna(subset=["runsPAdj", "runsPAdjSeason"])
+
+    columns_to_remove = [
+        x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
+    ]
+    df_player_stats.drop(columns_to_remove, axis=1, inplace=True)
+
+    return df_positional_totals, df_fielding_attribute_averages, df_player_stats
