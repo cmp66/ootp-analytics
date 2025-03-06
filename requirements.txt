@@ -87,7 +87,7 @@ idna==3.10
     #   requests
 ipykernel==6.29.5
     # via jupyterlab
-ipython==9.0.0
+ipython==9.0.1
     # via
     #   ipykernel
     #   itables

@@ -47,7 +47,7 @@ def calculate_player_pitching_stats(
     league: str,
 ) -> DataFrame:
 
-    df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
+    df_player_stats = df_player_stats.merge(df_player_ratings[["ID", "ORG"]], on="ID")
     park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
     df_player_stats["PRole"] = df_player_stats[["G", "GS"]].apply(

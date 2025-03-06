@@ -8,17 +8,113 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
+def convert_bbt(bbt: str) -> int:
+    if bbt in ["Line Drive"]:
+        return 1
+    elif bbt in ["Flyball"]:
+        return 3
+    elif bbt in ["Normal"]:
+        return 2
+    elif bbt in ["Groundball"]:
+        return 0
+
+
+def convert_gbt(gbt: str) -> int:
+    if gbt == "Ex. Pull":
+        return 3
+    elif gbt == "Pull":
+        return 2
+    elif gbt == "Normal":
+        return 1
+    elif gbt == "Spray":
+        return 0
+
+
+def convert_fbt(fbt: str) -> int:
+    if fbt in ["Pull"]:
+        return 2
+    elif fbt in ["Normal"]:
+        return 1
+    elif fbt in ["Spray"]:
+        return 0
+
+
+def convert_bat_rl(rl: str) -> int:
+    if rl == "R":
+        return 1
+    elif rl == "L":
+        return
+
+
+def convert_throws(rl: str) -> int:
+    if rl == "R":
+        return 1
+    elif rl == "L":
+        return 2
+
+
+def convert_groundball_flyball(gbt: str) -> int:
+    if gbt == "EX GB":
+        return 1
+    elif gbt == "GB":
+        return 2
+    elif gbt == "NEU":
+        return 3
+    elif gbt == "FB":
+        return 4
+    elif gbt == "EX FB":
+        return 5
+
+
+def convert_pitch_type(pt: str) -> int:
+    if pt == "GB'er":
+        return 1
+    elif pt == "Normal":
+        return 2
+    elif pt == "Finesse":
+        return 3
+    elif pt == "Power":
+        return 4
+
+
+def convert_slot(slot: str) -> int:
+    if slot == "OTT":
+        return 1
+    elif slot == "3/4":
+        return 2
+    elif slot == "SIDE":
+        return 3
+    elif slot == "SUB":
+        return 4
+
+
+def convert_velocity(vel: str) -> int:
+    if vel == "100+":
+        return 101
+    velocity = vel.split("-")
+    return (float(velocity[0].strip()) + float(velocity[1].strip())) / 2.0
+
+
+def convert_height_to_inches(height: str) -> int:
+    height = height.split("'")
+    if len(height) != 3:
+        raise ValueError("Height must be in the format 'X' Y'")
+    return int(height[0].strip()) * 12 + int(height[1].strip())
+
+
 class RegressionNN(nn.Module):
     def __init__(self, num_features):
         super(RegressionNN, self).__init__()
-        self.fc1 = nn.Linear(num_features, 64)
-        self.fc2 = nn.Linear(64, 32)
-        self.fc3 = nn.Linear(32, 1)
+        self.fc1 = nn.Linear(num_features, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 32)
+        self.fc4 = nn.Linear(32, 1)
 
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = self.fc3(x)
+        x = torch.relu(self.fc3(x))
+        x = self.fc4(x)
         return x
 
 
@@ -69,7 +165,7 @@ class RegressionRunner:
             if (epoch + 1) % 2000 == 0:
                 print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.7f}")
 
-            if loss.item() < 0.00000999:
+            if loss.item() < 0.000999:
                 print(f"Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.7f}")
                 break
         return epoch, loss.item()
@@ -107,9 +203,50 @@ class RegressionRunner:
         )
         return df.sort_values("mean_abs_shap", ascending=False)[: self.num_features]
 
-    def save(self, path):
+    def save_model(self, path):
         torch.save(self.model.state_dict(), path)
 
-    def load(self, path):
+    def load_model(self, path):
         self.model.load_state_dict(torch.load(path))
         self.model.eval()
+
+
+class Modeler:
+    def __init__(self, feature_values: list[str], targets: list[str]):
+        self.feature_values = feature_values
+        self.targets = targets
+        self.model = RegressionRunner(feature_values)
+
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            print("CUDA is available! Using GPU.")
+        else:
+            self.device = torch.device("cpu")
+            print("CUDA is not available. Using CPU.")
+
+    def load_data(self, data: pd.DataFrame, targetCol: str):
+        self.model.load_data(data, targetCol)
+
+    def conform_column_types(self, data: pd.DataFrame, columns_to_conform: list[str]):
+        for column in columns_to_conform:
+            data = data.astype({column: "float"})
+
+        return data
+
+    def train(self, num_epochs: int):
+        return self.model.train(num_epochs)
+
+    def evaluate(self):
+        return self.model.evaluate()
+
+    def predict(self, X):
+        return self.model.predict_wrapper(X)
+
+    def feature_importance(self):
+        return self.model.feature_importance(self.feature_values)
+
+    def save_model(self, path):
+        self.model.save_model(path)
+
+    def load_model(self, path):
+        self.model.load_model(path)
