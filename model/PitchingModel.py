@@ -64,34 +64,43 @@ class PitchingModel(Modeler):
         self.model = Modeler(feature_values[self.role], targets[self.role])
 
     def load_data(self, ip_limit=100):
-        # load fielding dataset from csv
-        pitching = pd.read_csv(
-            f"./files/{self.league}/{self.season_start}/output/{self.league}-{self.season_start}-pitching.csv"
-        )
-        player_data = pd.read_csv(
-            f"./files/{self.league}/{self.season_start}/output/{self.league}-{self.season_start}-player-data.csv"
-        )
-        player_data["WT"] = player_data["WT"].apply(lambda x: int(x[:3]))
-        player_data["HT"] = player_data["HT"].apply(convert_height_to_inches)
-        player_data["G/F"] = player_data["G/F"].apply(convert_groundball_flyball)
-        player_data["VELO"] = player_data["VELO"].apply(convert_velocity)
-        player_data["T"] = player_data["T"].apply(convert_throws)
-        player_data["PT"] = player_data["PT"].apply(convert_pitch_type)
-        player_data["Slot"] = player_data["Slot"].apply(convert_slot)
-        with pd.option_context("future.no_silent_downcasting", True):
-            pitching.replace("-", 0, inplace=True)
-            player_data.replace("-", 0, inplace=True)
 
-        # combine fielding and player data
-        master_data = pitching.merge(player_data, on="ID")
-        master_data = master_data[master_data["IPClean"] >= ip_limit]
-        master_data = master_data[master_data["PRole"] >= self.role]
-        self.filtered_data = master_data[feature_values[self.role] + targets[self.role]]
+        for season in range(int(self.season_start), int(self.season_end) + 1):
+            # load fielding dataset from csv
+            pitching = pd.read_csv(
+                f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv"
+            )
+            player_data = pd.read_csv(
+                f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
+            )
+            player_data["WT"] = player_data["WT"].apply(lambda x: int(x[:3]))
+            player_data["HT"] = player_data["HT"].apply(convert_height_to_inches)
+            player_data["G/F"] = player_data["G/F"].apply(convert_groundball_flyball)
+            player_data["VELO"] = player_data["VELO"].apply(convert_velocity)
+            player_data["T"] = player_data["T"].apply(convert_throws)
+            player_data["PT"] = player_data["PT"].apply(convert_pitch_type)
+            player_data["Slot"] = player_data["Slot"].apply(convert_slot)
+            with pd.option_context("future.no_silent_downcasting", True):
+                pitching.replace("-", 0, inplace=True)
+                player_data.replace("-", 0, inplace=True)
 
-        # create a dataset with a subset of the columns
-        self.conform_column_types(
-            self.filtered_data, feature_values[self.role] + targets[self.role]
-        )
+            # combine fielding and player data
+            master_data = pitching.merge(player_data, on="ID")
+            master_data = master_data[master_data["IPClean"] >= ip_limit]
+            master_data = master_data[master_data["PRole"] >= self.role]
+            filtered_data = master_data[feature_values[self.role] + targets[self.role]]
+
+            # create a dataset with a subset of the columns
+            self.conform_column_types(
+                filtered_data, feature_values[self.role] + targets[self.role]
+            )
+
+            self.filtered_data = (
+                filtered_data
+                if season == int(self.season_start)
+                else pd.concat([self.filtered_data, filtered_data])
+            )
+            print(self.filtered_data.shape)
 
         print(self.filtered_data.loc[self.filtered_data.isnull().any(axis=1)])
 
