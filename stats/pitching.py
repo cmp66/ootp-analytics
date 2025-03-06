@@ -41,16 +41,20 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
 
 
 def calculate_player_pitching_stats(
-    df_player_stats: DataFrame, df_lg_stat: DataFrame, league: str
+    df_player_stats: DataFrame,
+    df_lg_stat: DataFrame,
+    df_player_ratings: DataFrame,
+    league: str,
 ) -> DataFrame:
 
+    df_player_stats = df_player_stats.merge(df_player_ratings[["ID", "ORG"]], on="ID")
     park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
     df_player_stats["PRole"] = df_player_stats[["G", "GS"]].apply(
         lambda x: "SP" if x["GS"] == x["G"] else "RP" if x["GS"] == 0 else "Mix", axis=1
     )
     df_player_stats["IPClean"] = df_player_stats["IP"].apply(
-        lambda x: math.modf(x)[1] + math.modf(x)[0] * 3.33
+        lambda x: math.modf(x)[1] + math.modf(x)[0] * 0.33
     )
     df_player_stats["RA9"] = df_player_stats["R"] / df_player_stats["IPClean"] * 9
     df_pitching_totals = calculate_league_totals(df_player_stats)
@@ -77,7 +81,9 @@ def calculate_player_pitching_stats(
     )
     df_player_stats["HRPercent"] = df_player_stats["HR"] / df_player_stats["BF"] * 100
     df_player_stats["pBABIP"] = (
-        df_player_stats["1B"] + df_player_stats["2B"] + df_player_stats["3B"]
+        df_player_stats["SINGLE"]
+        + df_player_stats["DOUBLE"]
+        + df_player_stats["TRIPLE"]
     ) / (
         df_player_stats["AB"]
         - df_player_stats["K"]
@@ -88,9 +94,9 @@ def calculate_player_pitching_stats(
     df_player_stats["wOBAa"] = (
         df_player_stats["HP"] * df_lg_stat.loc["coef_HP"]["Value"]
         + df_player_stats["BB"] * df_lg_stat.loc["coef_BB"]["Value"]
-        + df_player_stats["1B"] * df_lg_stat.loc["coef_1B"]["Value"]
-        + df_player_stats["2B"] * df_lg_stat.loc["coef_2B"]["Value"]
-        + df_player_stats["3B"] * df_lg_stat.loc["coef_3B"]["Value"]
+        + df_player_stats["SINGLE"] * df_lg_stat.loc["coef_1B"]["Value"]
+        + df_player_stats["DOUBLE"] * df_lg_stat.loc["coef_2B"]["Value"]
+        + df_player_stats["TRIPLE"] * df_lg_stat.loc["coef_3B"]["Value"]
         + df_player_stats["HR"] * df_lg_stat.loc["coef_HR"]["Value"]
         + df_player_stats["SB"] * df_lg_stat.loc["coef_SB"]["Value"]
         + df_player_stats["CS"] * df_lg_stat.loc["coef_CS"]["Value"]

@@ -8,4 +8,6 @@ pandas
 pre-commit
 psycopg
 python-decouple
+scikit-learn
+shap
 unidecode
