@@ -77,5 +77,6 @@ def calculate_player_batting_stats(
         x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
     ]
     df_player_stats.drop(columns_to_remove, axis=1, inplace=True)
+    df_player_stats.set_index("ID", inplace=True)
 
     return df_player_stats

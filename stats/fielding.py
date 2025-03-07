@@ -86,6 +86,7 @@ def calculate_league_totals(
             / position_group.get_group(position)["IPClean"].sum()
             * get_season_adjustment(position)
         )
+
         df_positional_totals.loc[position, "ErrorPerSeason"] = (
             position_group.get_group(position)["E"].sum()
             / position_group.get_group(position)["IPClean"].sum()
@@ -514,5 +515,6 @@ def calculate_player_fielding_stats(
         x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
     ]
     df_player_stats.drop(columns_to_remove, axis=1, inplace=True)
+    df_player_stats.set_index("ID", inplace=True)
 
     return df_positional_totals, df_fielding_attribute_averages, df_player_stats

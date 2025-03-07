@@ -47,7 +47,7 @@ def calculate_player_pitching_stats(
     league: str,
 ) -> DataFrame:
 
-    df_player_stats = df_player_stats.merge(df_player_ratings[["ID", "ORG"]], on="ID")
+    df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
     park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
     df_player_stats["PRole"] = df_player_stats[["G", "GS"]].apply(
@@ -119,5 +119,12 @@ def calculate_player_pitching_stats(
             * df_player_stats["BF"]
         )
     ) / 10
+
+    columns_to_remove = [
+        x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
+    ]
+    df_player_stats.drop(columns_to_remove, axis=1, inplace=True)
+
+    df_player_stats.set_index("ID", inplace=True)
 
     return df_player_stats

@@ -2,7 +2,7 @@ import pandas as pd
 from model import Modeler, convert_bbt, convert_gbt, convert_fbt
 
 feature_values = [
-    "Age",
+    # "Age",
     "WT",
     "SPE",
     "SR",
@@ -30,7 +30,7 @@ class BSRModel(Modeler):
         self.ratings_type = ratings_type
         self.model = Modeler(feature_values, targets)
 
-    def load_data(self, pa_limit=100):
+    def load_data(self, pa_limit=300):
         for season in range(int(self.season_start), int(self.season_end) + 1):
             # load fielding dataset from csv
             hitting = pd.read_csv(

@@ -11,15 +11,15 @@ feature_values = [
     "GBT",
     "FBT",
     "SPE",
-    "BUN",
+    # "BUN",
     "BFH",
     # "B",
-    "WT",
-    # "Age",
+    # "WT",
+    "Age",
     "RUN",
 ]
 
-targets = ["OFF600"]
+targets = ["wRAA600"]
 
 
 class HittingModel(Modeler):
