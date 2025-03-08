@@ -1,13 +1,5 @@
 import pandas as pd
-from model import (
-    Modeler,
-    convert_height_to_inches,
-    convert_groundball_flyball,
-    convert_velocity,
-    convert_throws,
-    convert_pitch_type,
-    convert_slot,
-)
+from model import Modeler
 
 feature_values = {
     "SP": [
@@ -22,7 +14,6 @@ feature_values = {
         "G/F",
         "VELO",
         "Slot",
-        "PT",
         "STM",
         "HLD",
     ],
@@ -38,7 +29,6 @@ feature_values = {
         "G/F",
         "VELO",
         "Slot",
-        "PT",
         "STM",
         "HLD",
     ],
@@ -73,13 +63,6 @@ class PitchingModel(Modeler):
             player_data = pd.read_csv(
                 f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
             )
-            player_data["WT"] = player_data["WT"].apply(lambda x: int(x[:3]))
-            player_data["HT"] = player_data["HT"].apply(convert_height_to_inches)
-            player_data["G/F"] = player_data["G/F"].apply(convert_groundball_flyball)
-            player_data["VELO"] = player_data["VELO"].apply(convert_velocity)
-            player_data["T"] = player_data["T"].apply(convert_throws)
-            player_data["PT"] = player_data["PT"].apply(convert_pitch_type)
-            player_data["Slot"] = player_data["Slot"].apply(convert_slot)
             with pd.option_context("future.no_silent_downcasting", True):
                 pitching.replace("-", 0, inplace=True)
                 player_data.replace("-", 0, inplace=True)

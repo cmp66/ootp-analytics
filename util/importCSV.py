@@ -1,5 +1,16 @@
 import pandas as pd
 import os
+from model import (
+    convert_height_to_cm,
+    convert_groundball_flyball,
+    convert_velocity,
+    convert_throws,
+    convert_pitch_type,
+    convert_slot,
+    convert_bat_rl,
+    convert_gbt,
+    convert_fbt,
+)
 
 
 def import_csv_flex(
@@ -107,13 +118,29 @@ def import_ratings(
     df_player_ratings = df_player_ratings.drop(columns=["POS", "EXP"])
     df_player_ratings.set_index("ID", inplace=True)
 
+    df_player_ratings["WT"] = df_player_ratings["WT"].apply(lambda x: int(x[:3]))
+    df_player_ratings["HT"] = df_player_ratings["HT"].apply(convert_height_to_cm)
+
+    df_player_ratings["G/F"] = df_player_ratings["G/F"].apply(
+        convert_groundball_flyball
+    )
+    df_player_ratings["VELO"] = df_player_ratings["VELO"].apply(convert_velocity)
+    df_player_ratings["T"] = df_player_ratings["T"].apply(convert_throws)
+    df_player_ratings["PT"] = df_player_ratings["PT"].apply(convert_pitch_type)
+    df_player_ratings["Slot"] = df_player_ratings["Slot"].apply(convert_slot)
+
+    # player_data["BBT"] = player_data["BBT"].apply(convert_bbt)
+    df_player_ratings["GBT"] = df_player_ratings["GBT"].apply(convert_gbt)
+    df_player_ratings["FBT"] = df_player_ratings["FBT"].apply(convert_fbt)
+    df_player_ratings["B"] = df_player_ratings["B"].apply(convert_bat_rl)
+
     return df_player_ratings
 
 
 def import_ootp_dump_ratings(
     league: str, season: int, ratings_type: str, basedir: str
 ) -> pd.DataFrame:
-    filedir = f"{basedir}/files/{league}/{season}/dump"
+    filedir = f"{basedir}/files/{league}/dumps/{ratings_type}/{season}"
 
     df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv")
     df_player_batting_ratings_base = pd.read_csv(f"{filedir}/players_batting.csv")
@@ -266,6 +293,25 @@ def import_ootp_dump_ratings(
         inplace=True,
     )
 
+    # Calculate the number of pitches for each player
+    pitch_columns = [
+        "FB",
+        "CB",
+        "SL",
+        "CH",
+        "SI",
+        "CT",
+        "FO",
+        "SP",
+        "SC",
+        "CC",
+        "KN",
+        "KC",
+    ]
+    df_player_pitching_ratings_base["PIT"] = (
+        df_player_pitching_ratings_base[pitch_columns].gt(0).sum(axis=1)
+    )
+
     df_player_ratings_base.set_index("ID", inplace=True)
     df_player_batting_ratings_base.set_index("ID", inplace=True)
     df_player_fielding_ratings_base.set_index("ID", inplace=True)
@@ -297,12 +343,12 @@ def import_ootp_dump_ratings(
 
 
 def import_ootp_dump_stats(
-    league: str, season: int, basedir: str
+    league: str, season: int, ratings_type: str, basedir: str
 ) -> tuple[
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
 ]:
 
-    filedir = f"{basedir}/files/{league}/{season}/dump"
+    filedir = f"{basedir}/files/{league}/dumps/{ratings_type}/{season}"
 
     df_team_pitching = pd.read_csv(f"{filedir}/team_pitching_stats.csv")
     df_team_batting = pd.read_csv(f"{filedir}/team_batting_stats.csv")

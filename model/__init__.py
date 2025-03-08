@@ -11,62 +11,62 @@ from sklearn.preprocessing import StandardScaler
 
 def convert_bbt(bbt: str) -> int:
     if bbt in ["Line Drive"]:
-        return 20
+        return 0
     elif bbt in ["Flyball"]:
-        return 40
+        return 0
     elif bbt in ["Normal"]:
-        return 30
+        return 0
     elif bbt in ["Groundball"]:
-        return 10
+        return 0
 
 
 def convert_gbt(gbt: str) -> int:
     if gbt == "Ex. Pull":
-        return 40
+        return 3
     elif gbt == "Pull":
-        return 30
+        return 2
     elif gbt == "Normal":
-        return 20
+        return 0
     elif gbt == "Spray":
-        return 10
+        return 1
 
 
 def convert_fbt(fbt: str) -> int:
     if fbt in ["Pull"]:
-        return 30
+        return 2
     elif fbt in ["Normal"]:
-        return 20
+        return 0
     elif fbt in ["Spray"]:
-        return 10
+        return 1
 
 
 def convert_bat_rl(rl: str) -> int:
     if rl == "R":
-        return 10
+        return 1
     elif rl == "L":
-        return 20
+        return 2
     elif rl == "S":
-        return 30
+        return 3
 
 
 def convert_throws(rl: str) -> int:
     if rl == "R":
-        return 10
+        return 1
     elif rl == "L":
-        return 20
+        return 2
 
 
 def convert_groundball_flyball(gbt: str) -> int:
     if gbt == "EX GB":
-        return 10
+        return 62
     elif gbt == "GB":
-        return 20
+        return 60
     elif gbt == "NEU":
-        return 30
-    elif gbt == "FB":
-        return 40
-    elif gbt == "EX FB":
         return 50
+    elif gbt == "FB":
+        return 46
+    elif gbt == "EX FB":
+        return 42
 
 
 def convert_pitch_type(pt: str) -> int:
@@ -82,27 +82,61 @@ def convert_pitch_type(pt: str) -> int:
 
 def convert_slot(slot: str) -> int:
     if slot == "OTT":
-        return 10
+        return 4
     elif slot == "3/4":
-        return 20
+        return 3
     elif slot == "SIDE":
-        return 30
+        return 2
     elif slot == "SUB":
-        return 40
+        return 1
 
 
 def convert_velocity(vel: str) -> int:
-    if vel == "100+":
-        return 101
-    velocity = vel.split("-")
-    return (float(velocity[0].strip()) + float(velocity[1].strip())) / 2.0
+    if vel == "80-83":
+        return 2
+    elif vel == "83-85":
+        return 3
+    elif vel == "84-86":
+        return 4
+    elif vel == "85-87":
+        return 5
+    elif vel == "86-88":
+        return 6
+    elif vel == "87-89":
+        return 7
+    elif vel == "88-90":
+        return 8
+    elif vel == "89-91":
+        return 9
+    elif vel == "90-92":
+        return 10
+    elif vel == "91-93":
+        return 11
+    elif vel == "92-94":
+        return 12
+    elif vel == "93-95":
+        return 13
+    elif vel == "94-96":
+        return 14
+    elif vel == "95-97":
+        return 15
+    elif vel == "96-98":
+        return 16
+    elif vel == "97-99":
+        return 17
+    elif vel == "98-100":
+        return 18
+    elif vel == "99-101":
+        return 19
+    elif vel == "100+":
+        return 20
 
 
-def convert_height_to_inches(height: str) -> int:
+def convert_height_to_cm(height: str) -> int:
     height = height.split("'")
     if len(height) != 3:
         raise ValueError("Height must be in the format 'X' Y'")
-    return int(height[0].strip()) * 12 + int(height[1].strip())
+    return int(height[0].strip()) * 12 + int(height[1].strip() * 30.48)
 
 
 class MLP(nn.Module):

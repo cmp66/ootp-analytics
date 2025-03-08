@@ -1,5 +1,5 @@
 import pandas as pd
-from model import Modeler, convert_height_to_inches
+from model import Modeler
 
 
 feature_values = {
@@ -88,8 +88,6 @@ class FieldingModel(Modeler):
             player_data = pd.read_csv(
                 f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
             )
-            player_data["WT"] = player_data["WT"].apply(lambda x: int(x[:3]))
-            player_data["HT"] = player_data["HT"].apply(convert_height_to_inches)
             with pd.option_context("future.no_silent_downcasting", True):
                 fielding.replace("-", 0, inplace=True)
                 player_data.replace("-", 0, inplace=True)

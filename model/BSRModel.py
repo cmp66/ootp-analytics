@@ -1,5 +1,5 @@
 import pandas as pd
-from model import Modeler, convert_bbt, convert_gbt, convert_fbt
+from model import Modeler
 
 feature_values = [
     # "Age",
@@ -12,7 +12,6 @@ feature_values = [
     "GAP",
     "K's",
     "BFH",
-    "BBT",
     "GBT",
     "FBT",
 ]
@@ -39,10 +38,6 @@ class BSRModel(Modeler):
             player_data = pd.read_csv(
                 f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
             )
-            player_data["WT"] = player_data["WT"].apply(lambda x: int(x[:3]))
-            player_data["BBT"] = player_data["BBT"].apply(convert_bbt)
-            player_data["GBT"] = player_data["GBT"].apply(convert_gbt)
-            player_data["FBT"] = player_data["FBT"].apply(convert_fbt)
             with pd.option_context("future.no_silent_downcasting", True):
                 hitting.replace("-", 0, inplace=True)
                 player_data.replace("-", 0, inplace=True)
