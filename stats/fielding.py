@@ -86,6 +86,7 @@ def calculate_league_totals(
             / position_group.get_group(position)["IPClean"].sum()
             * get_season_adjustment(position)
         )
+
         df_positional_totals.loc[position, "ErrorPerSeason"] = (
             position_group.get_group(position)["E"].sum()
             / position_group.get_group(position)["IPClean"].sum()
@@ -239,7 +240,7 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
 
 
 def calculate_player_fielding_stats(
-    df_player_stats: DataFrame, df_player_ratings: DataFrame
+    df_player_stats: DataFrame, df_lg_stat: DataFrame, df_player_ratings: DataFrame
 ) -> tuple[DataFrame, DataFrame, DataFrame]:
 
     # df_player_stats["POS"] = df_player_stats["POS"].apply(convert_fielding_position)
@@ -515,4 +516,37 @@ def calculate_player_fielding_stats(
     ]
     df_player_stats.drop(columns_to_remove, axis=1, inplace=True)
 
+    for stat in df_lg_stat.index.tolist():
+        df_player_stats[stat] = df_lg_stat.loc[stat]["Value"]
+    df_player_stats.set_index("ID", inplace=True)
+
     return df_positional_totals, df_fielding_attribute_averages, df_player_stats
+
+
+def process_fielding_data(
+    df_player_fielding_stats: DataFrame,
+    df_lg_batting_stat: DataFrame,
+    df_player_ratings: DataFrame,
+    league: str,
+    season: int,
+) -> DataFrame:
+    (
+        df_league_fielding_totals,
+        df_league_fielding_attributes,
+        df_player_fielding_stats,
+    ) = calculate_player_fielding_stats(
+        df_player_fielding_stats, df_lg_batting_stat, df_player_ratings
+    )
+    df_player_fielding_stats["season"] = season
+    df_player_fielding_stats["league"] = league
+    df_league_fielding_totals.to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-fielding-totals.csv"
+    )
+    df_league_fielding_attributes.to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-fielding-attributes.csv"
+    )
+    df_player_fielding_stats.to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-fielding.csv"
+    )
+
+    return df_player_fielding_stats

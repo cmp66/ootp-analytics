@@ -1,20 +1,19 @@
 import pandas as pd
-from model import Modeler, convert_bbt, convert_gbt, convert_fbt
+from model import Modeler
 
 feature_values = [
-    "Age",
-    "WT",
+    # "Age",
+    "CON",
     "SPE",
     "SR",
     "STE",
     "RUN",
-    "BABIP",
+    # "BABIP",
     "GAP",
-    "K's",
-    "BFH",
-    "BBT",
-    "GBT",
-    "FBT",
+    # "K's",
+    # "BFH",
+    # "GBT",
+    # "FBT",
 ]
 
 targets = ["BSR600"]
@@ -30,7 +29,7 @@ class BSRModel(Modeler):
         self.ratings_type = ratings_type
         self.model = Modeler(feature_values, targets)
 
-    def load_data(self, pa_limit=100):
+    def load_data(self, pa_limit=300):
         for season in range(int(self.season_start), int(self.season_end) + 1):
             # load fielding dataset from csv
             hitting = pd.read_csv(
@@ -39,10 +38,6 @@ class BSRModel(Modeler):
             player_data = pd.read_csv(
                 f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
             )
-            player_data["WT"] = player_data["WT"].apply(lambda x: int(x[:3]))
-            player_data["BBT"] = player_data["BBT"].apply(convert_bbt)
-            player_data["GBT"] = player_data["GBT"].apply(convert_gbt)
-            player_data["FBT"] = player_data["FBT"].apply(convert_fbt)
             with pd.option_context("future.no_silent_downcasting", True):
                 hitting.replace("-", 0, inplace=True)
                 player_data.replace("-", 0, inplace=True)
@@ -73,7 +68,7 @@ class BSRModel(Modeler):
         return self.model.evaluate()
 
     def predict(self, X):
-        return self.model.predict_wrapper(X)
+        return self.model.predict(X)
 
     def feature_importance(self):
         return self.model.feature_importance()

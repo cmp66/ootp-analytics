@@ -1,6 +1,6 @@
 from pandas import DataFrame
 import math
-from stats import leagueAdjustments
+from stats import leagueAdjustments, woba
 
 
 def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
@@ -47,7 +47,7 @@ def calculate_player_pitching_stats(
     league: str,
 ) -> DataFrame:
 
-    df_player_stats = df_player_stats.merge(df_player_ratings[["ID", "ORG"]], on="ID")
+    df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
     park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
     df_player_stats["PRole"] = df_player_stats[["G", "GS"]].apply(
@@ -120,4 +120,63 @@ def calculate_player_pitching_stats(
         )
     ) / 10
 
+    columns_to_remove = [
+        x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
+    ]
+    df_player_stats.drop(columns_to_remove, axis=1, inplace=True)
+
+    for stat in df_lg_stat.index.tolist():
+        df_player_stats[stat] = df_lg_stat.loc[stat]["Value"]
+
+    df_player_stats.set_index("ID", inplace=True)
+
     return df_player_stats
+
+
+def process_pitching_data(
+    df_player_pitching_stats: DataFrame,
+    df_player_ratings: DataFrame,
+    league: str,
+    season: int,
+) -> DataFrame:
+    league_pitching_totals = {
+        "PA": df_player_pitching_stats["BF"].sum(),
+        "AB": df_player_pitching_stats["AB"].sum(),
+        "R": df_player_pitching_stats["R"].sum(),
+        "H": df_player_pitching_stats["HA"].sum(),
+        "1B": df_player_pitching_stats["SINGLE"].sum(),
+        "2B": df_player_pitching_stats["DOUBLE"].sum(),
+        "3B": df_player_pitching_stats["TRIPLE"].sum(),
+        "HR": df_player_pitching_stats["HR"].sum(),
+        "BB": df_player_pitching_stats["BB"].sum(),
+        "IBB": df_player_pitching_stats["IBB"].sum(),
+        "HP": df_player_pitching_stats["HP"].sum(),
+        "SO": df_player_pitching_stats["K"].sum(),
+        "SF": df_player_pitching_stats["SF"].sum(),
+        "SH": df_player_pitching_stats["SH"].sum(),
+        "GIDP": df_player_pitching_stats["DP"].sum(),
+        "SB": df_player_pitching_stats["SB"].sum(),
+        "CS": df_player_pitching_stats["CS"].sum(),
+    }
+    df_lg_pitching_stat = DataFrame(
+        list(woba.calc_league_data(league_pitching_totals).items()),
+        columns=["Stat", "Value"],
+    )
+    df_lg_pitching_stat["season"] = season
+    df_lg_pitching_stat["league"] = league
+    df_lg_pitching_stat.set_index("Stat", inplace=True)
+
+    df_player_pitching_stats = calculate_player_pitching_stats(
+        df_player_pitching_stats, df_lg_pitching_stat, df_player_ratings, league
+    )
+    df_player_pitching_stats["season"] = season
+    df_player_pitching_stats["league"] = league
+
+    DataFrame(league_pitching_totals, index=[0]).to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-pitching-totals.csv"
+    )
+    df_player_pitching_stats.to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-pitching.csv"
+    )
+
+    return df_player_pitching_stats
