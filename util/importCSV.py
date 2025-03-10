@@ -345,7 +345,14 @@ def import_ootp_dump_ratings(
 def import_ootp_dump_stats(
     league: str, season: int, ratings_type: str, basedir: str
 ) -> tuple[
-    pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
 ]:
 
     filedir = f"{basedir}/files/{league}/dumps/{ratings_type}/{season}"
@@ -364,12 +371,31 @@ def import_ootp_dump_stats(
     df_player_batting.columns = df_player_batting.columns.str.upper()
     df_player_pitching.columns = df_player_pitching.columns.str.upper()
 
-    df_player_fielding = df_player_fielding[df_player_fielding["YEAR"] == season]
+    df_player_batting_right = df_player_batting.copy(deep=True)
+    df_player_batting_left = df_player_batting.copy(deep=True)
+
+    df_player_fielding = df_player_fielding[
+        (df_player_fielding["YEAR"] == season) & (df_player_fielding["LEVEL_ID"] == 1)
+    ]
     df_player_batting = df_player_batting[
-        (df_player_batting["YEAR"] == season) & (df_player_batting["SPLIT_ID"] == 1)
+        (df_player_batting["YEAR"] == season)
+        & (df_player_batting["SPLIT_ID"] == 1)
+        & (df_player_batting["LEVEL_ID"] == 1)
+    ]
+    df_player_batting_right = df_player_batting_right[
+        (df_player_batting_right["YEAR"] == season)
+        & (df_player_batting_right["SPLIT_ID"] == 3)
+        & (df_player_batting_right["LEVEL_ID"] == 1)
+    ]
+    df_player_batting_left = df_player_batting_left[
+        (df_player_batting_left["YEAR"] == season)
+        & (df_player_batting_left["SPLIT_ID"] == 2)
+        & (df_player_batting_left["LEVEL_ID"] == 1)
     ]
     df_player_pitching = df_player_pitching[
-        (df_player_pitching["YEAR"] == season) & (df_player_pitching["SPLIT_ID"] == 1)
+        (df_player_pitching["YEAR"] == season)
+        & (df_player_pitching["SPLIT_ID"] == 1)
+        & (df_player_pitching["LEVEL_ID"] == 1)
     ]
 
     df_team_pitching.rename(columns={"TEAM_ID": "Team Name", "S": "SV"}, inplace=True)
@@ -562,6 +588,28 @@ def import_ootp_dump_stats(
         },
         inplace=True,
     )
+    df_player_batting_right.rename(
+        columns={
+            "PLAYER_ID": "ID",
+            "TEAM_ID": "ORG",
+            "D": "DOUBLE",
+            "T": "TRIPLE",
+            "GDP": "GIDP",
+            "K": "SO",
+        },
+        inplace=True,
+    )
+    df_player_batting_left.rename(
+        columns={
+            "PLAYER_ID": "ID",
+            "TEAM_ID": "ORG",
+            "D": "DOUBLE",
+            "T": "TRIPLE",
+            "GDP": "GIDP",
+            "K": "SO",
+        },
+        inplace=True,
+    )
 
     df_player_batting["SINGLE"] = (
         df_player_batting["H"]
@@ -569,13 +617,37 @@ def import_ootp_dump_stats(
         - df_player_batting["TRIPLE"]
         - df_player_batting["HR"]
     )
+    df_player_batting_right["SINGLE"] = (
+        df_player_batting_right["H"]
+        - df_player_batting_right["DOUBLE"]
+        - df_player_batting_right["TRIPLE"]
+        - df_player_batting_right["HR"]
+    )
+    df_player_batting_left["SINGLE"] = (
+        df_player_batting_left["H"]
+        - df_player_batting_left["DOUBLE"]
+        - df_player_batting_left["TRIPLE"]
+        - df_player_batting_left["HR"]
+    )
 
     df_player_fielding.set_index("ID", inplace=True)
     df_player_batting.set_index("ID", inplace=True)
+    df_player_batting_right.set_index("ID", inplace=True)
+    df_player_batting_left.set_index("ID", inplace=True)
     df_player_pitching.set_index("ID", inplace=True)
 
     df_player_batting_grouped = (
-        df_player_batting.groupby("ID")[batting_cols].sum().reset_index()
+        df_player_batting.groupby(["ID", "SPLIT_ID"])[batting_cols].sum().reset_index()
+    )
+    df_player_batting_right_grouped = (
+        df_player_batting_right.groupby(["ID", "SPLIT_ID"])[batting_cols]
+        .sum()
+        .reset_index()
+    )
+    df_player_batting_left_grouped = (
+        df_player_batting_left.groupby(["ID", "SPLIT_ID"])[batting_cols]
+        .sum()
+        .reset_index()
     )
     df_player_pitching_grouped = (
         df_player_pitching.groupby("ID")[pitching_cols].sum().reset_index()
@@ -599,4 +671,63 @@ def import_ootp_dump_stats(
         df_team_batting,
         df_team_pitching,
         df_team_fielding,
+        df_player_batting_right_grouped,
+        df_player_batting_left_grouped,
+    )
+
+
+def import_files(league: str, season: int, source: str, ratings: str):
+    if source == "dump":
+        df_player_ratings = import_ootp_dump_ratings(league, season, ratings, ".")
+        (
+            df_player_batting_stats,
+            df_player_pitching_stats,
+            df_player_fielding_stats,
+            df_team_batting_stats,
+            df_team_pitching_stats,
+            df_team_fielding_stats,
+            df_player_batting_right_stats,
+            df_player_batting_left_stats,
+        ) = import_ootp_dump_stats(league, season, ratings, ".")
+    else:
+        (
+            df_player_batting_stats,
+            df_player_pitching_stats,
+            df_player_fielding_stats,
+            df_team_batting_stats,
+            df_team_pitching_stats,
+            df_team_fielding_stats,
+        ) = import_csv_flex(league, season, ".")
+        df_player_ratings = import_ratings(league, season, ratings, ".")
+
+    # check of export direction exists, if not create it
+    if not os.path.exists(f"./files/{league}/{season}"):
+        os.makedirs(f"./files/{league}/{season}")
+    if not os.path.exists(f"./files/{league}/{season}/output"):
+        os.makedirs(f"./files/{league}/{season}/output")
+
+    df_player_ratings.to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-player-data.csv"
+    )
+
+    df_team_batting_stats.round(3).to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-team-batting.csv"
+    )
+    df_team_pitching_stats.round(3).to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-team-pitching.csv"
+    )
+    df_team_fielding_stats.round(3).to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-team-fielding.csv"
+    )
+
+    return (
+        df_player_ratings,
+        df_player_batting_stats,
+        df_player_batting_right_stats,
+        df_player_batting_left_stats,
+        df_player_pitching_stats,
+        df_player_fielding_stats,
+        df_team_batting_stats,
+        df_team_pitching_stats,
+        df_team_fielding_stats,
     )

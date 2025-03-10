@@ -136,21 +136,38 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
     runs_per_pa = league_totals["R"] / league_totals["PA"]
     lg_hp_rate = league_totals["HP"] / league_totals["PA"]
 
+    lg_avg = league_totals["H"] / league_totals["AB"]
+    lg_obp = (league_totals["H"] + league_totals["BB"] + league_totals["HP"]) / (
+        league_totals["AB"]
+        + league_totals["BB"]
+        + league_totals["HP"]
+        + league_totals["SF"]
+    )
+    lg_slug = (
+        league_totals["1B"]
+        + 2 * league_totals["2B"]
+        + 3 * league_totals["3B"]
+        + 4 * league_totals["HR"]
+    ) / league_totals["AB"]
+
     league_data.update(
         {
-            "wSB": lg_wSB,
-            "wOBA": lg_woba,
-            "BABIP": lg_babip,
-            "XBH_RATE": lg_xbh_rate,
-            "STEAL_RATE": lg_steal_rate,
-            "SB_RATE": lg_sb_rate,
-            "UBR": lg_ubr,
-            "3B_RATE": lg_3B_rate,
-            "K_RATE": lg_k_rate,
-            "uBB": lg_ubb,
-            "HR_RATE": lg_hr_rate,
-            "RUNS_PER_PA": runs_per_pa,
-            "HP_RATE": lg_hp_rate,
+            "lgwSB": lg_wSB,
+            "lgwOBA": lg_woba,
+            "lgBABIP": lg_babip,
+            "lgXBH_RATE": lg_xbh_rate,
+            "lgSTEAL_RATE": lg_steal_rate,
+            "lgSB_RATE": lg_sb_rate,
+            "lgUBR": lg_ubr,
+            "lg3B_RATE": lg_3B_rate,
+            "lgK_RATE": lg_k_rate,
+            "lguBB": lg_ubb,
+            "lgHR_RATE": lg_hr_rate,
+            "lgRUNS_PER_PA": runs_per_pa,
+            "lgHP_RATE": lg_hp_rate,
+            "lgAVG": lg_avg,
+            "lgOBP": lg_obp,
+            "lgSLUG": lg_slug,
         }
     )
 

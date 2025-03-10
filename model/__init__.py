@@ -8,6 +8,28 @@ import copy
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+ratings_conversions = {
+    -50: -1000,
+    -30: -315,
+    -25: -155,
+    -20: -75,
+    -15: -35,
+    -10: -15,
+    -5: -5,
+    0: 0,
+    5: 5,
+    10: 15,
+    15: 35,
+    20: 75,
+    25: 155,
+    30: 315,
+}
+
+
+def convert_80_rating(rating: int) -> int:
+    diff = rating - 50
+    return ratings_conversions[diff]
+
 
 def convert_bbt(bbt: str) -> int:
     if bbt in ["Line Drive"]:
@@ -139,32 +161,51 @@ def convert_height_to_cm(height: str) -> int:
     return int(height[0].strip()) * 12 + int(height[1].strip() * 30.48)
 
 
-class MLP(nn.Module):
+class MLPexplicit(nn.Module):
     def __init__(self, num_features):
         super().__init__()
-        # self.fc1 = nn.Linear(num_features, 64)
-        # self.fc2 = nn.Linear(64, 32)
-        # self.fc3 = nn.Linear(32, 16)
-        # self.fc4 = nn.Linear(16, 1)
-        # # self.fc5 = nn.Linear(32, 32)
-        # self.fc6 = nn.Linear(32, 32)
-        # self.fc7 = nn.Linear(32, 32)
-        # self.fc8 = nn.Linear(32, 16)
+        # super(MLPexplicit, self).__init__()
+        # self.nInput = num_features
+        # self.nHidden = 64
+        # self.nOutput = 1
+        # self.linear1 = nn.Linear(self.nInput, self.nHidden)
+        # self.linear2 = nn.Linear(self.nHidden, self.nHidden)
+        # self.linear3 = nn.Linear(self.nHidden, self.nHidden)
+        # self.linear4 = nn.Linear(self.nHidden, self.nHidden)
+        # self.ReLU = nn.ReLU()
+
+        # num_nodes = 64
+        # self.fc1 = nn.Linear(num_features, num_nodes)
+        # self.fc2 = nn.Linear(num_nodes, num_nodes)
+        # self.fc3 = nn.Linear(num_nodes, num_nodes)
+        # self.fc4 = nn.Linear(num_nodes, num_nodes)
+        # self.fc5 = nn.Linear(num_nodes, num_nodes)
+        # self.fc6 = nn.Linear(num_nodes, 1)
+        # self.fc7 = nn.Linear(num_features, num_features)
+        # self.fc8 = nn.Linear(num_features, 1)
         # self.fc9 = nn.Linear(16, 8)
         # self.fc10 = nn.Linear(8, 1)
         self.layers = nn.Sequential(
-            nn.Linear(num_features, 128),
+            nn.Linear(num_features, 32),
             nn.ReLU(),
-            nn.Linear(128, 64),
+            nn.Linear(32, 32),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(32, 32),
             nn.ReLU(),
-            nn.Linear(32, 16),
+            nn.Linear(32, 32),
+            # nn.ReLU(),
+            # nn.Linear(32, 32),
             nn.ReLU(),
-            nn.Linear(16, 1),
+            nn.Linear(32, 1),
         )
 
     def forward(self, x):
+        # h1 = self.ReLU(self.linear1(x))
+        # h2 = self.ReLU(self.linear2(h1))
+        # h3 = self.ReLU(self.linear3(h2))
+        # out = self.linear4(h3)
+        # return out
+
         # x = torch.relu(self.fc1(x))
         # x = torch.relu(self.fc2(x))
         # x = torch.relu(self.fc3(x))
@@ -174,14 +215,17 @@ class MLP(nn.Module):
         # x = torch.relu(self.fc7(x))
         # x = torch.relu(self.fc8(x))
         # x = torch.relu(self.fc9(x))
-        # x = self.fc4(x)
+        # x = self.fc6(x)
+        # return x #self.layers(x)
+
         return self.layers(x)
 
 
 class RegressionRunner:
     def __init__(self, feature_values: list[str]):
         self.num_features = len(feature_values)
-        self.model = MLP(self.num_features)
+        np.random.seed(42)
+        self.model = MLPexplicit(self.num_features)
         # np.random.seed(42)
 
         # self.model =  nn.Sequential(
@@ -195,9 +239,14 @@ class RegressionRunner:
         #     nn.ReLU(),
         #     nn.Linear(32, 1)
 
-    def load_data(self, data: pd.DataFrame, targetCol: str):
+    def create_X_y(self, data: pd.DataFrame, targetCol: str):
         y = data[targetCol]
         X = data.drop(columns=[targetCol])
+
+        return X, y
+
+    def load_data(self, data: pd.DataFrame, targetCol: str):
+        X, y = self.create_X_y(data, targetCol)
 
         # Check if the number of features matches the expected number of features
         if X.shape[1] != self.num_features:
@@ -208,7 +257,7 @@ class RegressionRunner:
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.25)
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.15)
         # scaler = StandardScaler()
         # X_train_scaled = scaler.fit_transform(X_train)
         # X_test_scaled = scaler.transform(X_test)
@@ -225,14 +274,14 @@ class RegressionRunner:
 
         # self.criterion = nn.MSELoss()
         self.criterion = nn.L1Loss()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.01)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
 
     def train(self, num_epochs: int):
         best_test = 10000.0
         best_eval = 10000.0
 
-        self.model.train()
         for epoch in range(num_epochs):
+            self.model.train()
             self.optimizer.zero_grad()
             outputs = self.model(self.X_train_tensor)
             loss = self.criterion(outputs, self.y_train_tensor)
@@ -240,13 +289,13 @@ class RegressionRunner:
             self.optimizer.step()
 
             if float(loss.item()) < best_test:
-                best_weights = copy.deepcopy(self.model.state_dict())
-                # eval_result = self.evaluate()
-                best_test = float(loss.item())
-                # if float(eval_result) < best_eval:
-                # best_eval = float(eval_result)
-                # print('Best Eval: ', best_eval)
                 # best_weights = copy.deepcopy(self.model.state_dict())
+                eval_result = self.evaluate()
+                best_test = float(loss.item())
+                if float(eval_result) < best_eval:
+                    best_eval = float(eval_result)
+                    # print('Best Eval: ', best_eval)
+                    best_weights = copy.deepcopy(self.model.state_dict())
 
                 # else:
                 #    retry += 1
@@ -254,9 +303,7 @@ class RegressionRunner:
                 #        break
 
             if (epoch + 1) % 2000 == 0:
-                print(
-                    f"Epoch [{epoch+1}/{num_epochs}], Best Loss: {best_test:.7f}, Best Eval: {best_eval:.7f}"
-                )
+                print(f"Epoch [{epoch+1}/{num_epochs}], Best Loss: {best_test:.7f}")
 
             if loss.item() < 0.000999:
                 print(f"Epoch [{epoch+1}/{num_epochs}], Best Loss: {best_test:.7f}")
@@ -268,17 +315,29 @@ class RegressionRunner:
 
     def evaluate(self):
         self.model.eval()
-        # with torch.no_grad():
-        predictions = self.model(self.X_test_tensor)
-        test_loss = self.criterion(predictions, self.y_test_tensor)
+        with torch.no_grad():
+            predictions = self.model(self.X_test_tensor)
+            test_loss = self.criterion(predictions, self.y_test_tensor)
         # print(f"Test Absolute Error: {test_loss.item():.4f}")
 
         return test_loss.item()
 
-    def predict_wrapper(self, X):
-        self.model.eval()  # Set the model to evaluation mode
+    def predict_wrapper(self, data: pd.DataFrame):
+
+        scaler = StandardScaler()
+        X = scaler.fit_transform(data)
+        X_tensor = torch.tensor(X, dtype=torch.float32)
+
+        # Check if the number of features matches the expected number of features
+        if X.shape[1] != self.num_features:
+            raise ValueError(
+                f"Expected {self.num_features} features, but got {X.shape[1]} features"
+            )
+
+        self.model.eval()
         with torch.no_grad():
-            return self.model(torch.Tensor(X)).numpy()
+            predictions = self.model(X_tensor)
+        return predictions
 
     def feature_importance(self, feature_values: list[str]):
         self.model.eval()
@@ -336,7 +395,12 @@ class Modeler:
         return self.model.evaluate()
 
     def predict(self, X):
-        return self.model.predict_wrapper(X)
+        y_tensor = self.model.predict_wrapper(X)
+
+        result_df = X.copy()
+        result_df["Predictions"] = y_tensor.numpy()
+
+        return result_df
 
     def feature_importance(self):
         return self.model.feature_importance(self.feature_values)

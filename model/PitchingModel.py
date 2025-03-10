@@ -3,34 +3,36 @@ from model import Modeler
 
 feature_values = {
     "SP": [
-        "HT",
-        "WT",
-        "T",
+        # "T",
         "STU",
         "CON.1",
         "PBABIP",
         "HRR",
-        "PIT",
-        "G/F",
-        "VELO",
-        "Slot",
-        "STM",
+        # "VELO",
+        # "STM",
         "HLD",
+        # "PIT",
+        # "G/F",
+        # "RUNS_PER_OUT",
+        # "HT",
+        # "WT",
+        # "Slot",
     ],
     "RP": [
-        "HT",
-        "WT",
-        "T",
         "STU",
         "CON.1",
-        "PBABIP",
+        # "PBABIP",
         "HRR",
         "PIT",
-        "G/F",
-        "VELO",
-        "Slot",
         "STM",
         "HLD",
+        # "RUNS_PER_OUT",
+        # "HT",
+        # "WT",
+        # "T",
+        # "G/F",
+        # "VELO",
+        # "Slot",
     ],
 }
 
@@ -83,8 +85,8 @@ class PitchingModel(Modeler):
                 if season == int(self.season_start)
                 else pd.concat([self.filtered_data, filtered_data])
             )
-            print(self.filtered_data.shape)
 
+        print(self.filtered_data.shape)
         print(self.filtered_data.loc[self.filtered_data.isnull().any(axis=1)])
 
         self.model.load_data(self.filtered_data, targets[self.role][0])

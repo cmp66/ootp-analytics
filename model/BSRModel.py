@@ -3,17 +3,17 @@ from model import Modeler
 
 feature_values = [
     # "Age",
-    "WT",
+    "CON",
     "SPE",
     "SR",
     "STE",
     "RUN",
-    "BABIP",
+    # "BABIP",
     "GAP",
-    "K's",
-    "BFH",
-    "GBT",
-    "FBT",
+    # "K's",
+    # "BFH",
+    # "GBT",
+    # "FBT",
 ]
 
 targets = ["BSR600"]
@@ -68,7 +68,7 @@ class BSRModel(Modeler):
         return self.model.evaluate()
 
     def predict(self, X):
-        return self.model.predict_wrapper(X)
+        return self.model.predict(X)
 
     def feature_importance(self):
         return self.model.feature_importance()
