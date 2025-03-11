@@ -8,7 +8,7 @@ import copy
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-ratings_conversions = {
+ratings_conversions_80 = {
     -50: -1000,
     -30: -315,
     -25: -155,
@@ -25,10 +25,29 @@ ratings_conversions = {
     30: 315,
 }
 
+ratings_conversions_10 = {
+    -5: -155,
+    -4: -75,
+    -3: -35,
+    -2: -15,
+    -1: -5,
+    0: 0,
+    1: 5,
+    2: 15,
+    3: 35,
+    4: 75,
+    5: 155,
+}
+
 
 def convert_80_rating(rating: int) -> int:
     diff = rating - 50
-    return ratings_conversions[diff]
+    return ratings_conversions_80[diff]
+
+
+def convert_10_rating(rating: int) -> int:
+    diff = rating - 5
+    return ratings_conversions_10[diff]
 
 
 def convert_bbt(bbt: str) -> int:
