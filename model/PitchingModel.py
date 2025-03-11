@@ -5,30 +5,48 @@ feature_values = {
     "SP": [
         # "T",
         "STU",
+        "STU vR",
+        "STU vL",
         "CON.1",
+        "CON.1 vR",
+        "CON.1 vL",
         "PBABIP",
+        "PBABIP vR",
+        "PBABIP vL",
         "HRR",
+        "HRR vR",
+        "HRR vL",
         # "VELO",
         # "STM",
         "HLD",
-        # "PIT",
+        "PIT",
         # "G/F",
-        # "RUNS_PER_OUT",
+        # "lgwOBA",
+        # "lgOBP",
+        "RUNS_PER_OUT",
         # "HT",
-        # "WT",
         # "Slot",
     ],
     "RP": [
         "STU",
+        "STU vR",
+        "STU vL",
         "CON.1",
-        # "PBABIP",
+        "CON.1 vR",
+        "CON.1 vL",
+        "PBABIP",
+        "PBABIP vR",
+        "PBABIP vL",
         "HRR",
+        "HRR vR",
+        "HRR vL",
         "PIT",
         "STM",
         "HLD",
-        # "RUNS_PER_OUT",
+        # "lgwOBA",
+        # "lgOBP",
         # "HT",
-        # "WT",
+        "RUNS_PER_OUT",
         # "T",
         # "G/F",
         # "VELO",
@@ -55,30 +73,37 @@ class PitchingModel(Modeler):
         self.ratings_type = ratings_type
         self.model = Modeler(feature_values[self.role], targets[self.role])
 
+    def prepare_data(self, season, ip_limit):
+        # load fielding dataset from csv
+        pitching = pd.read_csv(
+            f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv"
+        )
+        player_data = pd.read_csv(
+            f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
+        )
+        with pd.option_context("future.no_silent_downcasting", True):
+            pitching.replace("-", 0, inplace=True)
+            player_data.replace("-", 0, inplace=True)
+
+        # combine fielding and player data
+        master_data = pitching.merge(player_data, on="ID")
+        master_data = master_data[master_data["IPClean"] >= ip_limit]
+        master_data = master_data[master_data["PRole"] >= self.role]
+
+        df_id = master_data["ID"]
+        filtered_data = master_data[feature_values[self.role] + targets[self.role]]
+
+        # create a dataset with a subset of the columns
+        self.conform_column_types(
+            filtered_data, feature_values[self.role] + targets[self.role]
+        )
+
+        return filtered_data, df_id
+
     def load_data(self, ip_limit=100):
 
         for season in range(int(self.season_start), int(self.season_end) + 1):
-            # load fielding dataset from csv
-            pitching = pd.read_csv(
-                f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv"
-            )
-            player_data = pd.read_csv(
-                f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
-            )
-            with pd.option_context("future.no_silent_downcasting", True):
-                pitching.replace("-", 0, inplace=True)
-                player_data.replace("-", 0, inplace=True)
-
-            # combine fielding and player data
-            master_data = pitching.merge(player_data, on="ID")
-            master_data = master_data[master_data["IPClean"] >= ip_limit]
-            master_data = master_data[master_data["PRole"] >= self.role]
-            filtered_data = master_data[feature_values[self.role] + targets[self.role]]
-
-            # create a dataset with a subset of the columns
-            self.conform_column_types(
-                filtered_data, feature_values[self.role] + targets[self.role]
-            )
+            filtered_data, df_id = self.prepare_data(season, ip_limit)
 
             self.filtered_data = (
                 filtered_data
@@ -97,8 +122,12 @@ class PitchingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, X):
-        return self.model.predict_wrapper(X)
+    def predict(self, season, ip_limit):
+        filtered_data, df_id = self.prepare_data(season, ip_limit)
+        filtered_data = filtered_data.drop(columns=targets[self.role][0])
+        results = self.model.predict(filtered_data)
+        results["ID"] = df_id.copy()
+        return results
 
     def feature_importance(self):
         return self.model.feature_importance()

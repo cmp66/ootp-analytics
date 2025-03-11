@@ -353,6 +353,8 @@ def import_ootp_dump_stats(
     pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
 ]:
 
     filedir = f"{basedir}/files/{league}/dumps/{ratings_type}/{season}"
@@ -373,6 +375,8 @@ def import_ootp_dump_stats(
 
     df_player_batting_right = df_player_batting.copy(deep=True)
     df_player_batting_left = df_player_batting.copy(deep=True)
+    df_player_pitching_right = df_player_pitching.copy(deep=True)
+    df_player_pitching_left = df_player_pitching.copy(deep=True)
 
     df_player_fielding = df_player_fielding[
         (df_player_fielding["YEAR"] == season) & (df_player_fielding["LEVEL_ID"] == 1)
@@ -392,10 +396,22 @@ def import_ootp_dump_stats(
         & (df_player_batting_left["SPLIT_ID"] == 2)
         & (df_player_batting_left["LEVEL_ID"] == 1)
     ]
+
     df_player_pitching = df_player_pitching[
         (df_player_pitching["YEAR"] == season)
         & (df_player_pitching["SPLIT_ID"] == 1)
         & (df_player_pitching["LEVEL_ID"] == 1)
+    ]
+
+    df_player_pitching_right = df_player_pitching_right[
+        (df_player_pitching_right["YEAR"] == season)
+        & (df_player_pitching_right["SPLIT_ID"] == 3)
+        & (df_player_pitching_right["LEVEL_ID"] == 1)
+    ]
+    df_player_pitching_left = df_player_pitching_left[
+        (df_player_pitching_left["YEAR"] == season)
+        & (df_player_pitching_left["SPLIT_ID"] == 2)
+        & (df_player_pitching_left["LEVEL_ID"] == 1)
     ]
 
     df_team_pitching.rename(columns={"TEAM_ID": "Team Name", "S": "SV"}, inplace=True)
@@ -551,6 +567,32 @@ def import_ootp_dump_stats(
         },
         inplace=True,
     )
+    df_player_pitching_right.rename(
+        columns={
+            "PLAYER_ID": "ID",
+            "TEAM_ID": "ORG",
+            "SA": "SINGLE",
+            "DA": "DOUBLE",
+            "TA": "TRIPLE",
+            "HRA": "HR",
+            "IW": "IBB",
+            # "ER": "E",
+        },
+        inplace=True,
+    )
+    df_player_pitching_left.rename(
+        columns={
+            "PLAYER_ID": "ID",
+            "TEAM_ID": "ORG",
+            "SA": "SINGLE",
+            "DA": "DOUBLE",
+            "TA": "TRIPLE",
+            "HRA": "HR",
+            "IW": "IBB",
+            # "ER": "E",
+        },
+        inplace=True,
+    )
 
     # print(df_player_batting.columns)
 
@@ -635,6 +677,8 @@ def import_ootp_dump_stats(
     df_player_batting_right.set_index("ID", inplace=True)
     df_player_batting_left.set_index("ID", inplace=True)
     df_player_pitching.set_index("ID", inplace=True)
+    df_player_pitching_right.set_index("ID", inplace=True)
+    df_player_pitching_left.set_index("ID", inplace=True)
 
     df_player_batting_grouped = (
         df_player_batting.groupby(["ID", "SPLIT_ID"])[batting_cols].sum().reset_index()
@@ -652,6 +696,14 @@ def import_ootp_dump_stats(
     df_player_pitching_grouped = (
         df_player_pitching.groupby("ID")[pitching_cols].sum().reset_index()
     )
+    df_player_pitching_right_grouped = (
+        df_player_pitching_right.groupby("ID")[pitching_cols].sum().reset_index()
+    )
+
+    df_player_pitching_left_grouped = (
+        df_player_pitching_left.groupby("ID")[pitching_cols].sum().reset_index()
+    )
+
     df_player_fielding_grouped = (
         df_player_fielding.groupby(["ID", "POS"])[fielding_cols].sum().reset_index()
     )
@@ -673,10 +725,24 @@ def import_ootp_dump_stats(
         df_team_fielding,
         df_player_batting_right_grouped,
         df_player_batting_left_grouped,
+        df_player_pitching_right_grouped,
+        df_player_pitching_left_grouped,
     )
 
 
-def import_files(league: str, season: int, source: str, ratings: str):
+def import_files(league: str, season: int, source: str, ratings: str) -> tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+]:
     if source == "dump":
         df_player_ratings = import_ootp_dump_ratings(league, season, ratings, ".")
         (
@@ -688,6 +754,8 @@ def import_files(league: str, season: int, source: str, ratings: str):
             df_team_fielding_stats,
             df_player_batting_right_stats,
             df_player_batting_left_stats,
+            df_player_pitching_right_stats,
+            df_player_pitching_left_stats,
         ) = import_ootp_dump_stats(league, season, ratings, ".")
     else:
         (
@@ -726,6 +794,8 @@ def import_files(league: str, season: int, source: str, ratings: str):
         df_player_batting_right_stats,
         df_player_batting_left_stats,
         df_player_pitching_stats,
+        df_player_pitching_right_stats,
+        df_player_pitching_left_stats,
         df_player_fielding_stats,
         df_team_batting_stats,
         df_team_pitching_stats,
