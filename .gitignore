@@ -174,3 +174,7 @@ cython_debug/
 # Project specific
 output/
 dumps/
+reports/
+Dugout/
+PBL/
+TGS/

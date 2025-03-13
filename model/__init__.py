@@ -177,7 +177,7 @@ def convert_height_to_cm(height: str) -> int:
     height = height.split("'")
     if len(height) != 3:
         raise ValueError("Height must be in the format 'X' Y'")
-    return int(height[0].strip()) * 12 + int(height[1].strip() * 30.48)
+    return (float(height[0]) * 12.0 + float(height[1])) * 2.54
 
 
 class MLPexplicit(nn.Module):
