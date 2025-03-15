@@ -73,6 +73,18 @@ class PitchingModel(Modeler):
         self.ratings_type = ratings_type
         self.model = Modeler(feature_values[self.role], targets[self.role])
 
+    def conform_data(self, data):
+
+        df_id = data["ID"]
+        filtered_data = data[feature_values[self.role] + [targets[self.role][0]]]
+
+        # create a dataset with a subset of the columns
+        self.conform_column_types(
+            filtered_data, feature_values[self.role] + targets[self.role]
+        )
+
+        return filtered_data, df_id
+
     def prepare_data(self, season, ip_limit):
         # load fielding dataset from csv
         pitching = pd.read_csv(
@@ -90,15 +102,7 @@ class PitchingModel(Modeler):
         master_data = master_data[master_data["IPClean"] >= ip_limit]
         master_data = master_data[master_data["PRole"] >= self.role]
 
-        df_id = master_data["ID"]
-        filtered_data = master_data[feature_values[self.role] + targets[self.role]]
-
-        # create a dataset with a subset of the columns
-        self.conform_column_types(
-            filtered_data, feature_values[self.role] + targets[self.role]
-        )
-
-        return filtered_data, df_id
+        return self.conform_data(master_data)
 
     def load_data(self, ip_limit=100):
 
@@ -122,8 +126,12 @@ class PitchingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, ip_limit):
-        filtered_data, df_id = self.prepare_data(season, ip_limit)
+    def predict(self, season, ip_limit, skip_load=False, preloaded_data=None):
+        filtered_data, df_id = (
+            self.conform_data(preloaded_data)
+            if skip_load
+            else self.prepare_data(season, ip_limit)
+        )
         filtered_data = filtered_data.drop(columns=targets[self.role][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
@@ -138,6 +146,11 @@ class PitchingModel(Modeler):
         )
 
     def load_model(self):
-        self.model.load_data(
+        self.model.load_model(
             f"./files/models/{self.ratings_type}-pitching-{self.role}-model.pt"
+        )
+
+    def load_released_model(self):
+        self.model.load_model(
+            f"./files/models/released/{self.ratings_type}-pitching-{self.role}-model.pt"
         )

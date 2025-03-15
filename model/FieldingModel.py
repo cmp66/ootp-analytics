@@ -3,51 +3,55 @@ from model import Modeler
 
 
 feature_values = {
-    9: ["Age", "WT", "SPE", "OFRngDelta", "OFArmDelta", "OFERRDelta", "RF", "ID"],
-    8: ["Age", "WT", "SPE", "OFRngDelta", "OFArmDelta", "OFERRDelta", "CF"],
-    7: ["Age", "WT", "SPE", "OFRngDelta", "OFArmDelta", "OFERRDelta", "LF"],
+    9: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "RF", "ID"],
+    8: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "CF"],
+    7: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "LF"],
     6: [
-        "Age",
+        # "Age",
         "WT",
         "SPE",
-        "IFRngDelta",
-        "IFArmDelta",
-        "IFTDPDelta",
-        "IFErrDelta",
+        # "IFRngDelta",
+        # "IFArmDelta",
+        # "IFTDPDelta",
+        # "IFErrDelta",
+        "IF RNG",
+        "IF ARM",
+        "TDP",
+        "IF ERR",
         "SS",
     ],
     5: [
-        "Age",
+        # "Age",
         "WT",
         "SPE",
-        "IFRngDelta",
-        "IFArmDelta",
-        "IFTDPDelta",
-        "IFErrDelta",
+        "IF RNG",
+        "IF ARM",
+        "TDP",
+        "IF ERR",
         "3B",
     ],
     4: [
-        "Age",
+        # "Age",
         "WT",
         "SPE",
-        "IFRngDelta",
-        "IFArmDelta",
-        "IFTDPDelta",
-        "IFErrDelta",
+        "IF RNG",
+        "IF ARM",
+        "TDP",
+        "IF ERR",
         "2B",
     ],
     3: [
-        "Age",
+        # "Age",
         "WT",
         "SPE",
-        "IFRngDelta",
-        "IFArmDelta",
-        "IFTDPDelta",
-        "IFErrDelta",
+        "IF RNG",
+        "IF ARM",
+        "TDP",
+        "IF ERR",
         "HT",
         "1B",
     ],
-    2: ["Age", "WT", "SPE", "CBLKDelta", "CARMDelta", "CFRMDelta", "C"],
+    2: ["WT", "SPE", "C ABI", "C ARM", "C FRM", "C"],
 }
 
 targets = {
@@ -78,7 +82,20 @@ class FieldingModel(Modeler):
         self.ratings_type = ratings_type
         self.model = Modeler(feature_values[self.position], targets)
 
-    def prepare_data(self, season, position, ip_limit):
+    def conform_data(self, filtered_data):
+        df_id = filtered_data["ID"]
+        filtered_data = filtered_data[
+            feature_values[self.position] + targets[self.position]
+        ]
+
+        # create a dataset with a subset of the columns
+        self.conform_column_types(
+            filtered_data, feature_values[self.position] + targets[self.position]
+        )
+
+        return filtered_data, df_id
+
+    def prepare_data(self, season, ip_limit):
         fielding = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-fielding.csv"
         )
@@ -94,22 +111,12 @@ class FieldingModel(Modeler):
         filtered_data = filtered_data[filtered_data["IPClean"] >= ip_limit]
         filtered_data = filtered_data[filtered_data["POS"] == self.position]
 
-        df_id = filtered_data["ID"]
-        filtered_data = filtered_data[
-            feature_values[self.position] + targets[self.position]
-        ]
+        return self.conform_data(filtered_data)
 
-        # create a dataset with a subset of the columns
-        self.conform_column_types(
-            filtered_data, feature_values[position] + targets[position]
-        )
-
-        return filtered_data, df_id
-
-    def load_data(self, position: int, ip_limit=200):
+    def load_data(self, ip_limit=200):
 
         for season in range(int(self.season_start), int(self.season_end) + 1):
-            filtered_data, df_id = self.prepare_data(season, position, ip_limit)
+            filtered_data, df_id = self.prepare_data(season, ip_limit)
             self.filtered_data = (
                 filtered_data
                 if season == int(self.season_start)
@@ -119,7 +126,7 @@ class FieldingModel(Modeler):
         print(self.filtered_data.loc[self.filtered_data.isnull().any(axis=1)])
         print(self.filtered_data.shape)
 
-        self.model.load_data(self.filtered_data, targets[position][0])
+        self.model.load_data(self.filtered_data, targets[self.position][0])
 
     def train(self, num_epochs: int):
         return self.model.train(num_epochs)
@@ -127,9 +134,13 @@ class FieldingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, position, ip_limit):
-        filtered_data, df_id = self.prepare_data(season, position, ip_limit)
-        filtered_data = filtered_data.drop(columns=targets[position][0])
+    def predict(self, season, ip_limit, skip_load=False, preloaded_data=None):
+        filtered_data, df_id = (
+            self.conform_data(preloaded_data)
+            if skip_load
+            else self.prepare_data(season, ip_limit)
+        )
+        filtered_data = filtered_data.drop(columns=targets[self.position][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
         return results
@@ -143,6 +154,11 @@ class FieldingModel(Modeler):
         )
 
     def load_model(self):
-        self.model.load_data(
+        self.model.load_model(
             f"./files/models/{self.ratings_type}-fielding-{self.position}-model.pt"
+        )
+
+    def load_released_model(self):
+        self.model.load_model(
+            f"./files/models/released/{self.ratings_type}-fielding-{self.position}-model.pt"
         )

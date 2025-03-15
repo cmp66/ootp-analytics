@@ -116,7 +116,8 @@ def import_ratings(
     df_player_ratings.rename(columns={"CON vL.1": "CON.1 vL"}, inplace=True)
     df_player_ratings.rename(columns={"CON P.1": "CON.1 P"}, inplace=True)
     df_player_ratings.rename(columns={"HT P": "BA P"}, inplace=True)
-    df_player_ratings = df_player_ratings.drop(columns=["POS", "EXP"])
+    df_player_ratings.rename(columns={"POS": "LPOS"}, inplace=True)
+    df_player_ratings = df_player_ratings.drop(columns=["EXP"])
     df_player_ratings.set_index("ID", inplace=True)
 
     df_player_ratings["WT"] = df_player_ratings["WT"].apply(lambda x: int(x[:3]))

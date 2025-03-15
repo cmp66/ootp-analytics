@@ -14,6 +14,7 @@ PLAYER_FIELDING = "Player Fielding"
 LEAGUE_FIELDING = "League Fielding"
 WOBA = "wOBA calcs"
 FIELDING_PLAYABLES = "Fielding Playables"
+PREDICTIONS = "Predictions"
 
 TABS = [
     RATINGS,
@@ -25,6 +26,7 @@ TABS = [
     LEAGUE_FIELDING,
     WOBA,
     FIELDING_PLAYABLES,
+    PREDICTIONS,
 ]
 
 
@@ -187,16 +189,25 @@ class ExcelReportWriter:
 
         wb.close()
 
-    # def create_player_ratings_formula_names(self):
-    #     book = load_workbook(self.filename)
-    #     sheet = book[RATINGS]
+    def write_predictions(self, df_predictions: pd.DataFrame):
 
-    #     # Determine the range that covers all data on the sheet
-    #     max_row = sheet.max_row
-    #     max_column = sheet.max_column
-    #     range_ref = f"{RATINGS}!$1:$65536"
+        args = {
+            "path": self.filename,
+            "engine": "openpyxl",
+            "mode": "a",
+            "if_sheet_exists": "overlay",
+        }
 
-    #     rating_range = DefinedName('PLAYER_RATINGS', attr_text=range_ref)
-    #     book.defined_names.add(rating_range)
+        with pd.ExcelWriter(**args) as writer:
+            df_predictions.to_excel(writer, sheet_name=PREDICTIONS, index=False)
 
-    #     book.save(self.filename)
+        wb = openpyxl.load_workbook(filename=self.filename)
+        if PREDICTIONS not in wb[PREDICTIONS].tables:
+            tab = openpyxl.worksheet.table.Table(
+                displayName=PREDICTIONS,
+                ref=f"A1:{openpyxl.utils.get_column_letter(df_predictions.shape[1])}{len(df_predictions)+1}",
+            )
+            wb[PREDICTIONS].add_table(tab)
+            wb.save(self.filename)
+
+        wb.close()

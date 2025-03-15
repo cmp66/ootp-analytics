@@ -50,6 +50,15 @@ class BSRModel(Modeler):
         self.scale = scale
         self.model = Modeler(feature_values, targets)
 
+    def conform_data(self, master_data):
+        df_id = master_data["ID"]
+        filtered_data = master_data[feature_values + [targets[0]]]
+
+        # create a dataset with a subset of the columns
+        self.conform_column_types(filtered_data, feature_values + targets)
+
+        return filtered_data, df_id
+
     def prepare_data(self, season, pa_limit):
         # load fielding dataset from csv
 
@@ -72,13 +81,7 @@ class BSRModel(Modeler):
         master_data = hitting.merge(player_data, on="ID")
         master_data = master_data[master_data["PA"] >= pa_limit]
 
-        df_id = master_data["ID"]
-        filtered_data = master_data[feature_values + [targets[0]]]
-
-        # create a dataset with a subset of the columns
-        self.conform_column_types(filtered_data, feature_values + targets)
-
-        return filtered_data, df_id
+        return self.conform_data(master_data)
 
     def load_data(self, pa_limit=300):
         for season in range(int(self.season_start), int(self.season_end) + 1):
@@ -102,8 +105,12 @@ class BSRModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, pa_limit):
-        filtered_data, df_id = self.prepare_data(season, pa_limit)
+    def predict(self, season, pa_limit, skip_load=False, preloaded_data=None):
+        filtered_data, df_id = (
+            self.conform_data(preloaded_data)
+            if skip_load
+            else self.prepare_data(season, pa_limit)
+        )
         filtered_data = filtered_data.drop(columns=targets[0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
@@ -118,4 +125,11 @@ class BSRModel(Modeler):
         )
 
     def load_model(self):
-        self.model.load_data(f"./files/models/{self.ratings_type}-baserunning-model.pt")
+        self.model.load_model(
+            f"./files/models/{self.ratings_type}-baserunning-model.pt"
+        )
+
+    def load_released_model(self):
+        self.model.load_model(
+            f"./files/models/released/{self.ratings_type}-baserunning-model.pt"
+        )

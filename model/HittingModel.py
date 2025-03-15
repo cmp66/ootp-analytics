@@ -153,6 +153,21 @@ class HittingModel(Modeler):
         )
         self.model = Modeler(feature_values[self.vsType], [targets[self.vsType][0]])
 
+    def conform_data(self, data):
+        for col in feature_values[self.vsType]:
+            if col not in exclude_adj:
+                data[col] = data[col].apply(convert_80_rating)
+
+        df_id = data["ID"]
+        filtered_data = data[feature_values[self.vsType] + [targets[self.vsType][0]]]
+
+        # create a dataset with a subset of the columns
+        self.conform_column_types(
+            filtered_data, feature_values[self.vsType] + targets[self.vsType]
+        )
+
+        return filtered_data, df_id
+
     def prepare_data(self, season, pa_limit):
         # load fielding dataset from csv
 
@@ -166,25 +181,11 @@ class HittingModel(Modeler):
             hitting.replace("-", 0, inplace=True)
             player_data.replace("-", 0, inplace=True)
 
-        for col in feature_values[self.vsType]:
-            if col not in exclude_adj:
-                player_data[col] = player_data[col].apply(convert_80_rating)
-
         # combine fielding and player data
         master_data = hitting.merge(player_data, on="ID")
         master_data = master_data[master_data["PA"] >= pa_limit]
 
-        df_id = master_data["ID"]
-        filtered_data = master_data[
-            feature_values[self.vsType] + [targets[self.vsType][0]]
-        ]
-
-        # create a dataset with a subset of the columns
-        self.conform_column_types(
-            filtered_data, feature_values[self.vsType] + targets[self.vsType]
-        )
-
-        return filtered_data, df_id
+        return self.conform_data(master_data)
 
     def load_data(self, pa_limit=100):
 
@@ -209,9 +210,13 @@ class HittingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, pa_limit):
+    def predict(self, season, pa_limit, skip_load=False, preloaded_data=None):
 
-        filtered_data, df_id = self.prepare_data(season, pa_limit)
+        filtered_data, df_id = (
+            self.conform_data(preloaded_data)
+            if skip_load
+            else self.prepare_data(season, pa_limit)
+        )
         filtered_data = filtered_data.drop(columns=targets[self.vsType][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
@@ -226,6 +231,11 @@ class HittingModel(Modeler):
         )
 
     def load_model(self):
-        self.model.load_data(
+        self.model.load_model(
             f"./files/models/{self.ratings_type}{self.file_mod}-hitting-model.pt"
+        )
+
+    def load_released_model(self):
+        self.model.load_model(
+            f"./files/models/released/{self.ratings_type}{self.file_mod}-hitting-model.pt"
         )

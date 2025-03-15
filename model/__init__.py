@@ -393,10 +393,8 @@ class Modeler:
 
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
-            print("CUDA is available! Using GPU.")
         else:
             self.device = torch.device("cpu")
-            print("CUDA is not available. Using CPU.")
 
     def load_data(self, data: pd.DataFrame, targetCol: str):
         self.model.load_data(data, targetCol)
