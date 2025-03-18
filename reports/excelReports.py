@@ -15,6 +15,7 @@ LEAGUE_FIELDING = "League Fielding"
 WOBA = "wOBA calcs"
 FIELDING_PLAYABLES = "Fielding Playables"
 PREDICTIONS = "Predictions"
+POTENTIALS = "Potentials"
 
 TABS = [
     RATINGS,
@@ -27,6 +28,7 @@ TABS = [
     WOBA,
     FIELDING_PLAYABLES,
     PREDICTIONS,
+    POTENTIALS,
 ]
 
 
@@ -84,6 +86,10 @@ class ExcelReportWriter:
         fielding_playables = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-fielding-attributes.csv"
         )
+
+        # FIXME
+        batting_stats = batting_stats.drop(columns=["BsR"])
+        batting_stats.rename(columns={"BSR2": "BSR"}, inplace=True)
 
         args = {
             "path": self.filename,
@@ -208,6 +214,29 @@ class ExcelReportWriter:
                 ref=f"A1:{openpyxl.utils.get_column_letter(df_predictions.shape[1])}{len(df_predictions)+1}",
             )
             wb[PREDICTIONS].add_table(tab)
+            wb.save(self.filename)
+
+        wb.close()
+
+    def write_potential_predictions(self, df_predictions: pd.DataFrame):
+
+        args = {
+            "path": self.filename,
+            "engine": "openpyxl",
+            "mode": "a",
+            "if_sheet_exists": "overlay",
+        }
+
+        with pd.ExcelWriter(**args) as writer:
+            df_predictions.to_excel(writer, sheet_name=POTENTIALS, index=False)
+
+        wb = openpyxl.load_workbook(filename=self.filename)
+        if POTENTIALS not in wb[POTENTIALS].tables:
+            tab = openpyxl.worksheet.table.Table(
+                displayName=POTENTIALS,
+                ref=f"A1:{openpyxl.utils.get_column_letter(df_predictions.shape[1])}{len(df_predictions)+1}",
+            )
+            wb[POTENTIALS].add_table(tab)
             wb.save(self.filename)
 
         wb.close()

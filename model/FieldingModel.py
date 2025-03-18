@@ -1,7 +1,6 @@
 import pandas as pd
 from model import Modeler
 
-
 feature_values = {
     9: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "RF", "ID"],
     8: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "CF"],

@@ -23,7 +23,7 @@ def import_csv_flex(
     fielding_index = 0
     batting_index = 0
     pitching_index = 0
-    fielding_dfs = [None] * 27
+    fielding_dfs = [None] * 90
     batting_dfs = [None] * 10
     pitching_dfs = [None] * 10
 
@@ -135,6 +135,16 @@ def import_ratings(
     df_player_ratings["GBT"] = df_player_ratings["GBT"].apply(convert_gbt)
     df_player_ratings["FBT"] = df_player_ratings["FBT"].apply(convert_fbt)
     df_player_ratings["B"] = df_player_ratings["B"].apply(convert_bat_rl)
+
+    df_player_ratings["Lev"] = df_player_ratings["Lev"].apply(
+        lambda x: "R" if x == "R-" else x
+    )
+    df_player_ratings["Lev"] = df_player_ratings["Lev"].apply(
+        lambda x: "FA" if x in ["-", "", "0"] else x
+    )
+    df_player_ratings["ORG"] = df_player_ratings["ORG"].apply(
+        lambda x: "FA" if x in ["-", "", "0"] else x
+    )
 
     return df_player_ratings
 
@@ -791,11 +801,13 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
         "-", 0, regex=True
     )
 
-    df_player_ratings["COMP"] = df_player_ratings["COMP"].replace(0, "None", regex=True)
-    df_player_ratings["HSC"] = df_player_ratings["COMP"].replace(0, "Noob", regex=True)
-    df_player_ratings["SLR"] = df_player_ratings["SLR"].replace(0, "$0", regex=True)
-    df_player_ratings["CV"] = df_player_ratings["CV"].replace(0, "$0", regex=True)
-    df_player_ratings = df_player_ratings.astype({"CV": str})
+    # FIXME
+    # df_player_ratings["COMP"] = df_player_ratings["COMP"].replace(0, "None", regex=True)
+    # df_player_ratings["HSC"] = df_player_ratings["COMP"].replace(0, "Noob", regex=True)
+    # df_player_ratings["SLR"] = df_player_ratings["SLR"].replace(0, "$0", regex=True)
+    # df_player_ratings["CV"] = df_player_ratings["CV"].replace(0, "$0", regex=True)
+
+    # df_player_ratings = df_player_ratings.astype({"CV": str})
     return df_player_ratings
 
 

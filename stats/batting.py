@@ -3,6 +3,49 @@ import pandas as pd
 from stats import leagueAdjustments, woba
 
 
+def calculate_batting_attribute_averages(
+    df_player_batting_stats: DataFrame,
+    df_player_ratings: DataFrame,
+    df_lg_batting_stat: DataFrame,
+    lg_pa: int,
+) -> DataFrame:
+
+    df_player_stats_temp = df_player_batting_stats.copy()
+    df_player_stats_temp = df_player_stats_temp.merge(df_player_ratings, on="ID")
+
+    df_player_stats_temp["babip_weight"] = (
+        df_player_stats_temp["BABIP"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["avk_weight"] = (
+        df_player_stats_temp["K's"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["pow_weight"] = (
+        df_player_stats_temp["POW"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["con_weight"] = (
+        df_player_stats_temp["CON"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["eye_weight"] = (
+        df_player_stats_temp["EYE"] * df_player_stats_temp["PA"]
+    )
+
+    df_lg_batting_stat.loc["lgBabipRating"] = (
+        df_player_stats_temp["babip_weight"].sum() / lg_pa
+    )
+    df_lg_batting_stat.loc["lgAvkRating"] = (
+        df_player_stats_temp["avk_weight"].sum() / lg_pa
+    )
+    df_lg_batting_stat.loc["lgConRating"] = (
+        df_player_stats_temp["con_weight"].sum() / lg_pa
+    )
+    df_lg_batting_stat.loc["lgEyeRating"] = (
+        df_player_stats_temp["eye_weight"].sum() / lg_pa
+    )
+    # df_lg_batting_stat.loc["lgPowRating"] = df_player_stats_temp['pow_weight'].sum() / lg_pa
+
+    return df_lg_batting_stat
+
+
 def calculate_player_batting_stats(
     df_player_stats_total: DataFrame,
     df_player_stats_right: DataFrame,
@@ -224,15 +267,10 @@ def process_batting_data(
         list(woba.calc_league_data(league_batting_totals).items()),
         columns=["Stat", "Value"],
     )
-    df_lg_batting_stat["season"] = season
-    df_lg_batting_stat["league"] = league
     df_lg_batting_stat.set_index("Stat", inplace=True)
 
     pd.DataFrame(league_batting_totals, index=[0]).to_csv(
         f"./files/{league}/{season}/output/{league}-{season}-batting-totals.csv"
-    )
-    df_lg_batting_stat.round(9).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
     )
 
     (
@@ -257,6 +295,18 @@ def process_batting_data(
     )
     df_player_batting_stats_left.to_csv(
         f"./files/{league}/{season}/output/{league}-{season}-left-hitting.csv"
+    )
+
+    df_lg_batting_stat = calculate_batting_attribute_averages(
+        df_player_batting_stats,
+        df_player_ratings,
+        df_lg_batting_stat,
+        league_batting_totals["PA"],
+    )
+    df_lg_batting_stat["season"] = season
+    df_lg_batting_stat["league"] = league
+    df_lg_batting_stat.round(9).to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
     )
 
     return (

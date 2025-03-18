@@ -1,6 +1,26 @@
 import pandas as pd
 from model import Modeler
 
+conversion_to_potential = {
+    "STU": "STU P",
+    "CON.1": "CON.1 P",
+    "PBABIP": "PBABIP P",
+    "HRR": "HRR P",
+    "HLD": "HLD",
+    "PIT": "PIT",
+    "STM": "STM",
+    "RUNS_PER_OUT": "RUNS_PER_OUT",
+    "STM": "STM",
+    "STU vR": "STU vR",
+    "STU vL": "STU vL",
+    "CON.1 vR": "CON.1 vR",
+    "CON.1 vL": "CON.1 vL",
+    "PBABIP vR": "PBABIP vR",
+    "PBABIP vL": "PBABIP vL",
+    "HRR vR": "HRR vR",
+    "HRR vL": "HRR vL",
+}
+
 feature_values = {
     "SP": [
         # "T",
@@ -65,12 +85,14 @@ class PitchingModel(Modeler):
         season_end: str,
         role: str,
         ratings_type: str,
+        use_potential: bool,
     ):
         self.league = league
         self.season_start = season_start
         self.season_end = season_end
         self.role = role
         self.ratings_type = ratings_type
+        self.use_potential = use_potential
         self.model = Modeler(feature_values[self.role], targets[self.role])
 
     def conform_data(self, data):
@@ -101,6 +123,10 @@ class PitchingModel(Modeler):
         master_data = pitching.merge(player_data, on="ID")
         master_data = master_data[master_data["IPClean"] >= ip_limit]
         master_data = master_data[master_data["PRole"] >= self.role]
+
+        if self.use_potential:
+            for k, v in conversion_to_potential.items():
+                master_data[k] = master_data[v]
 
         return self.conform_data(master_data)
 
