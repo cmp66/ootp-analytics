@@ -5,20 +5,22 @@ import openpyxl
 
 REPORTS_PATH = "./files/reports/"
 
-RATINGS = "Player Ratings"
-PLAYER_BATTING = "Player Batting"
-PLAYER_PITCHING = "Player Pitching"
-LEAGUE_BATTING = "League Batting"
-LEAGUE_PITCHING = "League Pitching"
-PLAYER_FIELDING = "Player Fielding"
-LEAGUE_FIELDING = "League Fielding"
-WOBA = "wOBA calcs"
-FIELDING_PLAYABLES = "Fielding Playables"
+RATINGS = "PlayerRatings"
+CURRENT_PIVOTS = "CurrentPivots"
+PLAYER_BATTING = "PlayerBatting"
+PLAYER_PITCHING = "PlayerPitching"
+LEAGUE_BATTING = "LeagueBatting"
+LEAGUE_PITCHING = "LeaguePitching"
+PLAYER_FIELDING = "PlayerFielding"
+LEAGUE_FIELDING = "LeagueFielding"
+WOBA = "wOBACalcs"
+FIELDING_PLAYABLES = "FieldingPlayables"
 PREDICTIONS = "Predictions"
 POTENTIALS = "Potentials"
 
 TABS = [
     RATINGS,
+    CURRENT_PIVOTS,
     PLAYER_BATTING,
     PLAYER_PITCHING,
     LEAGUE_BATTING,
@@ -50,6 +52,57 @@ class ExcelReportWriter:
                         cell.value = None
 
         wb.save(self.filename)
+
+    def create_summary(
+        self,
+        ratings: pd.DataFrame,
+        batting_stats: pd.DataFrame,
+        pitching_stats: pd.DataFrame,
+        fielding_stats: pd.DataFrame,
+    ) -> pd.DataFrame:
+
+        df_summary = ratings.copy(deep=True)
+        df_summary = df_summary[["ID", "LPOS", "First Name", "Last Name", "ORG", "Age"]]
+
+        df_batting_report = batting_stats[["ID", "wRAA", "BSR", "OFF", "OFFAdj"]]
+        df_summary = pd.merge(df_summary, df_batting_report, on="ID", how="left")
+
+        fielding_group = fielding_stats.groupby("ID")["runsPAdj"].sum().reset_index()
+        df_summary = pd.merge(
+            df_summary, fielding_group, on="ID", how="left", suffixes=("", "_Sum")
+        )
+
+        df_pitching_report = pitching_stats[
+            ["ID", "IPClean", "WAA", "WAAAdj", "WAA200"]
+        ]
+        df_summary = pd.merge(df_summary, df_pitching_report, on="ID", how="left")
+
+        df_summary = df_summary[
+            (df_summary["wRAA"].notna()) | (df_summary["IPClean"].notna())
+        ]
+        df_summary.fillna(-500.0, inplace=True)
+
+        df_summary = df_summary[
+            [
+                "ID",
+                "LPOS",
+                "First Name",
+                "Last Name",
+                "ORG",
+                "Age",
+                "wRAA",
+                "BSR",
+                "OFF",
+                "OFFAdj",
+                "runsPAdj",
+                "IPClean",
+                "WAA",
+                "WAAAdj",
+                "WAA200",
+            ]
+        ]
+
+        return df_summary
 
     def load_player_stats(self, season: int):
 
@@ -91,6 +144,10 @@ class ExcelReportWriter:
         batting_stats = batting_stats.drop(columns=["BsR"])
         batting_stats.rename(columns={"BSR2": "BSR"}, inplace=True)
 
+        observed_summary = self.create_summary(
+            ratings, batting_stats, pitching_stats, fielding_stats
+        )
+
         args = {
             "path": self.filename,
             "engine": "openpyxl",
@@ -101,6 +158,7 @@ class ExcelReportWriter:
 
         with pd.ExcelWriter(**args) as writer:
 
+            observed_summary.to_excel(writer, sheet_name=CURRENT_PIVOTS, index=False)
             ratings.to_excel(writer, sheet_name=RATINGS, index=False)
             batting_stats.to_excel(writer, sheet_name=PLAYER_BATTING, index=False)
             pitching_stats.to_excel(writer, sheet_name=PLAYER_PITCHING, index=False)
@@ -121,73 +179,81 @@ class ExcelReportWriter:
             # Styler.to_excel(writer, sheet_name=RATINGS, float_format="%.3f")
 
         wb = openpyxl.load_workbook(filename=self.filename)
-        if "Ratings" not in wb[RATINGS].tables:
+        if CURRENT_PIVOTS not in wb[CURRENT_PIVOTS].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="Ratings",
+                displayName=CURRENT_PIVOTS,
+                ref=f"A1:{openpyxl.utils.get_column_letter(ratings.shape[1])}{len(ratings)+1}",
+            )
+            wb[CURRENT_PIVOTS].add_table(tab)
+            wb.save(self.filename)
+
+        if RATINGS not in wb[RATINGS].tables:
+            tab = openpyxl.worksheet.table.Table(
+                displayName=RATINGS,
                 ref=f"A1:{openpyxl.utils.get_column_letter(ratings.shape[1])}{len(ratings)+1}",
             )
             wb[RATINGS].add_table(tab)
             wb.save(self.filename)
 
-        if "PlayerBatting" not in wb[PLAYER_BATTING].tables:
+        if PLAYER_BATTING not in wb[PLAYER_BATTING].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="PlayerBatting",
+                displayName=PLAYER_BATTING,
                 ref=f"A1:{openpyxl.utils.get_column_letter(batting_stats.shape[1])}{len(batting_stats)+1}",
             )
             wb[PLAYER_BATTING].add_table(tab)
             wb.save(self.filename)
 
-        if "PlayerPitching" not in wb[PLAYER_PITCHING].tables:
+        if PLAYER_PITCHING not in wb[PLAYER_PITCHING].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="PlayerPitching",
+                displayName=PLAYER_PITCHING,
                 ref=f"A1:{openpyxl.utils.get_column_letter(pitching_stats.shape[1])}{len(pitching_stats)+1}",
             )
             wb[PLAYER_PITCHING].add_table(tab)
             wb.save(self.filename)
 
-        if "PlayerFielding" not in wb[PLAYER_FIELDING].tables:
+        if PLAYER_FIELDING not in wb[PLAYER_FIELDING].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="PlayerFielding",
+                displayName=PLAYER_FIELDING,
                 ref=f"A1:{openpyxl.utils.get_column_letter(fielding_stats.shape[1])}{len(fielding_stats)+1}",
             )
             wb[PLAYER_FIELDING].add_table(tab)
             wb.save(self.filename)
 
-        if "LeagueFielding" not in wb[LEAGUE_FIELDING].tables:
+        if LEAGUE_FIELDING not in wb[LEAGUE_FIELDING].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="LeagueFielding",
+                displayName=LEAGUE_FIELDING,
                 ref=f"A1:{openpyxl.utils.get_column_letter(league_fielding_stats.shape[1])}{len(league_fielding_stats)+1}",
             )
             wb[LEAGUE_FIELDING].add_table(tab)
             wb.save(self.filename)
 
-        if "LeagueBatting" not in wb[LEAGUE_BATTING].tables:
+        if LEAGUE_BATTING not in wb[LEAGUE_BATTING].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="LeagueBatting",
+                displayName=LEAGUE_BATTING,
                 ref=f"A1:{openpyxl.utils.get_column_letter(league_batting_stats.shape[1])}{len(league_batting_stats)+1}",
             )
             wb[LEAGUE_BATTING].add_table(tab)
             wb.save(self.filename)
 
-        if "LeaguePitching" not in wb[LEAGUE_PITCHING].tables:
+        if LEAGUE_PITCHING not in wb[LEAGUE_PITCHING].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="LeaguePitching",
+                displayName=LEAGUE_PITCHING,
                 ref=f"A1:{openpyxl.utils.get_column_letter(league_pitching_stats.shape[1])}{len(league_pitching_stats)+1}",
             )
             wb[LEAGUE_PITCHING].add_table(tab)
             wb.save(self.filename)
 
-        if "wOBAcalcs" not in wb[WOBA].tables:
+        if WOBA not in wb[WOBA].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="wOBAcalcs",
+                displayName=WOBA,
                 ref=f"A1:{openpyxl.utils.get_column_letter(woba.shape[1])}{len(woba)+1}",
             )
             wb[WOBA].add_table(tab)
             wb.save(self.filename)
 
-        if "FieldingPlayables" not in wb[FIELDING_PLAYABLES].tables:
+        if FIELDING_PLAYABLES not in wb[FIELDING_PLAYABLES].tables:
             tab = openpyxl.worksheet.table.Table(
-                displayName="FieldingPlayables",
+                displayName=FIELDING_PLAYABLES,
                 ref=f"A1:{openpyxl.utils.get_column_letter(fielding_playables.shape[1])}{len(fielding_playables)+1}",
             )
             wb[FIELDING_PLAYABLES].add_table(tab)
