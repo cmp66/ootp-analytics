@@ -11,14 +11,6 @@ conversion_to_potential = {
     "STM": "STM",
     "RUNS_PER_OUT": "RUNS_PER_OUT",
     "STM": "STM",
-    "STU vR": "STU vR",
-    "STU vL": "STU vL",
-    "CON.1 vR": "CON.1 vR",
-    "CON.1 vL": "CON.1 vL",
-    "PBABIP vR": "PBABIP vR",
-    "PBABIP vL": "PBABIP vL",
-    "HRR vR": "HRR vR",
-    "HRR vL": "HRR vL",
 }
 
 feature_values = {
@@ -72,9 +64,48 @@ feature_values = {
         # "VELO",
         # "Slot",
     ],
+    "SP-potential": [
+        # "T",
+        "STU P",
+        "CON.1 P",
+        "PBABIP P",
+        "HRR P",
+        # "VELO",
+        # "STM",
+        "HLD",
+        "PIT",
+        # "G/F",
+        # "lgwOBA",
+        # "lgOBP",
+        "RUNS_PER_OUT",
+        # "HT",
+        # "Slot",
+    ],
+    "RP-potential": [
+        "STU P",
+        "CON.1 P",
+        "PBABIP",
+        "HRR P",
+        "PIT",
+        "STM",
+        "HLD",
+        # "lgwOBA",
+        # "lgOBP",
+        # "HT",
+        "RUNS_PER_OUT",
+        # "T",
+        # "G/F",
+        # "VELO",
+        # "Slot",
+    ],
 }
 
-targets = {"SP": ["WAA200"], "RP": ["WAA200"]}
+targets = {
+    "SP": ["WAA200"],
+    "RP": ["WAA200"],
+    "SP-potential": ["WAA200"],
+    "RP-potential": ["WAA200"],
+}
 
 
 class PitchingModel(Modeler):
@@ -93,16 +124,24 @@ class PitchingModel(Modeler):
         self.role = role
         self.ratings_type = ratings_type
         self.use_potential = use_potential
-        self.model = Modeler(feature_values[self.role], targets[self.role])
+        self.modified_role = (
+            self.role + "-potential" if self.use_potential else self.role
+        )
+        self.model = Modeler(
+            feature_values[self.modified_role], targets[self.modified_role]
+        )
 
     def conform_data(self, data):
 
         df_id = data["ID"]
-        filtered_data = data[feature_values[self.role] + [targets[self.role][0]]]
+        filtered_data = data[
+            feature_values[self.modified_role] + [targets[self.modified_role][0]]
+        ]
 
         # create a dataset with a subset of the columns
         self.conform_column_types(
-            filtered_data, feature_values[self.role] + targets[self.role]
+            filtered_data,
+            feature_values[self.modified_role] + targets[self.modified_role],
         )
 
         return filtered_data, df_id
@@ -119,14 +158,13 @@ class PitchingModel(Modeler):
             pitching.replace("-", 0, inplace=True)
             player_data.replace("-", 0, inplace=True)
 
-        # combine fielding and player data
         master_data = pitching.merge(player_data, on="ID")
         master_data = master_data[master_data["IPClean"] >= ip_limit]
         master_data = master_data[master_data["PRole"] >= self.role]
 
-        if self.use_potential:
-            for k, v in conversion_to_potential.items():
-                master_data[k] = master_data[v]
+        # if self.use_potential:
+        #    for k, v in conversion_to_potential.items():
+        #        master_data[k] = master_data[v]
 
         return self.conform_data(master_data)
 
@@ -144,7 +182,7 @@ class PitchingModel(Modeler):
         print(self.filtered_data.shape)
         print(self.filtered_data.loc[self.filtered_data.isnull().any(axis=1)])
 
-        self.model.load_data(self.filtered_data, targets[self.role][0])
+        self.model.load_data(self.filtered_data, targets[self.modified_role][0])
 
     def train(self, num_epochs: int):
         return self.model.train(num_epochs)
@@ -158,7 +196,7 @@ class PitchingModel(Modeler):
             if skip_load
             else self.prepare_data(season, ip_limit)
         )
-        filtered_data = filtered_data.drop(columns=targets[self.role][0])
+        filtered_data = filtered_data.drop(columns=targets[self.modified_role][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
         return results
@@ -168,15 +206,15 @@ class PitchingModel(Modeler):
 
     def save_model(self):
         self.model.save_model(
-            f"./files/models/{self.ratings_type}-pitching-{self.role}-model.pt"
+            f"./files/models/{self.ratings_type}-pitching-{self.modified_role}-model.pt"
         )
 
     def load_model(self):
         self.model.load_model(
-            f"./files/models/{self.ratings_type}-pitching-{self.role}-model.pt"
+            f"./files/models/{self.ratings_type}-pitching-{self.modified_role}-model.pt"
         )
 
     def load_released_model(self):
         self.model.load_model(
-            f"./files/models/released/{self.ratings_type}-pitching-{self.role}-model.pt"
+            f"./files/models/released/{self.ratings_type}-pitching-{self.modified_role}-model.pt"
         )

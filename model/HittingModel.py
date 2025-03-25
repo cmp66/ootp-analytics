@@ -19,7 +19,7 @@ conversion_to_potential = {
     "K vR": "K vR",
     "K vL": "K vL",
     "lgwOBA": "lgwOBA",
-    "lgOBP": "lgOBP",
+    # "lgOBP": "lgOBP",
 }
 
 
@@ -29,6 +29,7 @@ feature_values = {
         "BABIP",
         "BA vR",
         "BA vL",
+        "GAP",
         "GAP vR",
         "GAP vL",
         "POW",
@@ -41,7 +42,34 @@ feature_values = {
         "K vR",
         "K vL",
         "lgwOBA",
-        "lgOBP",
+        # "lgOBP",
+        # "B",
+        #########################
+        # "GAP",
+        # "lgK_RATE",
+        # "wOBA_SCALE",
+        # "BBT",
+        # "GBT",
+        # "FBT",
+        # "SPE",
+        # "BUN",
+        # "BFH",
+        # "HT",
+        # "Age",
+        # "RUN",
+        # "lgXBH_RATE",
+        # "lgBABIP",
+        # "lgHR_RATE",
+    ],
+    "potential": [
+        # "ID",
+        "BABIP",
+        "GAP",
+        "POW",
+        "EYE",
+        "K's",
+        "lgwOBA",
+        # "lgOBP",
         # "B",
         #########################
         # "GAP",
@@ -149,6 +177,7 @@ exclude_adj = [
 
 targets = {
     "total": ["wRAA600"],
+    "potential": ["wRAA600"],
     "right": ["wRAA600Right"],
     "left": ["wRAA600Left"],
 }
@@ -162,25 +191,27 @@ class HittingModel(Modeler):
         season_end: str,
         ratings_type: str,
         vsType: str,
-        use_potential: bool,
     ):
         self.league = league
         self.season_start = season_start
         self.season_end = season_end
         self.ratings_type = ratings_type
         self.vsType = vsType
-        self.use_potential = use_potential
         self.file_mod = (
             ""
             if self.vsType == "total"
-            else "-right" if self.vsType == "right" else "-left"
+            else (
+                "-potential"
+                if self.vsType == "potential"
+                else "-right" if self.vsType == "right" else "-left"
+            )
         )
         self.model = Modeler(feature_values[self.vsType], [targets[self.vsType][0]])
 
     def conform_data(self, data):
 
         with pd.option_context("future.no_silent_downcasting", True):
-            data.replace("-", 0, inplace=True)
+            data.replace("-", 0, inplace=True, regex=False)
 
         # for col in feature_values[self.vsType]:
         #     if col not in exclude_adj:
@@ -200,8 +231,9 @@ class HittingModel(Modeler):
     def prepare_data(self, season, pa_limit):
         # load fielding dataset from csv
 
+        local_file_mod = "" if self.vsType == "potential" else self.file_mod
         hitting = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}{self.file_mod}-hitting.csv"
+            f"./files/{self.league}/{season}/output/{self.league}-{season}{local_file_mod}-hitting.csv"
         )
         player_data = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
@@ -214,7 +246,7 @@ class HittingModel(Modeler):
         master_data = hitting.merge(player_data, on="ID")
         master_data = master_data[master_data["PA"] >= pa_limit]
 
-        if self.use_potential:
+        if self.vsType == "potential":
             for k, v in conversion_to_potential.items():
                 master_data[k] = master_data[v]
 

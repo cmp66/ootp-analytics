@@ -798,7 +798,7 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
     set2 = set(clean_skip)
     clean_columns = list(set1 - set2)
     df_player_ratings[clean_columns] = df_player_ratings[clean_columns].replace(
-        "-", 0, regex=True
+        "-", 0, regex=False
     )
 
     # FIXME

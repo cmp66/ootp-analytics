@@ -8,7 +8,7 @@ feature_values = [
     "SR",
     "STE",
     "RUN",
-    "WT",
+    # "WT",
     # "BABIP",
     # "GAP",
     # "K's",

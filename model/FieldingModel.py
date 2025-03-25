@@ -2,9 +2,9 @@ import pandas as pd
 from model import Modeler
 
 feature_values = {
-    9: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "RF", "ID"],
-    8: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "CF"],
-    7: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR", "LF"],
+    9: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
+    8: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
+    7: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
     6: [
         # "Age",
         "WT",
@@ -17,7 +17,7 @@ feature_values = {
         "IF ARM",
         "TDP",
         "IF ERR",
-        "SS",
+        # "SS",
     ],
     5: [
         # "Age",
@@ -27,7 +27,7 @@ feature_values = {
         "IF ARM",
         "TDP",
         "IF ERR",
-        "3B",
+        # "3B",
     ],
     4: [
         # "Age",
@@ -37,7 +37,7 @@ feature_values = {
         "IF ARM",
         "TDP",
         "IF ERR",
-        "2B",
+        # "2B",
     ],
     3: [
         # "Age",
@@ -48,9 +48,9 @@ feature_values = {
         "TDP",
         "IF ERR",
         "HT",
-        "1B",
+        # "1B",
     ],
-    2: ["WT", "SPE", "C ABI", "C ARM", "C FRM", "C"],
+    2: ["WT", "SPE", "C ABI", "C ARM", "C FRM"],
 }
 
 targets = {
