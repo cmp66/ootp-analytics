@@ -23,7 +23,7 @@ def import_csv_flex(
     fielding_index = 0
     batting_index = 0
     pitching_index = 0
-    fielding_dfs = [None] * 27
+    fielding_dfs = [None] * 90
     batting_dfs = [None] * 10
     pitching_dfs = [None] * 10
 
@@ -35,7 +35,7 @@ def import_csv_flex(
         # check if the PI/PA column exists
         if "CERA" in df_temp.columns:
             df_team_fielding = df_temp
-        elif "PPG" in df_temp.columns:
+        elif "WIN%" in df_temp.columns:
             df_team_pitching = df_temp
         elif "wRC" in df_temp.columns:
             df_team_batting = df_temp
@@ -101,21 +101,23 @@ def import_ratings(
     filedir = f"{basedir}/files/{league}/{season}/ratings"
     print(os.listdir(filedir))
     print(f"Reading ratings from {filedir} of type {ratings_type}")
-    for file in [
-        f
-        for f in os.listdir(filedir)
-        if ratings_type in f and os.path.isfile(os.path.join(filedir, f))
-    ]:
+    for file in os.listdir(filedir):
         print(f"Reading {file}")
         df_temp = pd.read_csv(f"{filedir}/{file}")
         df_player_ratings = (
             df_temp
             if df_player_ratings is None
-            else df_player_ratings.merge(df_temp, how="outer")
+            else pd.concat([df_player_ratings, df_temp])
         )
 
-    df_player_ratings.rename(columns={"R": "ROOKIE"}, inplace=True)
-    df_player_ratings = df_player_ratings.drop(columns=["POS", "EXP"])
+    df_player_ratings.rename(columns={"ROOK": "ROOKIE"}, inplace=True)
+    df_player_ratings.rename(columns={"R": "REGION"}, inplace=True)
+    df_player_ratings.rename(columns={"CON vR.1": "CON.1 vR"}, inplace=True)
+    df_player_ratings.rename(columns={"CON vL.1": "CON.1 vL"}, inplace=True)
+    df_player_ratings.rename(columns={"CON P.1": "CON.1 P"}, inplace=True)
+    df_player_ratings.rename(columns={"HT P": "BA P"}, inplace=True)
+    df_player_ratings.rename(columns={"POS": "LPOS"}, inplace=True)
+    df_player_ratings = df_player_ratings.drop(columns=["EXP"])
     df_player_ratings.set_index("ID", inplace=True)
 
     df_player_ratings["WT"] = df_player_ratings["WT"].apply(lambda x: int(x[:3]))
@@ -133,6 +135,16 @@ def import_ratings(
     df_player_ratings["GBT"] = df_player_ratings["GBT"].apply(convert_gbt)
     df_player_ratings["FBT"] = df_player_ratings["FBT"].apply(convert_fbt)
     df_player_ratings["B"] = df_player_ratings["B"].apply(convert_bat_rl)
+
+    df_player_ratings["Lev"] = df_player_ratings["Lev"].apply(
+        lambda x: "R" if x == "R-" else x
+    )
+    df_player_ratings["Lev"] = df_player_ratings["Lev"].apply(
+        lambda x: "FA" if x in ["-", "", "0"] else x
+    )
+    df_player_ratings["ORG"] = df_player_ratings["ORG"].apply(
+        lambda x: "FA" if x in ["-", "", "0"] else x
+    )
 
     return df_player_ratings
 
@@ -730,6 +742,75 @@ def import_ootp_dump_stats(
     )
 
 
+attribute_columns = [
+    "CON",
+    "GAP",
+    "POW",
+    "EYE",
+    "K's",
+    "BABIP",
+    "CON vR",
+    "GAP vR",
+    "POW vR",
+    "EYE vR",
+    "K vR",
+    "BA vR",
+    "CON vL",
+    "GAP vL",
+    "POW vL",
+    "EYE vL",
+    "K vL",
+    "BA vL",
+    "CON P",
+    "GAP P",
+    "POW P",
+    "EYE P",
+    "K P",
+    "BA P",
+    "STU",
+    "CON.1",
+    "MOV",
+    "HRR",
+    "PBABIP",
+    "STU vR",
+    "STU vL",
+    "CON.1 vR",
+    "CON.1 vL",
+    "MOV vR",
+    "MOV vL",
+    "HRR vR",
+    "HRR vL",
+    "PBABIP vR",
+    "PBABIP vL",
+    "STU P",
+    "CON.1 P",
+    "MOV P",
+    "HRR P",
+    "PBABIP P",
+]
+
+clean_skip = ["COMP;," "HSC"]
+
+
+def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
+
+    set1 = set(df_player_ratings.columns)
+    set2 = set(clean_skip)
+    clean_columns = list(set1 - set2)
+    df_player_ratings[clean_columns] = df_player_ratings[clean_columns].replace(
+        "-", 0, regex=False
+    )
+
+    # FIXME
+    # df_player_ratings["COMP"] = df_player_ratings["COMP"].replace(0, "None", regex=True)
+    # df_player_ratings["HSC"] = df_player_ratings["COMP"].replace(0, "Noob", regex=True)
+    # df_player_ratings["SLR"] = df_player_ratings["SLR"].replace(0, "$0", regex=True)
+    # df_player_ratings["CV"] = df_player_ratings["CV"].replace(0, "$0", regex=True)
+
+    # df_player_ratings = df_player_ratings.astype({"CV": str})
+    return df_player_ratings
+
+
 def import_files(league: str, season: int, source: str, ratings: str) -> tuple[
     pd.DataFrame,
     pd.DataFrame,
@@ -767,6 +848,12 @@ def import_files(league: str, season: int, source: str, ratings: str) -> tuple[
             df_team_fielding_stats,
         ) = import_csv_flex(league, season, ".")
         df_player_ratings = import_ratings(league, season, ratings, ".")
+        df_player_batting_right_stats = pd.DataFrame()
+        df_player_batting_left_stats = pd.DataFrame()
+        df_player_pitching_right_stats = pd.DataFrame()
+        df_player_pitching_left_stats = pd.DataFrame()
+
+    df_player_ratings = clean_ratings(df_player_ratings)
 
     # check of export direction exists, if not create it
     if not os.path.exists(f"./files/{league}/{season}"):

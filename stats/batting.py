@@ -3,6 +3,49 @@ import pandas as pd
 from stats import leagueAdjustments, woba
 
 
+def calculate_batting_attribute_averages(
+    df_player_batting_stats: DataFrame,
+    df_player_ratings: DataFrame,
+    df_lg_batting_stat: DataFrame,
+    lg_pa: int,
+) -> DataFrame:
+
+    df_player_stats_temp = df_player_batting_stats.copy()
+    df_player_stats_temp = df_player_stats_temp.merge(df_player_ratings, on="ID")
+
+    df_player_stats_temp["babip_weight"] = (
+        df_player_stats_temp["BABIP"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["avk_weight"] = (
+        df_player_stats_temp["K's"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["pow_weight"] = (
+        df_player_stats_temp["POW"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["con_weight"] = (
+        df_player_stats_temp["CON"] * df_player_stats_temp["PA"]
+    )
+    df_player_stats_temp["eye_weight"] = (
+        df_player_stats_temp["EYE"] * df_player_stats_temp["PA"]
+    )
+
+    df_lg_batting_stat.loc["lgBabipRating"] = (
+        df_player_stats_temp["babip_weight"].sum() / lg_pa
+    )
+    df_lg_batting_stat.loc["lgAvkRating"] = (
+        df_player_stats_temp["avk_weight"].sum() / lg_pa
+    )
+    df_lg_batting_stat.loc["lgConRating"] = (
+        df_player_stats_temp["con_weight"].sum() / lg_pa
+    )
+    df_lg_batting_stat.loc["lgEyeRating"] = (
+        df_player_stats_temp["eye_weight"].sum() / lg_pa
+    )
+    # df_lg_batting_stat.loc["lgPowRating"] = df_player_stats_temp['pow_weight'].sum() / lg_pa
+
+    return df_lg_batting_stat
+
+
 def calculate_player_batting_stats(
     df_player_stats_total: DataFrame,
     df_player_stats_right: DataFrame,
@@ -12,9 +55,14 @@ def calculate_player_batting_stats(
     league: str,
 ) -> tuple[DataFrame, DataFrame, DataFrame]:
 
+    # test for dataframe with no data
+    skip_handedness = df_player_stats_right.empty
+
     df_player_stats_total = df_player_stats_total.merge(df_player_ratings, on="ID")
-    df_player_stats_right = df_player_stats_right.merge(df_player_ratings, on="ID")
-    df_player_stats_left = df_player_stats_left.merge(df_player_ratings, on="ID")
+
+    if not skip_handedness:
+        df_player_stats_right = df_player_stats_right.merge(df_player_ratings, on="ID")
+        df_player_stats_left = df_player_stats_left.merge(df_player_ratings, on="ID")
 
     park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
@@ -45,25 +93,26 @@ def calculate_player_batting_stats(
         + df_player_stats_total["HP"] * df_lg_stat.loc["coef_HP"]["Value"]
     ) / df_player_stats_total["PA"]
 
-    df_player_stats_right["wOBARight"] = (
-        df_player_stats_right["SINGLE"] * df_lg_stat.loc["coef_1B"]["Value"]
-        + df_player_stats_right["DOUBLE"] * df_lg_stat.loc["coef_2B"]["Value"]
-        + df_player_stats_right["TRIPLE"] * df_lg_stat.loc["coef_3B"]["Value"]
-        + df_player_stats_right["HR"] * df_lg_stat.loc["coef_HR"]["Value"]
-        + (df_player_stats_right["BB"] - df_player_stats_right["IBB"])
-        * df_lg_stat.loc["coef_BB"]["Value"]
-        + df_player_stats_right["HP"] * df_lg_stat.loc["coef_HP"]["Value"]
-    ) / df_player_stats_right["PA"]
+    if not skip_handedness:
+        df_player_stats_right["wOBARight"] = (
+            df_player_stats_right["SINGLE"] * df_lg_stat.loc["coef_1B"]["Value"]
+            + df_player_stats_right["DOUBLE"] * df_lg_stat.loc["coef_2B"]["Value"]
+            + df_player_stats_right["TRIPLE"] * df_lg_stat.loc["coef_3B"]["Value"]
+            + df_player_stats_right["HR"] * df_lg_stat.loc["coef_HR"]["Value"]
+            + (df_player_stats_right["BB"] - df_player_stats_right["IBB"])
+            * df_lg_stat.loc["coef_BB"]["Value"]
+            + df_player_stats_right["HP"] * df_lg_stat.loc["coef_HP"]["Value"]
+        ) / df_player_stats_right["PA"]
 
-    df_player_stats_left["wOBALeft"] = (
-        df_player_stats_left["SINGLE"] * df_lg_stat.loc["coef_1B"]["Value"]
-        + df_player_stats_left["DOUBLE"] * df_lg_stat.loc["coef_2B"]["Value"]
-        + df_player_stats_left["TRIPLE"] * df_lg_stat.loc["coef_3B"]["Value"]
-        + df_player_stats_left["HR"] * df_lg_stat.loc["coef_HR"]["Value"]
-        + (df_player_stats_left["BB"] - df_player_stats_left["IBB"])
-        * df_lg_stat.loc["coef_BB"]["Value"]
-        + df_player_stats_left["HP"] * df_lg_stat.loc["coef_HP"]["Value"]
-    ) / df_player_stats_left["PA"]
+        df_player_stats_left["wOBALeft"] = (
+            df_player_stats_left["SINGLE"] * df_lg_stat.loc["coef_1B"]["Value"]
+            + df_player_stats_left["DOUBLE"] * df_lg_stat.loc["coef_2B"]["Value"]
+            + df_player_stats_left["TRIPLE"] * df_lg_stat.loc["coef_3B"]["Value"]
+            + df_player_stats_left["HR"] * df_lg_stat.loc["coef_HR"]["Value"]
+            + (df_player_stats_left["BB"] - df_player_stats_left["IBB"])
+            * df_lg_stat.loc["coef_BB"]["Value"]
+            + df_player_stats_left["HP"] * df_lg_stat.loc["coef_HP"]["Value"]
+        ) / df_player_stats_left["PA"]
 
     df_player_stats_total["wSB"] = (
         (df_player_stats_total["SB"] * df_lg_stat.loc["run_value_sb"]["Value"])
@@ -83,23 +132,27 @@ def calculate_player_batting_stats(
         (df_player_stats_total["wOBA"] - df_lg_stat.loc["lgwOBA"]["Value"])
         / df_lg_stat.loc["wOBA_SCALE"]["Value"]
     ) * df_player_stats_total["PA"]
-    df_player_stats_right["wRAARight"] = (
-        (df_player_stats_right["wOBARight"] - df_lg_stat.loc["lgwOBA"]["Value"])
-        / df_lg_stat.loc["wOBA_SCALE"]["Value"]
-    ) * df_player_stats_right["PA"]
-    df_player_stats_left["wRAALeft"] = (
-        (df_player_stats_left["wOBALeft"] - df_lg_stat.loc["lgwOBA"]["Value"])
-        / df_lg_stat.loc["wOBA_SCALE"]["Value"]
-    ) * df_player_stats_left["PA"]
+
+    if not skip_handedness:
+        df_player_stats_right["wRAARight"] = (
+            (df_player_stats_right["wOBARight"] - df_lg_stat.loc["lgwOBA"]["Value"])
+            / df_lg_stat.loc["wOBA_SCALE"]["Value"]
+        ) * df_player_stats_right["PA"]
+        df_player_stats_left["wRAALeft"] = (
+            (df_player_stats_left["wOBALeft"] - df_lg_stat.loc["lgwOBA"]["Value"])
+            / df_lg_stat.loc["wOBA_SCALE"]["Value"]
+        ) * df_player_stats_left["PA"]
     df_player_stats_total["wRAA600"] = (
         df_player_stats_total["wRAA"] * 600 / df_player_stats_total["PA"]
     )
-    df_player_stats_right["wRAA600Right"] = (
-        df_player_stats_right["wRAARight"] * 600 / df_player_stats_right["PA"]
-    )
-    df_player_stats_left["wRAA600Left"] = (
-        df_player_stats_left["wRAALeft"] * 600 / df_player_stats_left["PA"]
-    )
+
+    if not skip_handedness:
+        df_player_stats_right["wRAA600Right"] = (
+            df_player_stats_right["wRAARight"] * 600 / df_player_stats_right["PA"]
+        )
+        df_player_stats_left["wRAA600Left"] = (
+            df_player_stats_left["wRAALeft"] * 600 / df_player_stats_left["PA"]
+        )
     df_player_stats_total["OBP"] = (
         df_player_stats_total["H"]
         + df_player_stats_total["BB"]
@@ -114,12 +167,14 @@ def calculate_player_batting_stats(
     df_player_stats_total["OFF"] = (
         df_player_stats_total["BSR"] + df_player_stats_total["wRAA"]
     )
-    df_player_stats_right["OFFRight"] = (
-        df_player_stats_total["BSR"] + df_player_stats_right["wRAARight"]
-    )
-    df_player_stats_left["OFFLeft"] = (
-        df_player_stats_total["BSR"] + df_player_stats_left["wRAALeft"]
-    )
+
+    if not skip_handedness:
+        df_player_stats_right["OFFRight"] = (
+            df_player_stats_total["BSR"] + df_player_stats_right["wRAARight"]
+        )
+        df_player_stats_left["OFFLeft"] = (
+            df_player_stats_total["BSR"] + df_player_stats_left["wRAALeft"]
+        )
     df_player_stats_total["OFFAdj"] = (df_player_stats_total["OFF"]) + (
         df_player_stats_total["ORG"].apply(
             lambda x: park_adjustments[x] if x in park_adjustments else 0
@@ -130,12 +185,14 @@ def calculate_player_batting_stats(
     df_player_stats_total["OFF600"] = (
         df_player_stats_total["OFF"] * 600 / df_player_stats_total["PA"]
     )
-    df_player_stats_right["OFF600Right"] = (
-        df_player_stats_right["OFFRight"] * 600 / df_player_stats_right["PA"]
-    )
-    df_player_stats_left["OFF600Left"] = (
-        df_player_stats_left["OFFLeft"] * 600 / df_player_stats_left["PA"]
-    )
+
+    if not skip_handedness:
+        df_player_stats_right["OFF600Right"] = (
+            df_player_stats_right["OFFRight"] * 600 / df_player_stats_right["PA"]
+        )
+        df_player_stats_left["OFF600Left"] = (
+            df_player_stats_left["OFFLeft"] * 600 / df_player_stats_left["PA"]
+        )
     df_player_stats_total["SBAPERCENT"] = (
         df_player_stats_total["SB"] + df_player_stats_total["CS"]
     ) / (
@@ -148,17 +205,23 @@ def calculate_player_batting_stats(
         x for x in df_player_ratings.columns if x not in (["ID", "POS", "Name"])
     ]
     df_player_stats_total.drop(columns_to_remove, axis=1, inplace=True)
-    df_player_stats_right.drop(columns_to_remove, axis=1, inplace=True)
-    df_player_stats_left.drop(columns_to_remove, axis=1, inplace=True)
+
+    if not skip_handedness:
+        df_player_stats_right.drop(columns_to_remove, axis=1, inplace=True)
+        df_player_stats_left.drop(columns_to_remove, axis=1, inplace=True)
 
     for stat in df_lg_stat.index.tolist():
         df_player_stats_total[stat] = df_lg_stat.loc[stat]["Value"]
-        df_player_stats_right[stat] = df_lg_stat.loc[stat]["Value"]
-        df_player_stats_left[stat] = df_lg_stat.loc[stat]["Value"]
+
+        if not skip_handedness:
+            df_player_stats_right[stat] = df_lg_stat.loc[stat]["Value"]
+            df_player_stats_left[stat] = df_lg_stat.loc[stat]["Value"]
 
     df_player_stats_total.set_index("ID", inplace=True)
-    df_player_stats_right.set_index("ID", inplace=True)
-    df_player_stats_left.set_index("ID", inplace=True)
+
+    if not skip_handedness:
+        df_player_stats_right.set_index("ID", inplace=True)
+        df_player_stats_left.set_index("ID", inplace=True)
 
     return df_player_stats_total, df_player_stats_right, df_player_stats_left
 
@@ -204,15 +267,10 @@ def process_batting_data(
         list(woba.calc_league_data(league_batting_totals).items()),
         columns=["Stat", "Value"],
     )
-    df_lg_batting_stat["season"] = season
-    df_lg_batting_stat["league"] = league
     df_lg_batting_stat.set_index("Stat", inplace=True)
 
     pd.DataFrame(league_batting_totals, index=[0]).to_csv(
         f"./files/{league}/{season}/output/{league}-{season}-batting-totals.csv"
-    )
-    df_lg_batting_stat.round(9).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
     )
 
     (
@@ -237,6 +295,18 @@ def process_batting_data(
     )
     df_player_batting_stats_left.to_csv(
         f"./files/{league}/{season}/output/{league}-{season}-left-hitting.csv"
+    )
+
+    df_lg_batting_stat = calculate_batting_attribute_averages(
+        df_player_batting_stats,
+        df_player_ratings,
+        df_lg_batting_stat,
+        league_batting_totals["PA"],
+    )
+    df_lg_batting_stat["season"] = season
+    df_lg_batting_stat["league"] = league
+    df_lg_batting_stat.round(9).to_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
     )
 
     return (

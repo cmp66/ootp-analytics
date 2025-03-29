@@ -1,5 +1,27 @@
 import pandas as pd
-from model import Modeler, convert_80_rating
+from model import Modeler
+
+conversion_to_potential = {
+    "BABIP": "BA P",
+    "CON": "CON P",
+    "GAP": "GAP P",
+    "POW": "POW P",
+    "EYE": "EYE P",
+    "K's": "K P",
+    "BA vR": "BA vR",
+    "BA vL": "BA vL",
+    "GAP vR": "GAP vR",
+    "GAP vL": "GAP vL",
+    "POW vR": "POW vR",
+    "POW vL": "POW vL",
+    "EYE vR": "EYE vR",
+    "EYE vL": "EYE vL",
+    "K vR": "K vR",
+    "K vL": "K vL",
+    "lgwOBA": "lgwOBA",
+    # "lgOBP": "lgOBP",
+}
+
 
 feature_values = {
     "total": [
@@ -7,6 +29,7 @@ feature_values = {
         "BABIP",
         "BA vR",
         "BA vL",
+        "GAP",
         "GAP vR",
         "GAP vL",
         "POW",
@@ -19,7 +42,34 @@ feature_values = {
         "K vR",
         "K vL",
         "lgwOBA",
-        "lgOBP",
+        # "lgOBP",
+        # "B",
+        #########################
+        # "GAP",
+        # "lgK_RATE",
+        # "wOBA_SCALE",
+        # "BBT",
+        # "GBT",
+        # "FBT",
+        # "SPE",
+        # "BUN",
+        # "BFH",
+        # "HT",
+        # "Age",
+        # "RUN",
+        # "lgXBH_RATE",
+        # "lgBABIP",
+        # "lgHR_RATE",
+    ],
+    "potential": [
+        # "ID",
+        "BABIP",
+        "GAP",
+        "POW",
+        "EYE",
+        "K's",
+        "lgwOBA",
+        # "lgOBP",
         # "B",
         #########################
         # "GAP",
@@ -127,6 +177,7 @@ exclude_adj = [
 
 targets = {
     "total": ["wRAA600"],
+    "potential": ["wRAA600"],
     "right": ["wRAA600Right"],
     "left": ["wRAA600Left"],
 }
@@ -149,15 +200,40 @@ class HittingModel(Modeler):
         self.file_mod = (
             ""
             if self.vsType == "total"
-            else "-right" if self.vsType == "right" else "-left"
+            else (
+                "-potential"
+                if self.vsType == "potential"
+                else "-right" if self.vsType == "right" else "-left"
+            )
         )
         self.model = Modeler(feature_values[self.vsType], [targets[self.vsType][0]])
+
+    def conform_data(self, data):
+
+        with pd.option_context("future.no_silent_downcasting", True):
+            data.replace("-", 0, inplace=True, regex=False)
+
+        # for col in feature_values[self.vsType]:
+        #     if col not in exclude_adj:
+        #         data[col] = data[col].apply(convert_80_rating
+
+        df_id = data["ID"]
+
+        filtered_data = data[feature_values[self.vsType] + [targets[self.vsType][0]]]
+
+        # create a dataset with a subset of the columns
+        self.conform_column_types(
+            filtered_data, feature_values[self.vsType] + targets[self.vsType]
+        )
+
+        return filtered_data, df_id
 
     def prepare_data(self, season, pa_limit):
         # load fielding dataset from csv
 
+        local_file_mod = "" if self.vsType == "potential" else self.file_mod
         hitting = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}{self.file_mod}-hitting.csv"
+            f"./files/{self.league}/{season}/output/{self.league}-{season}{local_file_mod}-hitting.csv"
         )
         player_data = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
@@ -166,25 +242,15 @@ class HittingModel(Modeler):
             hitting.replace("-", 0, inplace=True)
             player_data.replace("-", 0, inplace=True)
 
-        for col in feature_values[self.vsType]:
-            if col not in exclude_adj:
-                player_data[col] = player_data[col].apply(convert_80_rating)
-
         # combine fielding and player data
         master_data = hitting.merge(player_data, on="ID")
         master_data = master_data[master_data["PA"] >= pa_limit]
 
-        df_id = master_data["ID"]
-        filtered_data = master_data[
-            feature_values[self.vsType] + [targets[self.vsType][0]]
-        ]
+        if self.vsType == "potential":
+            for k, v in conversion_to_potential.items():
+                master_data[k] = master_data[v]
 
-        # create a dataset with a subset of the columns
-        self.conform_column_types(
-            filtered_data, feature_values[self.vsType] + targets[self.vsType]
-        )
-
-        return filtered_data, df_id
+        return self.conform_data(master_data)
 
     def load_data(self, pa_limit=100):
 
@@ -209,9 +275,13 @@ class HittingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, pa_limit):
+    def predict(self, season, pa_limit, skip_load=False, preloaded_data=None):
 
-        filtered_data, df_id = self.prepare_data(season, pa_limit)
+        filtered_data, df_id = (
+            self.conform_data(preloaded_data)
+            if skip_load
+            else self.prepare_data(season, pa_limit)
+        )
         filtered_data = filtered_data.drop(columns=targets[self.vsType][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
@@ -226,6 +296,11 @@ class HittingModel(Modeler):
         )
 
     def load_model(self):
-        self.model.load_data(
+        self.model.load_model(
             f"./files/models/{self.ratings_type}{self.file_mod}-hitting-model.pt"
+        )
+
+    def load_released_model(self):
+        self.model.load_model(
+            f"./files/models/released/{self.ratings_type}{self.file_mod}-hitting-model.pt"
         )
