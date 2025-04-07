@@ -26,12 +26,196 @@ TABS = [
     LEAGUE_BATTING,
     LEAGUE_PITCHING,
     PLAYER_FIELDING,
-    LEAGUE_FIELDING,
+    # LEAGUE_FIELDING,
     WOBA,
     FIELDING_PLAYABLES,
     PREDICTIONS,
     POTENTIALS,
 ]
+
+REPORT_COLUMNS = {
+    RATINGS: ["ID", "LPOS", "First Name", "Last Name", "ORG", "LG", "Age", "Lev"],
+    CURRENT_PIVOTS: [
+        "ID",
+        "LPOS",
+        "First Name",
+        "Last Name",
+        "ORG",
+        "Age",
+        "wRAA",
+        "BSR",
+        "OFF",
+        "OFFAdj",
+        "runsPAdj",
+        "IPClean",
+        "WAA",
+        "WAAAdj",
+        "WAA200",
+    ],
+    PLAYER_BATTING: [
+        "ID",
+        "Name",
+        "GS",
+        "PA",
+        "wOBA",
+        "wRAA",
+        "wRAA600",
+        "BSR",
+        "BSR600",
+        "OFF",
+        "OFFAdj",
+        "OFF600",
+    ],
+    PLAYER_FIELDING: [
+        "ID",
+        "Name",
+        "POS",
+        "G",
+        "GS",
+        "TC",
+        "IPClean",
+        "runsPSeason",
+        "runsPNow",
+        "wRunsPSeason",
+        "runsPAdj",
+        "runsPAdjSeason",
+        "season",
+        "league",
+    ],
+    PLAYER_PITCHING: ["ID", "Name", "IPClean", "WAA", "WAAAdj", "WAA200"],
+    LEAGUE_BATTING: [
+        "ID",
+        "Unnamed: 0",
+        "Team",
+        "Team Name",
+        "G",
+        "GS",
+        "PA",
+        "AB",
+        "H",
+        "1B",
+        "2B",
+        "3B",
+        "HR",
+        "R",
+        "RBI",
+        "BB",
+        "IBB",
+        "SH",
+        "SF",
+        "SO",
+        "GIDP",
+        "wRC",
+        "SB",
+        "UBR",
+    ],
+    LEAGUE_PITCHING: [
+        "Unnamed: 0",
+        "Team Name",
+        "W",
+        "L",
+        "WIN%",
+        "SV",
+        "IP",
+        "R",
+        "HR",
+        "BB",
+        "K",
+        "WHIP",
+        "ERA",
+        "DP",
+        "PPG",
+        "FIP-",
+    ],
+    LEAGUE_FIELDING: [
+        "Team Name",
+        "G",
+        "GS",
+        "TC",
+        "PO",
+        "A",
+        "E",
+        "DP",
+        "PB",
+        "WP",
+        "SB",
+    ],
+    WOBA: [
+        "Stat",
+        "Value",
+        "season",
+        "league",
+    ],
+    FIELDING_PLAYABLES: [
+        "Unnamed: 0",
+        "Range",
+        "Error",
+        "Arm",
+        "DP",
+        "Frame",
+        "Block",
+    ],
+    PREDICTIONS: [
+        "ID",
+        "First Name",
+        "Last Name",
+        "ORG",
+        "Age",
+        "Lev",
+        "wRAA600",
+        "WAA200-SP",
+        "WAA200-RP",
+        "runsPAdjSeason-P2",
+        "runsPAdjSeason-P3",
+        "runsPAdjSeason-P4",
+        "runsPAdjSeason-P5",
+        "runsPAdjSeason-P6",
+        "runsPAdjSeason-P7",
+        "runsPAdjSeason-P8",
+        "runsPAdjSeason-P9",
+        "BSR600",
+        "WAA600-C",
+        "WAA600-1B",
+        "WAA600-2B",
+        "WAA600-3B",
+        "WAA600-SS",
+        "WAA600-LF",
+        "WAA600-CF",
+        "WAA600-RF",
+        "MaxWAA600",
+        "MaxWAA600Pos",
+    ],
+    POTENTIALS: [
+        "ID",
+        "First Name",
+        "Last Name",
+        "ORG",
+        "Age",
+        "Lev",
+        "wRAA600",
+        "WAA200-SP",
+        "WAA200-RP",
+        "runsPAdjSeason-P2",
+        "runsPAdjSeason-P3",
+        "runsPAdjSeason-P4",
+        "runsPAdjSeason-P5",
+        "runsPAdjSeason-P6",
+        "runsPAdjSeason-P7",
+        "runsPAdjSeason-P8",
+        "runsPAdjSeason-P9",
+        "BSR600",
+        "WAA600-C",
+        "WAA600-1B",
+        "WAA600-2B",
+        "WAA600-3B",
+        "WAA600-SS",
+        "WAA600-LF",
+        "WAA600-CF",
+        "WAA600-RF",
+        "MaxWAA600",
+        "MaxWAA600Pos",
+    ],
+}
 
 
 class ExcelReportWriter:
@@ -130,9 +314,9 @@ class ExcelReportWriter:
         league_pitching_stats = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-team-pitching.csv"
         )
-        league_fielding_stats = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-team-fielding.csv"
-        )
+        # league_fielding_stats = pd.read_csv(
+        #     f"./files/{self.league}/{season}/output/{self.league}-{season}-team-fielding.csv"
+        # )
         woba = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-woba-calcs.csv"
         )
@@ -141,8 +325,10 @@ class ExcelReportWriter:
         )
 
         # FIXME
-        batting_stats = batting_stats.drop(columns=["BsR"])
-        batting_stats.rename(columns={"BSR2": "BSR"}, inplace=True)
+        if "BsR" in batting_stats.columns:
+            batting_stats = batting_stats.drop(columns=["BsR"])
+        if "BSR2" in batting_stats.columns:
+            batting_stats.rename(columns={"BSR2": "BSR"}, inplace=True)
 
         observed_summary = self.create_summary(
             ratings, batting_stats, pitching_stats, fielding_stats
@@ -155,6 +341,19 @@ class ExcelReportWriter:
         }
 
         args = args | ({"if_sheet_exists": "overlay"} if file_exists else {})
+
+        observed_summary = observed_summary[REPORT_COLUMNS[CURRENT_PIVOTS]]
+        ratings = ratings[REPORT_COLUMNS[RATINGS]]
+        batting_stats = batting_stats[REPORT_COLUMNS[PLAYER_BATTING]]
+        pitching_stats = pitching_stats[REPORT_COLUMNS[PLAYER_PITCHING]]
+        fielding_stats = fielding_stats[REPORT_COLUMNS[PLAYER_FIELDING]]
+        league_batting_stats = league_batting_stats[REPORT_COLUMNS[LEAGUE_BATTING]]
+        league_pitching_stats = league_pitching_stats[REPORT_COLUMNS[LEAGUE_PITCHING]]
+        # league_fielding_stats = league_fielding_stats[
+        #     REPORT_COLUMNS[LEAGUE_FIELDING]
+        # ]
+        woba = woba[REPORT_COLUMNS[WOBA]]
+        fielding_playables = fielding_playables[REPORT_COLUMNS[FIELDING_PLAYABLES]]
 
         with pd.ExcelWriter(**args) as writer:
 
@@ -169,9 +368,9 @@ class ExcelReportWriter:
             league_pitching_stats.to_excel(
                 writer, sheet_name=LEAGUE_PITCHING, index=False
             )
-            league_fielding_stats.to_excel(
-                writer, sheet_name=LEAGUE_FIELDING, index=False
-            )
+            # league_fielding_stats.to_excel(
+            #     writer, sheet_name=LEAGUE_FIELDING, index=False
+            # )
             woba.to_excel(writer, sheet_name=WOBA, index=False)
             fielding_playables.to_excel(
                 writer, sheet_name=FIELDING_PLAYABLES, index=False
@@ -182,7 +381,7 @@ class ExcelReportWriter:
         if CURRENT_PIVOTS not in wb[CURRENT_PIVOTS].tables:
             tab = openpyxl.worksheet.table.Table(
                 displayName=CURRENT_PIVOTS,
-                ref=f"A1:{openpyxl.utils.get_column_letter(ratings.shape[1])}{len(ratings)+1}",
+                ref=f"A1:{openpyxl.utils.get_column_letter(observed_summary.shape[1])}{len(observed_summary)+1}",
             )
             wb[CURRENT_PIVOTS].add_table(tab)
             wb.save(self.filename)
@@ -219,13 +418,13 @@ class ExcelReportWriter:
             wb[PLAYER_FIELDING].add_table(tab)
             wb.save(self.filename)
 
-        if LEAGUE_FIELDING not in wb[LEAGUE_FIELDING].tables:
-            tab = openpyxl.worksheet.table.Table(
-                displayName=LEAGUE_FIELDING,
-                ref=f"A1:{openpyxl.utils.get_column_letter(league_fielding_stats.shape[1])}{len(league_fielding_stats)+1}",
-            )
-            wb[LEAGUE_FIELDING].add_table(tab)
-            wb.save(self.filename)
+        # if LEAGUE_FIELDING not in wb[LEAGUE_FIELDING].tables:
+        #     tab = openpyxl.worksheet.table.Table(
+        #         displayName=LEAGUE_FIELDING,
+        #         ref=f"A1:{openpyxl.utils.get_column_letter(league_fielding_stats.shape[1])}{len(league_fielding_stats)+1}",
+        #     )
+        #     wb[LEAGUE_FIELDING].add_table(tab)
+        #     wb.save(self.filename)
 
         if LEAGUE_BATTING not in wb[LEAGUE_BATTING].tables:
             tab = openpyxl.worksheet.table.Table(
@@ -263,6 +462,8 @@ class ExcelReportWriter:
 
     def write_predictions(self, df_predictions: pd.DataFrame):
 
+        df_predictions = df_predictions[REPORT_COLUMNS[PREDICTIONS]]
+
         args = {
             "path": self.filename,
             "engine": "openpyxl",
@@ -285,6 +486,8 @@ class ExcelReportWriter:
         wb.close()
 
     def write_potential_predictions(self, df_predictions: pd.DataFrame):
+
+        df_predictions = df_predictions[REPORT_COLUMNS[POTENTIALS]]
 
         args = {
             "path": self.filename,
