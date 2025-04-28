@@ -97,7 +97,7 @@ feature_values = {
         # "GAP vL",
         # "POW",
         "POW vR",
-        "POW vL",
+        # "POW vL",
         # "EYE",
         "EYE vR",
         # "EYE vL",
@@ -245,6 +245,23 @@ class HittingModel(Modeler):
         # combine fielding and player data
         master_data = hitting.merge(player_data, on="ID")
         master_data = master_data[master_data["PA"] >= pa_limit]
+
+        if self.vsType == "total" or self.vsType == "potential":
+            master_data = master_data[
+                (master_data["wRAA600"] >= -40.0) & (master_data["wRAA600"] <= 60.0)
+            ]
+        else:
+            master_data = (
+                master_data[
+                    (master_data["wRAA600Right"] >= -40.0)
+                    & (master_data["wRAA600Right"] <= 60.0)
+                ]
+                if self.vsType == "right"
+                else master_data[
+                    (master_data["wRAA600Left"] >= -50.0)
+                    & (master_data["wRAA600Left"] <= 80.0)
+                ]
+            )
 
         if self.vsType == "potential":
             for k, v in conversion_to_potential.items():

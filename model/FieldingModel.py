@@ -110,6 +110,11 @@ class FieldingModel(Modeler):
         filtered_data = filtered_data[filtered_data["IPClean"] >= ip_limit]
         filtered_data = filtered_data[filtered_data["POS"] == self.position]
 
+        filtered_data = filtered_data[
+            (filtered_data["runsPAdjSeason"] >= -100.0)
+            & (filtered_data["runsPAdjSeason"] <= 100.0)
+        ]
+
         return self.conform_data(filtered_data)
 
     def load_data(self, ip_limit=200):

@@ -162,6 +162,10 @@ class PitchingModel(Modeler):
         master_data = master_data[master_data["IPClean"] >= ip_limit]
         master_data = master_data[master_data["PRole"] >= self.role]
 
+        master_data = master_data[
+            (master_data["WAA200"] >= -8.0) & (master_data["WAA200"] <= 8.0)
+        ]
+
         # if self.use_potential:
         #    for k, v in conversion_to_potential.items():
         #        master_data[k] = master_data[v]

@@ -5,9 +5,10 @@ import pandas as pd
 
 STATS_PLUS_LEAGUE_NAMES = {
     "Dugout": "thedugout",
+    "TGS": "tgs",
 }
 
-STATS_BASE = "https://www.statsplus.net/"
+STATS_BASE = "https://statsplus.net/"
 
 
 def get_drafted_players_from_statsplus(league: str) -> list:
