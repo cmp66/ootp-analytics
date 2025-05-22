@@ -40,6 +40,34 @@ ratings_conversions_10 = {
 }
 
 
+def convert_dump_positions(position: int) -> str:
+
+    if position == 1:
+        return "P"
+    elif position == 2:
+        return "C"
+    elif position == 3:
+        return "1B"
+    elif position == 4:
+        return "2B"
+    elif position == 5:
+        return "3B"
+    elif position == 6:
+        return "SS"
+    elif position == 7:
+        return "LF"
+    elif position == 8:
+        return "CF"
+    elif position == 9:
+        return "RF"
+    elif position == 0:
+        return "DH"
+    elif position == 10:
+        return "DH"
+    else:
+        raise ValueError(f"Invalid position value: {position}")
+
+
 def convert_80_rating(rating: int) -> int:
     return float(rating) / 100.0
 
@@ -171,6 +199,28 @@ def convert_velocity(vel: str) -> int:
         return 20
 
 
+def convert_personalilty_trait(trait: str) -> int:
+    if trait == "1" or trait == "L":
+        return 40
+    elif trait == "2" or trait == "N" or trait == "U":
+        return 100
+    elif trait == "3" or trait == "H":
+        return 160
+    else:
+        return trait
+
+
+def convert_injury_prone(trait: str) -> int:
+    if trait == "Durable" or trait == "Iron Man":
+        return 40
+    elif trait == "Normal":
+        return 100
+    elif trait == "Fragile" or trait == "Wrecked":
+        return 160
+    else:
+        return trait
+
+
 def convert_height_to_cm(height: str) -> int:
     height = height.split("'")
     if len(height) != 3:
@@ -220,7 +270,7 @@ class RegressionRunner:
             )
         X_scaled = StandardScaler().fit_transform(X)
 
-        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.15)
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.25)
 
         # Convert the data to PyTorch tensors
         self.X_train_tensor = torch.tensor(X_train, dtype=torch.float32)

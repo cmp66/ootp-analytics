@@ -2,13 +2,12 @@ import pandas as pd
 from model import Modeler
 
 feature_values = {
-    9: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
-    8: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
-    7: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
+    9: ["SPE", "OF RNG", "OF ARM", "OF ERR"],
+    8: ["SPE", "OF RNG", "OF ARM", "OF ERR"],
+    7: ["SPE", "OF RNG", "OF ARM", "OF ERR"],
     6: [
-        # "Age",
-        "WT",
-        "SPE",
+        # "WT",
+        # "SPE",
         # "IFRngDelta",
         # "IFArmDelta",
         # "IFTDPDelta",
@@ -20,9 +19,8 @@ feature_values = {
         # "SS",
     ],
     5: [
-        # "Age",
-        "WT",
-        "SPE",
+        # "WT",
+        # "SPE",
         "IF RNG",
         "IF ARM",
         "TDP",
@@ -30,9 +28,8 @@ feature_values = {
         # "3B",
     ],
     4: [
-        # "Age",
-        "WT",
-        "SPE",
+        # "WT",
+        # "SPE",
         "IF RNG",
         "IF ARM",
         "TDP",
@@ -40,9 +37,8 @@ feature_values = {
         # "2B",
     ],
     3: [
-        # "Age",
-        "WT",
-        "SPE",
+        # "WT",
+        # "SPE",
         "IF RNG",
         "IF ARM",
         "TDP",
@@ -50,7 +46,7 @@ feature_values = {
         "HT",
         # "1B",
     ],
-    2: ["WT", "SPE", "C ABI", "C ARM", "C FRM"],
+    2: ["C ABI", "C ARM", "C FRM"],
 }
 
 targets = {
@@ -138,7 +134,7 @@ class FieldingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, ip_limit, skip_load=False, preloaded_data=None):
+    def predict(self, season, ip_limit=0, skip_load=False, preloaded_data=None):
         filtered_data, df_id = (
             self.conform_data(preloaded_data)
             if skip_load

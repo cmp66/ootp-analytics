@@ -26,19 +26,19 @@ conversion_to_potential = {
 feature_values = {
     "total": [
         # "ID",
-        "BABIP",
+        # "BABIP",
         "BA vR",
         "BA vL",
-        "GAP",
+        # "GAP",
         "GAP vR",
         "GAP vL",
-        "POW",
+        # "POW",
         "POW vR",
         "POW vL",
-        "EYE",
+        # "EYE",
         "EYE vR",
         "EYE vL",
-        "K's",
+        # "K's",
         "K vR",
         "K vL",
         "lgwOBA",
@@ -292,7 +292,7 @@ class HittingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, pa_limit, skip_load=False, preloaded_data=None):
+    def predict(self, season, pa_limit=0, skip_load=False, preloaded_data=None):
 
         filtered_data, df_id = (
             self.conform_data(preloaded_data)

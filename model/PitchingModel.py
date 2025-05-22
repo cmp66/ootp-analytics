@@ -16,22 +16,23 @@ conversion_to_potential = {
 feature_values = {
     "SP": [
         # "T",
-        "STU",
+        # "STU",
         "STU vR",
         "STU vL",
-        "CON.1",
+        # "CON.1",
         "CON.1 vR",
         "CON.1 vL",
-        "PBABIP",
+        # "PBABIP",
         "PBABIP vR",
         "PBABIP vL",
-        "HRR",
+        # "HRR",
         "HRR vR",
         "HRR vL",
+        # "Age",
         # "VELO",
-        # "STM",
+        "STM",
         "HLD",
-        "PIT",
+        # "PIT",
         # "G/F",
         # "lgwOBA",
         # "lgOBP",
@@ -40,21 +41,22 @@ feature_values = {
         # "Slot",
     ],
     "RP": [
-        "STU",
+        # "STU",
         "STU vR",
         "STU vL",
-        "CON.1",
+        # "CON.1",
         "CON.1 vR",
         "CON.1 vL",
-        "PBABIP",
+        # "PBABIP",
         "PBABIP vR",
         "PBABIP vL",
-        "HRR",
+        # "HRR",
         "HRR vR",
         "HRR vL",
-        "PIT",
+        # "PIT",
         "STM",
         "HLD",
+        # "Age",
         # "lgwOBA",
         # "lgOBP",
         # "HT",
@@ -194,7 +196,7 @@ class PitchingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, ip_limit, skip_load=False, preloaded_data=None):
+    def predict(self, season, ip_limit=0, skip_load=False, preloaded_data=None):
         filtered_data, df_id = (
             self.conform_data(preloaded_data)
             if skip_load
