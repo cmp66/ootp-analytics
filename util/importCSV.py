@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 from model import (
+    convert_personalilty_trait,
     convert_height_to_cm,
     convert_groundball_flyball,
     convert_velocity,
@@ -10,6 +11,7 @@ from model import (
     convert_bat_rl,
     convert_gbt,
     convert_fbt,
+    convert_dump_positions,
 )
 
 
@@ -120,6 +122,22 @@ def import_ratings(
     df_player_ratings = df_player_ratings.drop(columns=["EXP"])
     df_player_ratings.set_index("ID", inplace=True)
 
+    df_player_ratings["LEA"] = df_player_ratings["LEA"].apply(
+        convert_personalilty_trait
+    )
+    df_player_ratings["LOY"] = df_player_ratings["LOY"].apply(
+        convert_personalilty_trait
+    )
+    df_player_ratings["AD"] = df_player_ratings["AD"].apply(convert_personalilty_trait)
+    df_player_ratings["FIN"] = df_player_ratings["FIN"].apply(
+        convert_personalilty_trait
+    )
+    df_player_ratings["WE"] = df_player_ratings["WE"].apply(convert_personalilty_trait)
+    df_player_ratings["INT"] = df_player_ratings["INT"].apply(
+        convert_personalilty_trait
+    )
+    # df_player_ratings["PRONE"] = df_player_ratings["PRONE"].apply(convert_personalilty_trait)
+
     df_player_ratings["WT"] = df_player_ratings["WT"].apply(lambda x: int(x[:3]))
     df_player_ratings["HT"] = df_player_ratings["HT"].apply(convert_height_to_cm)
 
@@ -165,11 +183,18 @@ def import_ootp_dump_ratings(
             "team_id": "ORG",
             "first_name": "First Name",
             "last_name": "Last Name",
+            "position": "LPOS",
             "weight": "WT",
             "height": "HT",
             "bats": "B",
             "throws": "T",
             "age": "Age",
+            "personality_greed": "FIN",
+            "personality_loyalty": "LOY",
+            "personality_work_ethic": "WE",
+            "personality_intelligence": "INT",
+            "personality_leader": "LEA",
+            "prone_overall": "PRONE",
         },
         inplace=True,
     )
@@ -347,6 +372,10 @@ def import_ootp_dump_ratings(
     )
     df_player_ratings_base = df_player_ratings_base.merge(
         df_player_pitching_ratings_base, on="ID", how="outer"
+    )
+
+    df_player_ratings_base["LPOS"] = df_player_ratings_base["LPOS"].apply(
+        convert_dump_positions
     )
 
     df_player_ratings_base = df_player_ratings_base[df_player_ratings_base["ORG"] > 0]
@@ -743,6 +772,12 @@ def import_ootp_dump_stats(
 
 
 attribute_columns = [
+    "LEA",
+    "LOY",
+    "FIN",
+    "WE",
+    "INT",
+    # "PRONE",
     "CON",
     "GAP",
     "POW",

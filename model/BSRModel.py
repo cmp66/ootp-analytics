@@ -81,6 +81,10 @@ class BSRModel(Modeler):
         master_data = hitting.merge(player_data, on="ID")
         master_data = master_data[master_data["PA"] >= pa_limit]
 
+        master_data = master_data[
+            (master_data["BSR600"] >= -8.0) & (master_data["BSR600"] <= 8.0)
+        ]
+
         return self.conform_data(master_data)
 
     def load_data(self, pa_limit=300):
@@ -105,7 +109,7 @@ class BSRModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, pa_limit, skip_load=False, preloaded_data=None):
+    def predict(self, season, pa_limit=0, skip_load=False, preloaded_data=None):
         filtered_data, df_id = (
             self.conform_data(preloaded_data)
             if skip_load

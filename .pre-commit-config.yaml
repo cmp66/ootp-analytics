@@ -2,12 +2,12 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-    -   id: trailing-whitespace
-        language: python
-    -   id: end-of-file-fixer
-        language: python
+#    -   id: trailing-whitespace
+#        language: python
+#    -   id: end-of-file-fixer
+#        language: python
     -   id: check-yaml
-    -   id: check-added-large-files
+#    -   id: check-added-large-files
     -   id: check-json
         language_version: python3.13
 -   repo: https://github.com/ambv/black

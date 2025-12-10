@@ -2,12 +2,11 @@ import pandas as pd
 from model import Modeler
 
 feature_values = {
-    9: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
-    8: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
-    7: ["WT", "SPE", "OF RNG", "OF ARM", "OF ERR"],
+    9: ["SPE", "OF RNG", "OF ARM", "OF ERR", "RF"],
+    8: ["SPE", "OF RNG", "OF ARM", "OF ERR", "CF"],
+    7: ["OF RNG", "OF ARM", "OF ERR", "LF"],
     6: [
-        # "Age",
-        "WT",
+        # "WT",
         "SPE",
         # "IFRngDelta",
         # "IFArmDelta",
@@ -17,40 +16,37 @@ feature_values = {
         "IF ARM",
         "TDP",
         "IF ERR",
-        # "SS",
+        "SS",
     ],
     5: [
-        # "Age",
-        "WT",
+        # "WT",
         "SPE",
         "IF RNG",
         "IF ARM",
         "TDP",
         "IF ERR",
-        # "3B",
+        "3B",
     ],
     4: [
-        # "Age",
-        "WT",
-        "SPE",
+        # "WT",
+        # "SPE",
         "IF RNG",
         "IF ARM",
         "TDP",
         "IF ERR",
-        # "2B",
+        "2B",
     ],
     3: [
-        # "Age",
-        "WT",
-        "SPE",
+        # "WT",
+        # "SPE",
         "IF RNG",
         "IF ARM",
         "TDP",
         "IF ERR",
         "HT",
-        # "1B",
+        "1B",
     ],
-    2: ["WT", "SPE", "C ABI", "C ARM", "C FRM"],
+    2: ["C ABI", "C ARM", "C FRM", "C"],
 }
 
 targets = {
@@ -110,6 +106,11 @@ class FieldingModel(Modeler):
         filtered_data = filtered_data[filtered_data["IPClean"] >= ip_limit]
         filtered_data = filtered_data[filtered_data["POS"] == self.position]
 
+        filtered_data = filtered_data[
+            (filtered_data["runsPAdjSeason"] >= -100.0)
+            & (filtered_data["runsPAdjSeason"] <= 100.0)
+        ]
+
         return self.conform_data(filtered_data)
 
     def load_data(self, ip_limit=200):
@@ -133,7 +134,7 @@ class FieldingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, ip_limit, skip_load=False, preloaded_data=None):
+    def predict(self, season, ip_limit=0, skip_load=False, preloaded_data=None):
         filtered_data, df_id = (
             self.conform_data(preloaded_data)
             if skip_load

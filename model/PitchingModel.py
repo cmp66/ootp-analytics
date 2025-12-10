@@ -28,12 +28,13 @@ feature_values = {
         "HRR",
         "HRR vR",
         "HRR vL",
-        # "VELO",
-        # "STM",
+        # "Age",
+        "VELO",
+        "STM",
         "HLD",
         "PIT",
-        # "G/F",
-        # "lgwOBA",
+        "G/F",
+        "lgwOBA",
         # "lgOBP",
         "RUNS_PER_OUT",
         # "HT",
@@ -55,14 +56,15 @@ feature_values = {
         "PIT",
         "STM",
         "HLD",
-        # "lgwOBA",
+        # "Age",
+        "lgwOBA",
         # "lgOBP",
         # "HT",
-        "RUNS_PER_OUT",
-        # "T",
-        # "G/F",
-        # "VELO",
-        # "Slot",
+        # "RUNS_PER_OUT",
+        "T",
+        "G/F",
+        "VELO",
+        "Slot",
     ],
     "SP-potential": [
         # "T",
@@ -162,6 +164,10 @@ class PitchingModel(Modeler):
         master_data = master_data[master_data["IPClean"] >= ip_limit]
         master_data = master_data[master_data["PRole"] >= self.role]
 
+        master_data = master_data[
+            (master_data["WAA200"] >= -8.0) & (master_data["WAA200"] <= 8.0)
+        ]
+
         # if self.use_potential:
         #    for k, v in conversion_to_potential.items():
         #        master_data[k] = master_data[v]
@@ -190,7 +196,7 @@ class PitchingModel(Modeler):
     def evaluate(self):
         return self.model.evaluate()
 
-    def predict(self, season, ip_limit, skip_load=False, preloaded_data=None):
+    def predict(self, season, ip_limit=0, skip_load=False, preloaded_data=None):
         filtered_data, df_id = (
             self.conform_data(preloaded_data)
             if skip_load
