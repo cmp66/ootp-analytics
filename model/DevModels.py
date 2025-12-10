@@ -23,23 +23,23 @@ CATEGORY_RF = "rightfield"
 
 feature_values = {
     CATEGORY_HITTING: [
-        # "BABIP",
+        "BABIP",
         "BA vR",
         "BA vL",
         "BA P",
-        # "GAP",
+        "GAP",
         "GAP vR",
         "GAP vL",
         "GAP P",
-        # "POW",
+        "POW",
         "POW vR",
         "POW vL",
         "POW P",
-        # "EYE",
+        "EYE",
         "EYE vR",
         "EYE vL",
         "EYE P",
-        # "K's",
+        "K's",
         "K vR",
         "K vL",
         "K P",
@@ -49,10 +49,10 @@ feature_values = {
         # "FIN",
         "WE",
         "INT",
-        "PRONE",
-        "WT",
+        # "PRONE",
+        # "WT",
         "SPE",
-        "RUN",
+        # "RUN",
     ],
     CATEGORY_BASERUNNING: [
         "Age",
@@ -60,61 +60,32 @@ feature_values = {
         "SR",
         "STE",
         "RUN",
-        # "WT",
-        # "WE",
+        "WT",
+        "WE",
         # "INT",
         # "PRONE"
     ],
     CATEGORY_SP: [
         "Age",
         "T",
-        # "STU",
+        "STU",
         "STU vR",
         "STU vL",
-        # "CON.1",
+        "CON.1",
         "CON.1 vR",
         "CON.1 vL",
-        # "PBABIP",
+        "PBABIP",
         "PBABIP vR",
         "PBABIP vL",
-        # "HRR",
+        "HRR",
         "HRR vR",
         "HRR vL",
         "VELO",
         "STM",
         "HLD",
         "PIT",
-        "HT",
-        "Slot",
-        "STU P",
-        "CON.1 P",
-        "PBABIP P",
-        "HRR P",
-        "WE",
-        "INT",
-        # "PRONE",
-    ],
-    CATEGORY_RP: [
-        "Age",
-        "T",
-        # "STU",
-        "STU vR",
-        "STU vL",
-        # "CON.1",
-        "CON.1 vR",
-        "CON.1 vL",
-        # "PBABIP",
-        "PBABIP vR",
-        "PBABIP vL",
-        # "HRR",
-        "HRR vR",
-        "HRR vL",
-        "PIT",
-        "STM",
-        "HLD",
-        "VELO",
-        "HT",
-        "Slot",
+        # "HT",
+        # "Slot",
         "STU P",
         "CON.1 P",
         "PBABIP P",
@@ -122,6 +93,35 @@ feature_values = {
         "WE",
         "INT",
         "PRONE",
+    ],
+    CATEGORY_RP: [
+        "Age",
+        "T",
+        "STU",
+        "STU vR",
+        "STU vL",
+        "CON.1",
+        "CON.1 vR",
+        "CON.1 vL",
+        "PBABIP",
+        "PBABIP vR",
+        "PBABIP vL",
+        "HRR",
+        "HRR vR",
+        "HRR vL",
+        "PIT",
+        "STM",
+        "HLD",
+        "VELO",
+        # "HT",
+        # "Slot",
+        "STU P",
+        "CON.1 P",
+        "PBABIP P",
+        "HRR P",
+        "WE",
+        "INT",
+        # "PRONE",
     ],
     CATEGORY_RF: [
         "Age",
@@ -133,6 +133,7 @@ feature_values = {
         "OF RNG",
         "OF ARM",
         "OF ERR",
+        "RF",
     ],
     CATEGORY_CF: [
         "Age",
@@ -144,6 +145,7 @@ feature_values = {
         "OF RNG",
         "OF ARM",
         "OF ERR",
+        "CF",
     ],
     CATEGORY_LF: [
         "Age",
@@ -155,6 +157,7 @@ feature_values = {
         "OF RNG",
         "OF ARM",
         "OF ERR",
+        "LF",
     ],
     CATEGORY_SS: [
         "Age",
@@ -163,15 +166,11 @@ feature_values = {
         "PRONE",
         "WT",
         "SPE",
-        # "IFRngDelta",
-        # "IFArmDelta",
-        # "IFTDPDelta",
-        # "IFErrDelta",
         "IF RNG",
         "IF ARM",
         "TDP",
         "IF ERR",
-        # "SS",
+        "SS",
     ],
     CATEGORY_3B: [
         "Age",
@@ -184,7 +183,7 @@ feature_values = {
         "IF ARM",
         "TDP",
         "IF ERR",
-        # "3B",
+        "3B",
     ],
     CATEGORY_2B: [
         "Age",
@@ -197,7 +196,7 @@ feature_values = {
         "IF ARM",
         "TDP",
         "IF ERR",
-        # "2B",
+        "2B",
     ],
     CATEGORY_1B: [
         "Age",
@@ -211,9 +210,9 @@ feature_values = {
         "TDP",
         "IF ERR",
         "HT",
-        # "1B",
+        "1B",
     ],
-    CATEGORY_C: ["Age", "WE", "INT", "PRONE", "WT", "SPE", "C ABI", "C ARM", "C FRM"],
+    CATEGORY_C: ["Age", "WE", "INT", "PRONE", "WT", "C", "C ABI", "C ARM", "C FRM"],
 }
 
 exclude_adj = [
@@ -321,7 +320,7 @@ class DevModel(Modeler):
                 fielding_conversions[self.category],
                 self.ratings_type,
             )
-        self.target_predict_model.load_released_model()
+        self.target_predict_model.load_model()
         self.model = Modeler(feature_values[self.category], targets[self.category])
 
     def generate_prediction_data(self, data):
@@ -337,6 +336,7 @@ class DevModel(Modeler):
                 & (predict_data["LPOS"] != "CL")
             ]
             predict_data["lgwOBA"] = 0.31969
+            predict_data["lgOBP"] = 0.31963
         elif self.category == CATEGORY_BASERUNNING:
             predict_data = predict_data[
                 (predict_data["LPOS"] != "P")
@@ -352,6 +352,7 @@ class DevModel(Modeler):
                 | (predict_data["LPOS"] == "CL")
             ]
             predict_data["RUNS_PER_OUT"] = 0.16948
+            predict_data["lgwOBA"] = 0.31969
         elif self.category == CATEGORY_RF:
             predict_data = predict_data[predict_data["LPOS"] == "RF"]
         elif self.category == CATEGORY_CF:
