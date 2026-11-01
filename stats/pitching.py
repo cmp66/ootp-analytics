@@ -8,6 +8,16 @@ from stats import woba
 RUNS_PER_WIN = 10
 PITCHER_ROLES = ["SP", "RP", "Mix"]
 
+# Usage buckets by share of appearances that were starts (GS / G), ordered from reliever to starter.
+# Pitchers who split their time pitch worse than pure starters or pure relievers, so each bucket
+# is compared with its own league RA9 (see plans/04-pitching.md).
+USAGE_BUCKETS = ["RP", "RP-lean", "Mix", "SP-lean", "SP"]
+RELIEVER_LEAN_MAX = 0.25  # share of starts up to which a pitcher is "RP-lean"
+STARTER_LEAN_MIN = 0.75  # share of starts above which a pitcher is "SP-lean"
+MIN_BUCKET_PITCHERS = 10  # smaller buckets are merged toward Mix so their baseline is not noise
+# the neighbour a too-small bucket is merged into
+MERGE_TOWARD_MIX = {"RP": "RP-lean", "RP-lean": "Mix", "SP": "SP-lean", "SP-lean": "Mix"}
+
 
 def classify_pitcher_role(df_player_stats: DataFrame) -> Series:
     """SP: every appearance was a start. RP: never started. Mix: anything in between."""
@@ -21,13 +31,49 @@ def classify_pitcher_role(df_player_stats: DataFrame) -> Series:
     )
 
 
-def calculate_league_totals(df_player_stats: DataFrame) -> DataFrame:
-    """IP, runs and RA9 by pitcher role (SP, RP, Mix) plus the whole league (Total).
+def classify_pitcher_usage(df_player_stats: DataFrame) -> Series:
+    """One of USAGE_BUCKETS from the share of appearances that were starts."""
+    starts = df_player_stats["GS"] / df_player_stats["G"]
+    return Series(
+        np.select(
+            [
+                df_player_stats["GS"] == 0,
+                df_player_stats["GS"] == df_player_stats["G"],
+                starts <= RELIEVER_LEAN_MAX,
+                starts > STARTER_LEAN_MIN,
+            ],
+            ["RP", "SP", "RP-lean", "SP-lean"],
+            default="Mix",
+        ),
+        index=df_player_stats.index,
+    )
 
-    Each role is compared with its own RA9, so WAA sums to about 0 within every role.
-    A role nobody pitched as is NaN."""
-    by_role = df_player_stats.groupby("PRole")[["IPClean", "R"]].sum()
-    df_pitching_totals = by_role.reindex(PITCHER_ROLES)
+
+def resolve_baseline_buckets(usage: Series, min_pitchers: int = MIN_BUCKET_PITCHERS) -> Series:
+    """Bucket whose league RA9 is each pitcher's baseline.
+
+    A bucket with fewer than min_pitchers pitchers is merged toward Mix (RP -> RP-lean -> Mix,
+    SP -> SP-lean -> Mix). If Mix itself is too small, everyone uses the league total."""
+    baseline = usage.copy()
+    for bucket in ["RP", "SP", "RP-lean", "SP-lean"]:
+        if 0 < (baseline == bucket).sum() < min_pitchers:
+            baseline = baseline.replace(bucket, MERGE_TOWARD_MIX[bucket])
+    # a merge of RP into RP-lean can leave RP-lean short again
+    for bucket in ["RP-lean", "SP-lean"]:
+        if 0 < (baseline == bucket).sum() < min_pitchers:
+            baseline = baseline.replace(bucket, "Mix")
+    if 0 < (baseline == "Mix").sum() < min_pitchers:
+        baseline = baseline.where(baseline != "Mix", "Total")
+    return baseline
+
+
+def calculate_league_totals(df_player_stats: DataFrame, group_column: str = "PBaseline") -> DataFrame:
+    """IP, runs and RA9 for each usage bucket plus the whole league (Total).
+
+    Each pitcher is compared with the RA9 of its own bucket, so WAA sums to about 0 within every
+    bucket. A bucket nobody belongs to is NaN."""
+    by_group = df_player_stats.groupby(group_column)[["IPClean", "R"]].sum()
+    df_pitching_totals = by_group.reindex(USAGE_BUCKETS)
     df_pitching_totals.loc["Total"] = df_player_stats[["IPClean", "R"]].sum()
     df_pitching_totals.index.name = "POS"
     df_pitching_totals["RA9"] = df_pitching_totals["R"] / df_pitching_totals["IPClean"] * 9
@@ -73,15 +119,17 @@ def calculate_player_pitching_stats(
     df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
 
     df_player_stats["PRole"] = classify_pitcher_role(df_player_stats)
+    df_player_stats["PUsage"] = classify_pitcher_usage(df_player_stats)
+    df_player_stats["PBaseline"] = resolve_baseline_buckets(df_player_stats["PUsage"])
     df_player_stats["IPClean"] = ip_to_innings(df_player_stats["IP"])
     df_player_stats["RA9"] = df_player_stats["R"] / df_player_stats["IPClean"] * 9
     df_pitching_totals = calculate_league_totals(df_player_stats)
 
-    lg_ra9 = df_player_stats["PRole"].map(df_pitching_totals["RA9"])
+    lg_ra9 = df_player_stats["PBaseline"].map(df_pitching_totals["RA9"])
+    df_player_stats["ExpRA9"] = lg_ra9
     df_player_stats["wSBA"] = df_player_stats["SB"] * lg["run_value_sb"] + df_player_stats["CS"] * lg["run_value_cs"]
-    df_player_stats["WAA"] = (
-        lg_ra9 * df_player_stats["IPClean"] / 9 - df_player_stats["IPClean"] * df_player_stats["RA9"] / 9
-    ) / RUNS_PER_WIN
+    # runs allowed are used directly so a pitcher who gave up runs without recording an out still counts
+    df_player_stats["WAA"] = (lg_ra9 * df_player_stats["IPClean"] / 9 - df_player_stats["R"]) / RUNS_PER_WIN
     df_player_stats["KPercent"] = df_player_stats["K"] / df_player_stats["BF"] * 100
     df_player_stats["HRPercent"] = df_player_stats["HR"] / df_player_stats["BF"] * 100
     df_player_stats["pBABIP"] = (df_player_stats["SINGLE"] + df_player_stats["DOUBLE"] + df_player_stats["TRIPLE"]) / (
@@ -90,7 +138,9 @@ def calculate_player_pitching_stats(
     df_player_stats["BBPercent"] = df_player_stats["BB"] / df_player_stats["BF"] * 100
     # same formula and coefficients as batter wOBA
     df_player_stats["wOBAa"] = woba.calc_woba(df_player_stats, lg)
-    df_player_stats["WAA200"] = df_player_stats["WAA"] * 200 / df_player_stats["IPClean"]
+    df_player_stats["WAA200"] = (df_player_stats["WAA"] * 200 / df_player_stats["IPClean"]).where(
+        df_player_stats["IPClean"] > 0
+    )
 
     # Park factors removed; kept as an alias of WAA for downstream consumers
     df_player_stats["WAAAdj"] = df_player_stats["WAA"]
