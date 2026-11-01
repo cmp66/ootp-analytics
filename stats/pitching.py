@@ -1,7 +1,8 @@
 from pandas import DataFrame
 import pandas as pd
+from util import paths
 import math
-from stats import leagueAdjustments, woba
+from stats import woba
 
 
 def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
@@ -94,7 +95,6 @@ def calculate_player_pitching_stats(
 ) -> DataFrame:
 
     df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
-    park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
     df_player_stats["PRole"] = df_player_stats[["G", "GS"]].apply(
         lambda x: "SP" if x["GS"] == x["G"] else "RP" if x["GS"] == 0 else "Mix", axis=1
@@ -150,28 +150,9 @@ def calculate_player_pitching_stats(
     df_player_stats["WAA200"] = (
         df_player_stats["WAA"] * 200 / df_player_stats["IPClean"]
     )
-    df_player_stats["WAAAdj"] = (
-        (
-            df_player_stats["PRole"].apply(lambda x: df_pitching_totals.loc[x, "RA9"])
-            * df_player_stats["IPClean"]
-            * (
-                (
-                    (
-                        df_player_stats["ORG"].apply(
-                            lambda x: (
-                                park_adjustments[x] if x in park_adjustments else 1.0
-                            )
-                        )
-                        - 1.0
-                    )
-                    * 0.5
-                )
-                + 1.0
-            )
-            / 9
-            - df_player_stats["IPClean"] * df_player_stats["RA9"] / 9
-        )
-    ) / 10
+
+    # Park factors removed; kept as an alias of WAA for downstream consumers
+    df_player_stats["WAAAdj"] = df_player_stats["WAA"]
 
     columns_to_remove = [
         x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
@@ -232,9 +213,7 @@ def process_pitching_data(
     df_player_pitching_stats["season"] = season
     df_player_pitching_stats["league"] = league
 
-    df_woba = pd.read_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
-    )
+    df_woba = pd.read_csv(paths.output_file(league, season, "woba-calcs"))
     df_woba.set_index("Stat", inplace=True)
     df_woba.loc["lgBF"] = league_pitching_totals["PA"], season, league
     df_woba.loc["lgPbabipRating"] = (
@@ -262,13 +241,11 @@ def process_pitching_data(
         season,
         league,
     )
-    df_woba.to_csv(f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv")
+    df_woba.to_csv(paths.output_file(league, season, "woba-calcs"))
 
     DataFrame(league_pitching_totals, index=[0]).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-pitching-totals.csv"
+        paths.output_file(league, season, "pitching-totals")
     )
-    df_player_pitching_stats.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-pitching.csv"
-    )
+    df_player_pitching_stats.to_csv(paths.output_file(league, season, "pitching"))
 
     return df_player_pitching_stats

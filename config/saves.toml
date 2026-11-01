@@ -1,0 +1,20 @@
+# One table per save. Folder name under files/ is the save name.
+#   source:  "dump"   = OOTP database csv dumps, files/<save>/dumps/<ratings>/<season>/
+#            "export" = in-game csv export,      files/<save>/<season>/ (+ ratings/)
+#   ratings: name of the ratings/settings set (dump folder name; also keys models trained for this save)
+
+[Model-Sim]
+source = "dump"
+ratings = "Standard27"
+
+[TGS]
+source = "export"
+ratings = "Standard27"
+
+[PBL]
+source = "export"
+ratings = "Standard27"
+
+[Dugout]
+source = "export"
+ratings = "Standard"

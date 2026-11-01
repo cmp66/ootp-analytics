@@ -175,3 +175,6 @@ cython_debug/
 output/
 dumps/
 files/
+
+# Local planning docs
+plans/

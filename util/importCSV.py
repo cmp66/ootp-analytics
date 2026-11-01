@@ -1,4 +1,6 @@
 import pandas as pd
+from util import paths
+from util.config import get_save
 import os
 from model import (
     convert_personalilty_trait,
@@ -23,7 +25,7 @@ def import_csv_flex(
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
 ]:
 
-    filedir = f"{basedir}/files/{league}/{season}"
+    filedir = paths.export_dir(league, season)
     fielding_index = 0
     batting_index = 0
     pitching_index = 0
@@ -109,7 +111,7 @@ def import_ratings(
 
     df_player_ratings = None
 
-    filedir = f"{basedir}/files/{league}/{season}/ratings"
+    filedir = paths.export_ratings_dir(league, season)
     print(os.listdir(filedir))
     print(f"Reading ratings from {filedir} of type {ratings_type}")
     for file in os.listdir(filedir):
@@ -191,7 +193,7 @@ def import_ratings(
 def import_ootp_dump_ratings(
     league: str, season: int, ratings_type: str, basedir: str
 ) -> pd.DataFrame:
-    filedir = f"{basedir}/files/{league}/dumps/{ratings_type}/{season}"
+    filedir = paths.dump_dir(league, ratings_type, season)
 
     df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv")
     df_player_batting_ratings_base = pd.read_csv(f"{filedir}/players_batting.csv")
@@ -377,13 +379,13 @@ def import_ootp_dump_ratings(
     df_player_pitching_ratings_base.set_index("ID", inplace=True)
 
     df_player_pitching_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True, axis=1
+        columns=["league_id", "position", "role"], inplace=True
     )
     df_player_fielding_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True, axis=1
+        columns=["league_id", "position", "role"], inplace=True
     )
     df_player_batting_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True, axis=1
+        columns=["league_id", "position", "role"], inplace=True
     )
 
     df_player_ratings_base = df_player_ratings_base.merge(
@@ -420,7 +422,7 @@ def import_ootp_dump_stats(
     pd.DataFrame,
 ]:
 
-    filedir = f"{basedir}/files/{league}/dumps/{ratings_type}/{season}"
+    filedir = paths.dump_dir(league, ratings_type, season)
 
     df_team_pitching = pd.read_csv(f"{filedir}/team_pitching_stats.csv")
     df_team_batting = pd.read_csv(f"{filedir}/team_batting_stats.csv")
@@ -892,7 +894,9 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
     return df_player_ratings
 
 
-def import_files(league: str, season: int, source: str, ratings: str) -> tuple[
+def import_files(
+    league: str, season: int, source: str | None = None, ratings: str | None = None
+) -> tuple[
     pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,
@@ -905,6 +909,10 @@ def import_files(league: str, season: int, source: str, ratings: str) -> tuple[
     pd.DataFrame,
     pd.DataFrame,
 ]:
+    save = get_save(league)
+    source = source or save.source
+    ratings = ratings or save.ratings
+
     if source == "dump":
         df_player_ratings = import_ootp_dump_ratings(league, season, ratings, ".")
         (
@@ -937,23 +945,18 @@ def import_files(league: str, season: int, source: str, ratings: str) -> tuple[
     df_player_ratings = clean_ratings(df_player_ratings)
 
     # check of export direction exists, if not create it
-    if not os.path.exists(f"./files/{league}/{season}"):
-        os.makedirs(f"./files/{league}/{season}")
-    if not os.path.exists(f"./files/{league}/{season}/output"):
-        os.makedirs(f"./files/{league}/{season}/output")
+    paths.output_dir(league, season, create=True)
 
-    df_player_ratings.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-player-data.csv"
-    )
+    df_player_ratings.to_csv(paths.output_file(league, season, "player-data"))
 
     df_team_batting_stats.round(3).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-team-batting.csv"
+        paths.output_file(league, season, "team-batting")
     )
     df_team_pitching_stats.round(3).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-team-pitching.csv"
+        paths.output_file(league, season, "team-pitching")
     )
     df_team_fielding_stats.round(3).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-team-fielding.csv"
+        paths.output_file(league, season, "team-fielding")
     )
 
     return (
