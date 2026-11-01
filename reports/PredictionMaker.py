@@ -193,132 +193,96 @@ class PredictionMaker:
         # bsr_offset = df_predictions.loc[df_predictions["ID"] == self.zero_bsr]["BSR600"].values[0]
         # df_predictions.loc[:, "BSR600"] = df_predictions["BSR600"].apply(lambda x: x - bsr_offset if x != -500 else x)
 
-        runsP_P2_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P2
-        ]["runsPAdjSeason-P2"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P2"] = df_predictions[
-            "runsPAdjSeason-P2"
-        ].apply(lambda x: x - runsP_P2_offset if x != -500 else x)
+        runsP_P2_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P2]["runsPAdjSeason-P2"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P2"] = df_predictions["runsPAdjSeason-P2"].apply(
+            lambda x: x - runsP_P2_offset if x != -500 else x
+        )
 
-        runsP_P3_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P3
-        ]["runsPAdjSeason-P3"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P3"] = df_predictions[
-            "runsPAdjSeason-P3"
-        ].apply(lambda x: x - runsP_P3_offset if x != -500 else x)
+        runsP_P3_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P3]["runsPAdjSeason-P3"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P3"] = df_predictions["runsPAdjSeason-P3"].apply(
+            lambda x: x - runsP_P3_offset if x != -500 else x
+        )
 
-        runsP_P4_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P4
-        ]["runsPAdjSeason-P4"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P4"] = df_predictions[
-            "runsPAdjSeason-P4"
-        ].apply(lambda x: x - runsP_P4_offset if x != -500 else x)
+        runsP_P4_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P4]["runsPAdjSeason-P4"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P4"] = df_predictions["runsPAdjSeason-P4"].apply(
+            lambda x: x - runsP_P4_offset if x != -500 else x
+        )
 
-        runsP_P5_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P5
-        ]["runsPAdjSeason-P5"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P5"] = df_predictions[
-            "runsPAdjSeason-P5"
-        ].apply(lambda x: x - runsP_P5_offset if x != -500 else x)
+        runsP_P5_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P5]["runsPAdjSeason-P5"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P5"] = df_predictions["runsPAdjSeason-P5"].apply(
+            lambda x: x - runsP_P5_offset if x != -500 else x
+        )
 
-        runsP_P6_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P6
-        ]["runsPAdjSeason-P6"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P6"] = df_predictions[
-            "runsPAdjSeason-P6"
-        ].apply(lambda x: x - runsP_P6_offset if x != -500 else x)
+        runsP_P6_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P6]["runsPAdjSeason-P6"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P6"] = df_predictions["runsPAdjSeason-P6"].apply(
+            lambda x: x - runsP_P6_offset if x != -500 else x
+        )
 
-        runsP_P7_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P7
-        ]["runsPAdjSeason-P7"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P7"] = df_predictions[
-            "runsPAdjSeason-P7"
-        ].apply(lambda x: x - runsP_P7_offset if x != -500 else x)
+        runsP_P7_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P7]["runsPAdjSeason-P7"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P7"] = df_predictions["runsPAdjSeason-P7"].apply(
+            lambda x: x - runsP_P7_offset if x != -500 else x
+        )
 
-        runsP_P8_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P8
-        ]["runsPAdjSeason-P8"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P8"] = df_predictions[
-            "runsPAdjSeason-P8"
-        ].apply(lambda x: x - runsP_P8_offset if x != -500 else x)
+        runsP_P8_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P8]["runsPAdjSeason-P8"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P8"] = df_predictions["runsPAdjSeason-P8"].apply(
+            lambda x: x - runsP_P8_offset if x != -500 else x
+        )
 
-        runsP_P9_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_runsP_P9
-        ]["runsPAdjSeason-P9"].values[0]
-        df_predictions.loc[:, "runsPAdjSeason-P9"] = df_predictions[
-            "runsPAdjSeason-P9"
-        ].apply(lambda x: x - runsP_P9_offset if x != -500 else x)
+        runsP_P9_offset = df_predictions.loc[df_predictions["ID"] == self.zero_runsP_P9]["runsPAdjSeason-P9"].values[0]
+        df_predictions.loc[:, "runsPAdjSeason-P9"] = df_predictions["runsPAdjSeason-P9"].apply(
+            lambda x: x - runsP_P9_offset if x != -500 else x
+        )
 
         return df_predictions
 
     def apply_positional_offsets(self, df_predictions: pd.DataFrame) -> pd.DataFrame:
 
-        sp_offset = df_predictions.loc[df_predictions["ID"] == self.zero_sp][
-            "WAA200-SP"
-        ].values[0]
+        sp_offset = df_predictions.loc[df_predictions["ID"] == self.zero_sp]["WAA200-SP"].values[0]
         df_predictions.loc[:, "WAA200-SP"] = df_predictions["WAA200-SP"].apply(
             lambda x: x - sp_offset if x != -500 else x
         )
 
-        rp_offset = df_predictions.loc[df_predictions["ID"] == self.zero_rp][
-            "WAA200-RP"
-        ].values[0]
+        rp_offset = df_predictions.loc[df_predictions["ID"] == self.zero_rp]["WAA200-RP"].values[0]
         df_predictions.loc[:, "WAA200-RP"] = df_predictions["WAA200-RP"].apply(
             lambda x: x - rp_offset if x != -500 else x
         )
 
-        waa600_c_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_c
-        ]["WAA600-C"].values[0]
+        waa600_c_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_c]["WAA600-C"].values[0]
         df_predictions.loc[:, "WAA600-C"] = df_predictions["WAA600-C"].apply(
             lambda x: x - waa600_c_offset if x != -500 else x
         )
 
-        waa600_1b_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_1b
-        ]["WAA600-1B"].values[0]
+        waa600_1b_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_1b]["WAA600-1B"].values[0]
         df_predictions.loc[:, "WAA600-1B"] = df_predictions["WAA600-1B"].apply(
             lambda x: x - waa600_1b_offset if x != -500 else x
         )
 
-        waa600_2b_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_2b
-        ]["WAA600-2B"].values[0]
+        waa600_2b_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_2b]["WAA600-2B"].values[0]
         df_predictions.loc[:, "WAA600-2B"] = df_predictions["WAA600-2B"].apply(
             lambda x: x - waa600_2b_offset if x != -500 else x
         )
 
-        waa600_3b_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_3b
-        ]["WAA600-3B"].values[0]
+        waa600_3b_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_3b]["WAA600-3B"].values[0]
         df_predictions.loc[:, "WAA600-3B"] = df_predictions["WAA600-3B"].apply(
             lambda x: x - waa600_3b_offset if x != -500 else x
         )
 
-        waa600_ss_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_ss
-        ]["WAA600-SS"].values[0]
+        waa600_ss_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_ss]["WAA600-SS"].values[0]
         df_predictions.loc[:, "WAA600-SS"] = df_predictions["WAA600-SS"].apply(
             lambda x: x - waa600_ss_offset if x != -500 else x
         )
 
-        waa600_lf_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_lf
-        ]["WAA600-LF"].values[0]
+        waa600_lf_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_lf]["WAA600-LF"].values[0]
         df_predictions.loc[:, "WAA600-LF"] = df_predictions["WAA600-LF"].apply(
             lambda x: x - waa600_lf_offset if x != -500 else x
         )
 
-        waa600_cf_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_cf
-        ]["WAA600-CF"].values[0]
+        waa600_cf_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_cf]["WAA600-CF"].values[0]
         df_predictions.loc[:, "WAA600-CF"] = df_predictions["WAA600-CF"].apply(
             lambda x: x - waa600_cf_offset if x != -500 else x
         )
 
-        waa600_rf_offset = df_predictions.loc[
-            df_predictions["ID"] == self.zero_waa600_rf
-        ]["WAA600-RF"].values[0]
+        waa600_rf_offset = df_predictions.loc[df_predictions["ID"] == self.zero_waa600_rf]["WAA600-RF"].values[0]
         df_predictions.loc[:, "WAA600-RF"] = df_predictions["WAA600-RF"].apply(
             lambda x: x - waa600_rf_offset if x != -500 else x
         )
@@ -339,9 +303,7 @@ class PredictionMaker:
             f"./files/{self.league}/{self.season}/output/{self.league}-{self.season}-player-data.csv",
             low_memory=False,
         )
-        woba = pd.read_csv(
-            f"./files/{self.league}/{self.season}/output/{self.league}-{self.season}-woba-calcs.csv"
-        )
+        woba = pd.read_csv(f"./files/{self.league}/{self.season}/output/{self.league}-{self.season}-woba-calcs.csv")
 
         woba.set_index("Stat", inplace=True)
 
@@ -361,9 +323,7 @@ class PredictionMaker:
 
         if calc_offsets:
             if use_potential:
-                df_baseline_players = df_baseline_players[
-                    (df_baseline_players["Age"] <= 25)
-                ]
+                df_baseline_players = df_baseline_players[(df_baseline_players["Age"] <= 25)]
             use_primary = True
 
         if draftOnly:
@@ -398,24 +358,14 @@ class PredictionMaker:
         #    ]
 
         if use_potential:
-            df_baseline_players = df_baseline_players[
-                (df_baseline_players["Age"] <= 25)
-            ]
-            df_non_baseline_players = df_non_baseline_players[
-                (df_non_baseline_players["Age"] <= 25)
-            ]
+            df_baseline_players = df_baseline_players[(df_baseline_players["Age"] <= 25)]
+            df_non_baseline_players = df_non_baseline_players[(df_non_baseline_players["Age"] <= 25)]
 
-        df_baseline_players = self.conform_exported_data(
-            pd.DataFrame(df_baseline_players)
-        )
-        df_non_baseline_players = self.conform_exported_data(
-            pd.DataFrame(df_non_baseline_players)
-        )
+        df_baseline_players = self.conform_exported_data(pd.DataFrame(df_baseline_players))
+        df_non_baseline_players = self.conform_exported_data(pd.DataFrame(df_non_baseline_players))
 
         df_baseline_players = df_baseline_players[df_baseline_players["ID"].notnull()]
-        df_non_baseline_players = df_non_baseline_players[
-            df_non_baseline_players["ID"].notnull()
-        ]
+        df_non_baseline_players = df_non_baseline_players[df_non_baseline_players["ID"].notnull()]
 
         df_ratings_processed = df_baseline_players.copy(deep=True)
 
@@ -425,17 +375,13 @@ class PredictionMaker:
         print("Processing Baseline Players")
         df_ratings_processed = pd.merge(
             df_ratings_processed,
-            self.predict_batting(
-                df_baseline_players.copy(deep=True), woba, use_potential
-            ),
+            self.predict_batting(df_baseline_players.copy(deep=True), woba, use_potential),
             how="outer",
             on="ID",
         )
         df_ratings_processed = pd.merge(
             df_ratings_processed,
-            self.predict_pitching(
-                df_baseline_players.copy(deep=True), woba, use_potential
-            ),
+            self.predict_pitching(df_baseline_players.copy(deep=True), woba, use_potential),
             how="outer",
             on="ID",
         )
@@ -452,9 +398,7 @@ class PredictionMaker:
         )
         df_ratings_processed = pd.merge(
             df_ratings_processed,
-            self.predict_baserunning(
-                df_baseline_players.copy(deep=True), use_potential
-            ),
+            self.predict_baserunning(df_baseline_players.copy(deep=True), use_potential),
             how="outer",
             on="ID",
         )
@@ -464,17 +408,13 @@ class PredictionMaker:
             df_ratings_processed = df_non_baseline_players.copy(deep=True)
             df_ratings_processed = pd.merge(
                 df_ratings_processed,
-                self.predict_batting(
-                    df_non_baseline_players.copy(deep=True), woba, use_potential
-                ),
+                self.predict_batting(df_non_baseline_players.copy(deep=True), woba, use_potential),
                 how="outer",
                 on="ID",
             )
             df_ratings_processed = pd.merge(
                 df_ratings_processed,
-                self.predict_pitching(
-                    df_non_baseline_players.copy(deep=True), woba, use_potential
-                ),
+                self.predict_pitching(df_non_baseline_players.copy(deep=True), woba, use_potential),
                 how="outer",
                 on="ID",
             )
@@ -491,18 +431,14 @@ class PredictionMaker:
             )
             df_ratings_processed = pd.merge(
                 df_ratings_processed,
-                self.predict_baserunning(
-                    df_non_baseline_players.copy(deep=True), use_potential
-                ),
+                self.predict_baserunning(df_non_baseline_players.copy(deep=True), use_potential),
                 how="outer",
                 on="ID",
             )
 
         print("Calculating Positional Ratings")
 
-        df_ratings_processed = self.calc_all_potential_positional_ratings(
-            df_ratings_processed
-        )
+        df_ratings_processed = self.calc_all_potential_positional_ratings(df_ratings_processed)
 
         if not calc_offsets:
             df_ratings_processed = self.apply_positional_offsets(df_ratings_processed)
@@ -521,38 +457,24 @@ class PredictionMaker:
         ]
 
         if draftOnly and not calc_offsets:
-            final_predictions = final_predictions[
-                final_predictions["SctCat"] == "Amateur"
-            ]
+            final_predictions = final_predictions[final_predictions["SctCat"] == "Amateur"]
             if org_filter == "FA":
                 drafted_players = get_drafted_players_from_statsplus(self.league)
-                final_predictions = final_predictions[
-                    ~final_predictions["ID"].isin(drafted_players)
-                ]
+                final_predictions = final_predictions[~final_predictions["ID"].isin(drafted_players)]
             else:
-                drafted_players = pd.read_csv(
-                    f"./files/{self.league}/{self.season}/draft/draft.csv"
-                )["ID"].tolist()
-                final_predictions = final_predictions[
-                    ~final_predictions["ID"].isin(drafted_players)
-                ]
+                drafted_players = pd.read_csv(f"./files/{self.league}/{self.season}/draft/draft.csv")["ID"].tolist()
+                final_predictions = final_predictions[~final_predictions["ID"].isin(drafted_players)]
 
         elif iafa:
-            final_predictions = final_predictions[
-                final_predictions["SctCat"] == "International"
-            ]
+            final_predictions = final_predictions[final_predictions["SctCat"] == "International"]
         else:
-            final_predictions = final_predictions[
-                final_predictions["SctCat"] != "Amateur"
-            ]
+            final_predictions = final_predictions[final_predictions["SctCat"] != "Amateur"]
 
         final_predictions.drop(columns=["SctCat"], inplace=True)
 
         return final_predictions
 
-    def predict_batting(
-        self, df_ratings: pd.DataFrame, woba: pd.DataFrame, use_potential: bool
-    ) -> pd.DataFrame:
+    def predict_batting(self, df_ratings: pd.DataFrame, woba: pd.DataFrame, use_potential: bool) -> pd.DataFrame:
 
         df_ratings_temp = df_ratings.copy(deep=True)
 
@@ -594,34 +516,25 @@ class PredictionMaker:
 
         hittingModel.load_released_model()
 
-        predictions = hittingModel.predict(
-            self.season, skip_load=True, preloaded_data=df_ratings_process
-        )
+        predictions = hittingModel.predict(self.season, skip_load=True, preloaded_data=df_ratings_process)
 
         predictions.rename(columns={"Predictions": "wRAA600"}, inplace=True)
         return predictions[["ID", "wRAA600"]]
 
-    def predict_pitching(
-        self, df_ratings: pd.DataFrame, woba: pd.DataFrame, use_potential: bool
-    ) -> pd.DataFrame:
+    def predict_pitching(self, df_ratings: pd.DataFrame, woba: pd.DataFrame, use_potential: bool) -> pd.DataFrame:
 
         df_ratings_temp = df_ratings.copy(deep=True)
 
-        df_ratings_processed = (
-            df_ratings_temp  # .merge(df_ratings_temp, on="ID", how="left")
-        )
+        df_ratings_processed = df_ratings_temp  # .merge(df_ratings_temp, on="ID", how="left")
         for role in ["SP", "RP"]:
 
             df_ratings_process = df_ratings_temp.copy(deep=True)
 
             if role == "SP":
-                df_ratings_process = df_ratings_process[
-                    df_ratings_process["LPOS"] == "SP"
-                ]
+                df_ratings_process = df_ratings_process[df_ratings_process["LPOS"] == "SP"]
             else:
                 df_ratings_process = df_ratings_process[
-                    (df_ratings_process["LPOS"] == "RP")
-                    | (df_ratings_process["LPOS"] == "CL")
+                    (df_ratings_process["LPOS"] == "RP") | (df_ratings_process["LPOS"] == "CL")
                 ]
 
             # check if dataframe is empty
@@ -657,18 +570,14 @@ class PredictionMaker:
                 )
 
             pitchingModel.load_released_model()
-            predictions = pitchingModel.predict(
-                self.season, skip_load=True, preloaded_data=df_ratings_process
-            )
+            predictions = pitchingModel.predict(self.season, skip_load=True, preloaded_data=df_ratings_process)
             predictions = predictions.sort_values(by="Predictions", ascending=False)
 
             df_ratings_processed.loc[:, "WAA200-" + role] = predictions["Predictions"]
 
         return df_ratings_processed[["ID", "WAA200-SP", "WAA200-RP"]]
 
-    def calc_fielding_mins_primary(
-        self, df_ratings: pd.DataFrame, position: int
-    ) -> pd.DataFrame:
+    def calc_fielding_mins_primary(self, df_ratings: pd.DataFrame, position: int) -> pd.DataFrame:
 
         if position == 2:
             df_filtered = df_ratings[df_ratings["LPOS"] == "C"]
@@ -689,50 +598,40 @@ class PredictionMaker:
 
         return df_filtered
 
-    def calc_fielding_mins_all(
-        self, df_ratings: pd.DataFrame, position: int, org_filter: str
-    ) -> pd.DataFrame:
+    def calc_fielding_mins_all(self, df_ratings: pd.DataFrame, position: int, org_filter: str) -> pd.DataFrame:
 
         # filter = df_fielding_playables.iloc[:, 0] == position
         if position == 2:
             df_filtered = df_ratings[
-                ((df_ratings["C"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "C")
+                ((df_ratings["C"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "C")
             ]
         elif position == 3:
             df_filtered = df_ratings[
-                ((df_ratings["1B"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "1B")
+                ((df_ratings["1B"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "1B")
             ]
         elif position == 4:
             df_filtered = df_ratings[
-                ((df_ratings["2B"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "2B")
+                ((df_ratings["2B"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "2B")
             ]
         elif position == 5:
             df_filtered = df_ratings[
-                ((df_ratings["3B"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "3B")
+                ((df_ratings["3B"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "3B")
             ]
         elif position == 6:
             df_filtered = df_ratings[
-                ((df_ratings["SS"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "SS")
+                ((df_ratings["SS"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "SS")
             ]
         elif position == 7:
             df_filtered = df_ratings[
-                ((df_ratings["LF"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "LF")
+                ((df_ratings["LF"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "LF")
             ]
         elif position == 8:
             df_filtered = df_ratings[
-                ((df_ratings["CF"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "CF")
+                ((df_ratings["CF"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "CF")
             ]
         elif position == 9:
             df_filtered = df_ratings[
-                ((df_ratings["RF"] > 0) & (df_ratings["ORG"] == org_filter))
-                | (df_ratings["LPOS"] == "RF")
+                ((df_ratings["RF"] > 0) & (df_ratings["ORG"] == org_filter)) | (df_ratings["LPOS"] == "RF")
             ]
         return df_filtered
 
@@ -765,13 +664,9 @@ class PredictionMaker:
             df_ratings_process = df_ratings_temp.copy(deep=True)
 
             if primaryPosOnly:
-                df_ratings_process = self.calc_fielding_mins_primary(
-                    df_ratings_process, position
-                )
+                df_ratings_process = self.calc_fielding_mins_primary(df_ratings_process, position)
             else:
-                df_ratings_process = self.calc_fielding_mins_all(
-                    df_ratings_process, position, org_filter=org_filter
-                )
+                df_ratings_process = self.calc_fielding_mins_all(df_ratings_process, position, org_filter=org_filter)
 
             if df_ratings_process.empty:
                 df_ratings_processed["runsPAdjSeason-P" + str(position)] = -500
@@ -798,14 +693,10 @@ class PredictionMaker:
                 )
 
             fieldingModel.load_released_model()
-            predictions = fieldingModel.predict(
-                self.season, skip_load=True, preloaded_data=df_ratings_process
-            )
+            predictions = fieldingModel.predict(self.season, skip_load=True, preloaded_data=df_ratings_process)
             predictions = predictions.sort_values(by="Predictions", ascending=False)
 
-            df_ratings_processed["runsPAdjSeason-P" + str(position)] = predictions[
-                "Predictions"
-            ]
+            df_ratings_processed["runsPAdjSeason-P" + str(position)] = predictions["Predictions"]
 
         return df_ratings_processed[
             [
@@ -821,9 +712,7 @@ class PredictionMaker:
             ]
         ]
 
-    def predict_baserunning(
-        self, df_ratings: pd.DataFrame, use_potential=False
-    ) -> pd.DataFrame:
+    def predict_baserunning(self, df_ratings: pd.DataFrame, use_potential=False) -> pd.DataFrame:
 
         df_ratings_temp = df_ratings.copy(deep=True)
 
@@ -850,73 +739,45 @@ class PredictionMaker:
             )
 
         bsrModel.load_released_model()
-        predictions = bsrModel.predict(
-            self.season, skip_load=True, preloaded_data=df_ratings_process
-        )
+        predictions = bsrModel.predict(self.season, skip_load=True, preloaded_data=df_ratings_process)
 
         df_ratings_process["BSR600"] = predictions["Predictions"]
 
         return df_ratings_process[["ID", "BSR600"]]
 
-    def calc_all_potential_positional_ratings(
-        self, df_ratings: pd.DataFrame
-    ) -> pd.DataFrame:
+    def calc_all_potential_positional_ratings(self, df_ratings: pd.DataFrame) -> pd.DataFrame:
 
-        df_ratings["WAA600-C"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P2"]
-        ) / 10.0
+        df_ratings["WAA600-C"] = (df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P2"]) / 10.0
         df_ratings["WAA600-1B"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P3"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P3"]
         ) / 10.0
         df_ratings["WAA600-2B"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P4"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P4"]
         ) / 10.0
         df_ratings["WAA600-3B"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P5"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P5"]
         ) / 10.0
         df_ratings["WAA600-SS"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P6"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P6"]
         ) / 10.0
         df_ratings["WAA600-LF"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P7"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P7"]
         ) / 10.0
         df_ratings["WAA600-CF"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P8"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P8"]
         ) / 10.0
         df_ratings["WAA600-RF"] = (
-            df_ratings["wRAA600"]
-            + df_ratings["BSR600"]
-            + df_ratings["runsPAdjSeason-P9"]
+            df_ratings["wRAA600"] + df_ratings["BSR600"] + df_ratings["runsPAdjSeason-P9"]
         ) / 10.0
 
-        df_ratings[self.fielding_total_wars] = df_ratings[
-            self.fielding_total_wars
-        ].fillna(-500)
+        df_ratings[self.fielding_total_wars] = df_ratings[self.fielding_total_wars].fillna(-500)
 
         return df_ratings
 
     def calc_best_position(self, df_ratings: pd.DataFrame) -> str:
 
         df_ratings["MaxWAA600"] = df_ratings[self.fielding_total_wars].max(axis=1)
-        df_ratings["MaxWAA600Column"] = df_ratings[self.fielding_total_wars].idxmax(
-            axis=1
-        )
-        df_ratings["MaxWAA600Pos"] = df_ratings["MaxWAA600Column"].str.extract(
-            r"WAA600-(.*)"
-        )[0]
+        df_ratings["MaxWAA600Column"] = df_ratings[self.fielding_total_wars].idxmax(axis=1)
+        df_ratings["MaxWAA600Pos"] = df_ratings["MaxWAA600Column"].str.extract(r"WAA600-(.*)")[0]
 
         return df_ratings

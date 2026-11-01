@@ -22,19 +22,13 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
     saves = {}
     for name, values in raw.items():
         if values.get("source") not in SOURCES:
-            raise ValueError(
-                f"Save {name}: source must be one of {SOURCES}, got {values.get('source')!r}"
-            )
-        saves[name] = SaveConfig(
-            name=name, source=values["source"], ratings=values["ratings"]
-        )
+            raise ValueError(f"Save {name}: source must be one of {SOURCES}, got {values.get('source')!r}")
+        saves[name] = SaveConfig(name=name, source=values["source"], ratings=values["ratings"])
     return saves
 
 
 def get_save(name: str) -> SaveConfig:
     saves = load_saves()
     if name not in saves:
-        raise KeyError(
-            f"Unknown save {name!r}; add it to {CONFIG_PATH} (known: {sorted(saves)})"
-        )
+        raise KeyError(f"Unknown save {name!r}; add it to {CONFIG_PATH} (known: {sorted(saves)})")
     return saves[name]

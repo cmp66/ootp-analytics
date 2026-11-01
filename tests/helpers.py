@@ -25,9 +25,7 @@ BATTING_COLUMNS += ["SB", "CS", "BB", "IBB", "GIDP", "SH", "SF", "UBR"]
 
 def make_ratings(ids, **extra_columns) -> pd.DataFrame:
     """Ratings frame indexed by ID, like importCSV produces."""
-    ratings = pd.DataFrame(
-        {"ORG": 1, "BABIP": 50, **extra_columns}, index=pd.Index(ids, name="ID")
-    )
+    ratings = pd.DataFrame({"ORG": 1, "BABIP": 50, **extra_columns}, index=pd.Index(ids, name="ID"))
     return ratings
 
 
@@ -101,18 +99,14 @@ def batting_league_totals(df: pd.DataFrame) -> dict:
 
 def league_table(totals: dict) -> pd.DataFrame:
     """The Stat-indexed Value table that process_batting_data builds."""
-    table = pd.DataFrame(
-        list(woba.calc_league_data(totals).items()), columns=["Stat", "Value"]
-    )
+    table = pd.DataFrame(list(woba.calc_league_data(totals).items()), columns=["Stat", "Value"])
     return table.set_index("Stat")
 
 
 def make_pitching(n: int = 40, seed: int = 2) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     games = rng.integers(10, 60, n)
-    gs = np.where(
-        np.arange(n) % 3 == 0, games, np.where(np.arange(n) % 3 == 1, 0, games // 2)
-    )
+    gs = np.where(np.arange(n) % 3 == 0, games, np.where(np.arange(n) % 3 == 1, 0, games // 2))
     bf = rng.integers(60, 800, n)
     ab = bf - rng.binomial(bf, 0.09) - rng.binomial(bf, 0.01)
     bb = rng.binomial(bf - ab, 0.9)
@@ -192,9 +186,7 @@ FIELDING_RATING_COLUMNS = [
 POSITION_COLUMNS = ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF"]
 
 
-def make_fielding(
-    per_position: int = 6, seed: int = 3, positions=range(1, 10)
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def make_fielding(per_position: int = 6, seed: int = 3, positions=range(1, 10)) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Fielding stats (one row per player and position) and matching ratings."""
     rng = np.random.default_rng(seed)
     rows = []

@@ -78,24 +78,18 @@ REQUIRED_FIELDING = {
 
 
 def source_available(league, season, source, ratings):
-    folder = (
-        paths.dump_dir(league, ratings, season)
-        if source == "dump"
-        else paths.export_dir(league, season)
-    )
+    folder = paths.dump_dir(league, ratings, season) if source == "dump" else paths.export_dir(league, season)
     return folder.exists()
 
 
 def load(league, season, source, ratings):
     """Imported tables, without the csv writes done by importCSV.import_files."""
-    df_ratings, bat, bat_r, bat_l, pit, _, _, fld, team_bat, team_pit, team_fld = (
-        importCSV.load_season(league, season, source, ratings)
+    df_ratings, bat, bat_r, bat_l, pit, _, _, fld, team_bat, team_pit, team_fld = importCSV.load_season(
+        league, season, source, ratings
     )
     if source == "dump":
         # the dump team tables hold every level (minor leagues too)
-        team_bat, team_pit, team_fld = (
-            t[t["LEVEL_ID"] == 1] for t in (team_bat, team_pit, team_fld)
-        )
+        team_bat, team_pit, team_fld = (t[t["LEVEL_ID"] == 1] for t in (team_bat, team_pit, team_fld))
     return df_ratings, bat, bat_r, bat_l, pit, fld, team_bat, team_pit, team_fld
 
 
@@ -141,9 +135,7 @@ def test_dump_ratings_include_free_agents_who_played():
     patch.setattr(paths, "FILES_ROOT", DATA_ROOT)
     try:
         bat, *_ = importCSV.import_ootp_dump_stats("Model-Sim", 2045, "Standard27", ".")
-        default = importCSV.import_ootp_dump_ratings(
-            "Model-Sim", 2045, "Standard27", "."
-        )
+        default = importCSV.import_ootp_dump_ratings("Model-Sim", 2045, "Standard27", ".")
         with_played = importCSV.import_ootp_dump_ratings(
             "Model-Sim", 2045, "Standard27", ".", include_ids=set(bat["ID"])
         )
@@ -169,9 +161,7 @@ def test_batting_tables_agree_with_team_totals(season):
     for column in ["HR", "SB", "BB"]:
         team_column = column if column in team_bat.columns else None
         if team_column:
-            assert bat[column].sum() == pytest.approx(
-                team_bat[team_column].sum(), rel=0.005
-            ), column
+            assert bat[column].sum() == pytest.approx(team_bat[team_column].sum(), rel=0.005), column
 
 
 def test_pitching_innings_agree_with_team_totals(season):
@@ -184,12 +174,8 @@ def test_pitching_innings_agree_with_team_totals(season):
 def test_league_batting_runs_balance(season):
     ratings, bat, bat_r, bat_l, *_ = season["data"]
     totals = batting.calculate_league_batting_totals(bat, season["source"])
-    lg = pd.DataFrame(
-        list(woba.calc_league_data(totals).items()), columns=["Stat", "Value"]
-    ).set_index("Stat")
-    total, *_ = batting.calculate_player_batting_stats(
-        bat, bat_r, bat_l, lg, ratings, season["league"]
-    )
+    lg = pd.DataFrame(list(woba.calc_league_data(totals).items()), columns=["Stat", "Value"]).set_index("Stat")
+    total, *_ = batting.calculate_player_batting_stats(bat, bat_r, bat_l, lg, ratings, season["league"])
     runs_per_600 = total["wRAA"].sum() / total["PA"].sum() * 600
     # everyone who played has ratings, so the league balances
     assert abs(runs_per_600) < 0.05
@@ -199,11 +185,7 @@ def test_league_batting_runs_balance(season):
 def test_pitching_waa_balances_within_roles(season):
     ratings, _, _, _, pit, _, *_ = season["data"]
     lg = pd.DataFrame(
-        list(
-            woba.calc_league_data(
-                pitching.calculate_league_pitching_totals(pit)
-            ).items()
-        ),
+        list(woba.calc_league_data(pitching.calculate_league_pitching_totals(pit)).items()),
         columns=["Stat", "Value"],
     ).set_index("Stat")
     out = pitching.calculate_player_pitching_stats(pit, lg, ratings, season["league"])
@@ -216,11 +198,7 @@ def test_fielding_has_every_position_and_no_missing_runs(season):
     ratings, bat, *_ = season["data"]
     fld = season["data"][5]
     lg = pd.DataFrame(
-        list(
-            woba.calc_league_data(
-                batting.calculate_league_batting_totals(bat, season["source"])
-            ).items()
-        ),
+        list(woba.calc_league_data(batting.calculate_league_batting_totals(bat, season["source"])).items()),
         columns=["Stat", "Value"],
     ).set_index("Stat")
     totals, _, out = fielding.calculate_player_fielding_stats(fld, lg, ratings)

@@ -16,9 +16,7 @@ from tests.helpers import (
 def run_pitching(df, df_lg_woba=None):
     lg = league_table(pitching_league_totals(df))
     return (
-        pitching.calculate_player_pitching_stats(
-            df, lg, make_ratings(df["ID"]), "Test", df_lg_woba
-        ),
+        pitching.calculate_player_pitching_stats(df, lg, make_ratings(df["ID"]), "Test", df_lg_woba),
         lg,
     )
 
@@ -46,15 +44,9 @@ def test_league_totals_survive_a_missing_role():
 def test_rate_columns():
     df = make_pitching()
     out, _ = run_pitching(df)
-    assert out["KPercent"].to_numpy() == pytest.approx(
-        (df["K"] / df["BF"] * 100).to_numpy()
-    )
-    assert out["BBPercent"].to_numpy() == pytest.approx(
-        (df["BB"] / df["BF"] * 100).to_numpy()
-    )
-    assert out["HRPercent"].to_numpy() == pytest.approx(
-        (df["HR"] / df["BF"] * 100).to_numpy()
-    )
+    assert out["KPercent"].to_numpy() == pytest.approx((df["K"] / df["BF"] * 100).to_numpy())
+    assert out["BBPercent"].to_numpy() == pytest.approx((df["BB"] / df["BF"] * 100).to_numpy())
+    assert out["HRPercent"].to_numpy() == pytest.approx((df["HR"] / df["BF"] * 100).to_numpy())
 
 
 def test_innings_use_baseball_notation():

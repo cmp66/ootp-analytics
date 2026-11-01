@@ -26,9 +26,7 @@ def prepared(stats, ratings):
 
 
 def test_season_length_is_the_same_everywhere():
-    assert [fielding.get_season_adjustment(p) for p in range(1, 10)] == [220, 1100] + [
-        1200
-    ] * 7
+    assert [fielding.get_season_adjustment(p) for p in range(1, 10)] == [220, 1100] + [1200] * 7
     assert fielding.get_fielding_adjustment is fielding.get_season_adjustment
 
 
@@ -48,16 +46,10 @@ def test_positional_totals_match_an_independent_calculation():
         assert totals.loc[pos, "PlayPerSeason"] == pytest.approx(
             rows["PlaysMade"].sum() / rows["IPClean"].sum() * season
         )
-        assert totals.loc[pos, "ErrorPerSeason"] == pytest.approx(
-            rows["E"].sum() / rows["IPClean"].sum() * season
-        )
+        assert totals.loc[pos, "ErrorPerSeason"] == pytest.approx(rows["E"].sum() / rows["IPClean"].sum() * season)
     catchers = df[df["POS"] == 2]
-    assert totals.loc[2, "FRM"] == pytest.approx(
-        catchers["FRM"].sum() / catchers["IPClean"].sum()
-    )
-    assert totals.loc[2, "SBA"] == pytest.approx(
-        catchers["SBA"].sum() / catchers["IPClean"].sum() * 1000
-    )
+    assert totals.loc[2, "FRM"] == pytest.approx(catchers["FRM"].sum() / catchers["IPClean"].sum())
+    assert totals.loc[2, "SBA"] == pytest.approx(catchers["SBA"].sum() / catchers["IPClean"].sum() * 1000)
     # only catchers carry catcher stats; the pitcher row is 0, not NaN
     assert totals.loc[[1, 3, 4, 5, 6, 7, 8, 9], ["SBA", "RTO", "FRM"]].eq(0).all().all()
 
@@ -69,17 +61,11 @@ def test_attribute_averages_are_innings_weighted():
     for pos in fielding.of_positions:
         rows = df[df["POS"] == pos]
         w = rows["IPClean"] / rows["IPClean"].sum()
-        assert averages.loc[pos, "Range"] == pytest.approx(
-            round((w * rows["OF RNG"]).sum(), 2)
-        )
-        assert averages.loc[pos, "Arm"] == pytest.approx(
-            round((w * rows["OF ARM"]).sum(), 2)
-        )
+        assert averages.loc[pos, "Range"] == pytest.approx(round((w * rows["OF RNG"]).sum(), 2))
+        assert averages.loc[pos, "Arm"] == pytest.approx(round((w * rows["OF ARM"]).sum(), 2))
     catchers = df[df["POS"] == 2]
     w = catchers["IPClean"] / catchers["IPClean"].sum()
-    assert averages.loc[2, "Frame"] == pytest.approx(
-        round((w * catchers["C FRM"]).sum(), 2)
-    )
+    assert averages.loc[2, "Frame"] == pytest.approx(round((w * catchers["C FRM"]).sum(), 2))
 
 
 def test_pitchers_are_reported_and_dh_rows_are_not():
@@ -87,9 +73,7 @@ def test_pitchers_are_reported_and_dh_rows_are_not():
     dh = stats[stats["POS"] == 3].copy()
     dh["POS"] = 10
     dh["ID"] = dh["ID"] + 5000
-    ratings = pd.concat(
-        [ratings, ratings.loc[dh["ID"] - 5000].set_axis(dh["ID"].to_numpy())]
-    )
+    ratings = pd.concat([ratings, ratings.loc[dh["ID"] - 5000].set_axis(dh["ID"].to_numpy())])
     ratings.index.name = "ID"
     _, _, out = run_fielding(pd.concat([stats, dh], ignore_index=True), ratings)
     assert 1 in set(out["POS"])
@@ -129,9 +113,7 @@ def test_double_plays_do_not_change_fielding_runs():
 
 def test_catcher_framing_baseline_survives_rounding():
     stats, ratings = make_fielding()
-    stats["FRM"] = np.where(
-        stats["POS"] == 2, 0.0005 * stats["IP"], 0.0
-    )  # tiny per-inning rate
+    stats["FRM"] = np.where(stats["POS"] == 2, 0.0005 * stats["IP"], 0.0)  # tiny per-inning rate
     totals, _, out = run_fielding(stats, ratings)
     catchers = out[out["POS"] == 2]
     # every catcher is exactly at the league rate, so framing runs above average are ~0

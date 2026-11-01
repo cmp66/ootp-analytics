@@ -18,12 +18,8 @@ def compare_file(old_path: str, new_path: str, tol: float) -> list[str]:
     old, new = load(old_path), load(new_path)
     lines = []
     if set(old.columns) != set(new.columns):
-        lines.append(
-            f"  columns removed: {sorted(set(old.columns) - set(new.columns))}"
-        )
-        lines.append(
-            f"  columns added:   {sorted(set(new.columns) - set(old.columns))}"
-        )
+        lines.append(f"  columns removed: {sorted(set(old.columns) - set(new.columns))}")
+        lines.append(f"  columns added:   {sorted(set(new.columns) - set(old.columns))}")
     if len(old) != len(new):
         lines.append(f"  row count {len(old)} -> {len(new)}")
     key = [c for c in [old.columns[0], "POS"] if c in old.columns and c in new.columns]
@@ -38,9 +34,7 @@ def compare_file(old_path: str, new_path: str, tol: float) -> list[str]:
     else:
         return lines
     for col in [c for c in old.columns if c in new.columns]:
-        if pd.api.types.is_numeric_dtype(old[col]) and pd.api.types.is_numeric_dtype(
-            new[col]
-        ):
+        if pd.api.types.is_numeric_dtype(old[col]) and pd.api.types.is_numeric_dtype(new[col]):
             diff = (old[col] - new[col]).abs()
             nan_mismatch = old[col].isna() != new[col].isna()
             diff = diff.mask(nan_mismatch, float("inf"))

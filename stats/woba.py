@@ -35,12 +35,7 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
     )
     runs_per_out = league_totals["R"] / outs
     pro_non_outs = league_totals["H"] + league_totals["BB"] + league_totals["HP"]
-    unpro_outs = (
-        league_totals["AB"]
-        - league_totals["H"]
-        + league_totals["CS"]
-        + league_totals["GIDP"]
-    )
+    unpro_outs = league_totals["AB"] - league_totals["H"] + league_totals["CS"] + league_totals["GIDP"]
 
     # Run Values
     run_value_bb = 0.14 + runs_per_out
@@ -93,26 +88,16 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
         "wOBA_SCALE": woba_scale,
     }
 
-    lg_wSB = (
-        league_totals["SB"] * run_value_sb + league_totals["CS"] * run_value_cs
-    ) / (
-        league_totals["BB"]
-        + league_totals["HP"]
-        + league_totals["1B"]
-        - league_totals["IBB"]
+    lg_wSB = (league_totals["SB"] * run_value_sb + league_totals["CS"] * run_value_cs) / (
+        league_totals["BB"] + league_totals["HP"] + league_totals["1B"] - league_totals["IBB"]
     )
     lg_wSB = lg_wSB if lg_wSB > 0 else 0
 
     lg_woba = calc_woba(league_totals, league_data)
     lg_babip = (league_totals["H"] - league_totals["HR"]) / (
-        league_totals["AB"]
-        - league_totals["HR"]
-        - league_totals["SO"]
-        + league_totals["SF"]
+        league_totals["AB"] - league_totals["HR"] - league_totals["SO"] + league_totals["SF"]
     )
-    lg_xbh_rate = (league_totals["2B"] + league_totals["3B"]) / (
-        league_totals["H"] - league_totals["HR"]
-    )
+    lg_xbh_rate = (league_totals["2B"] + league_totals["3B"]) / (league_totals["H"] - league_totals["HR"])
     lg_steal_rate = (league_totals["SB"] + league_totals["CS"]) / (
         league_totals["1B"] + league_totals["BB"] + league_totals["HP"]
     )
@@ -132,30 +117,20 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
     )
     lg_3B_rate = league_totals["3B"] / (league_totals["2B"] + league_totals["3B"])
     # IBB is already included in BB
-    lg_k_rate = league_totals["SO"] / (
-        league_totals["PA"] - league_totals["BB"] - league_totals["HP"]
-    )
+    lg_k_rate = league_totals["SO"] / (league_totals["PA"] - league_totals["BB"] - league_totals["HP"])
     lg_ubb = (league_totals["BB"] - league_totals["IBB"]) / (
         league_totals["PA"] - league_totals["IBB"] - league_totals["HP"]
     )
-    lg_hr_rate = league_totals["HR"] / (
-        league_totals["PA"] - league_totals["BB"] - league_totals["HP"]
-    )
+    lg_hr_rate = league_totals["HR"] / (league_totals["PA"] - league_totals["BB"] - league_totals["HP"])
     runs_per_pa = league_totals["R"] / league_totals["PA"]
     lg_hp_rate = league_totals["HP"] / league_totals["PA"]
 
     lg_avg = league_totals["H"] / league_totals["AB"]
     lg_obp = (league_totals["H"] + league_totals["BB"] + league_totals["HP"]) / (
-        league_totals["AB"]
-        + league_totals["BB"]
-        + league_totals["HP"]
-        + league_totals["SF"]
+        league_totals["AB"] + league_totals["BB"] + league_totals["HP"] + league_totals["SF"]
     )
     lg_slug = (
-        league_totals["1B"]
-        + 2 * league_totals["2B"]
-        + 3 * league_totals["3B"]
-        + 4 * league_totals["HR"]
+        league_totals["1B"] + 2 * league_totals["2B"] + 3 * league_totals["3B"] + 4 * league_totals["HR"]
     ) / league_totals["AB"]
 
     league_data.update(

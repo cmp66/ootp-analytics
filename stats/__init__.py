@@ -2,9 +2,7 @@ import pandas as pd
 from util import paths
 
 
-def add_league_attribute_averages(
-    league: str, season: int, df_player_data: pd.DataFrame | None = None
-) -> pd.DataFrame:
+def add_league_attribute_averages(league: str, season: int, df_player_data: pd.DataFrame | None = None) -> pd.DataFrame:
     """Add the league average rating columns to the player data and write player-data.csv.
 
     df_player_data is the cleaned ratings frame (indexed by ID). When omitted it is read from the

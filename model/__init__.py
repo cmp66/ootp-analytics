@@ -299,9 +299,7 @@ class RegressionRunner:
 
         # Check if the number of features matches the expected number of features
         if X.shape[1] != self.num_features:
-            raise ValueError(
-                f"Expected {self.num_features} features, but got {X.shape[1]} features"
-            )
+            raise ValueError(f"Expected {self.num_features} features, but got {X.shape[1]} features")
         X_scaled = StandardScaler().fit_transform(X)
 
         X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.50)
@@ -309,13 +307,9 @@ class RegressionRunner:
         # Convert the data to PyTorch tensors
         dev = self.device
         self.X_train_tensor = torch.tensor(X_train, dtype=torch.float32, device=dev)
-        self.y_train_tensor = torch.tensor(
-            y_train.values, dtype=torch.float32, device=dev
-        ).view(-1, 1)
+        self.y_train_tensor = torch.tensor(y_train.values, dtype=torch.float32, device=dev).view(-1, 1)
         self.X_test_tensor = torch.tensor(X_test, dtype=torch.float32, device=dev)
-        self.y_test_tensor = torch.tensor(
-            y_test.values, dtype=torch.float32, device=dev
-        ).view(-1, 1)
+        self.y_test_tensor = torch.tensor(y_test.values, dtype=torch.float32, device=dev).view(-1, 1)
 
         # self.criterion = nn.MSELoss()
         self.criterion = nn.L1Loss()
@@ -375,9 +369,7 @@ class RegressionRunner:
 
         # Check if the number of features matches the expected number of features
         if X.shape[1] != self.num_features:
-            raise ValueError(
-                f"Expected {self.num_features} features, but got {X.shape[1]} features"
-            )
+            raise ValueError(f"Expected {self.num_features} features, but got {X.shape[1]} features")
 
         self.model.eval()
         with torch.no_grad():

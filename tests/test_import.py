@@ -10,9 +10,7 @@ def write(path, df):
 
 
 def export_folder(tmp_path, with_team_batting=True):
-    write(
-        tmp_path / "pit.csv", pd.DataFrame({"ID": [1, 2], "IRS": [0, 1], "1B": [3, 4]})
-    )
+    write(tmp_path / "pit.csv", pd.DataFrame({"ID": [1, 2], "IRS": [0, 1], "1B": [3, 4]}))
     write(
         tmp_path / "bat.csv",
         pd.DataFrame({"ID": [1, 2], "PI/PA": [3.9, 4.0], "K": [10, 12]}),
@@ -114,9 +112,7 @@ def test_missing_ratings_are_reported(caplog):
     stats = pd.DataFrame({"ID": [1, 2, 3], "PA": [100, 300, 100]})
     ratings = pd.DataFrame({"ORG": [1, 1]}, index=pd.Index([1, 2], name="ID"))
     with caplog.at_level("WARNING", logger="util.importCSV"):
-        missing = importCSV.report_missing_ratings(
-            "batting", stats, ratings, "PA", "Test", 2000
-        )
+        missing = importCSV.report_missing_ratings("batting", stats, ratings, "PA", "Test", 2000)
     assert missing == 1
     assert "1 of 3 players have no ratings" in caplog.text
     assert "20.00% of PA" in caplog.text
@@ -126,10 +122,5 @@ def test_nothing_is_logged_when_everyone_has_ratings(caplog):
     stats = pd.DataFrame({"ID": [1, 2], "PA": [100, 300]})
     ratings = pd.DataFrame({"ORG": [1, 1]}, index=pd.Index([1, 2], name="ID"))
     with caplog.at_level("WARNING", logger="util.importCSV"):
-        assert (
-            importCSV.report_missing_ratings(
-                "batting", stats, ratings, "PA", "Test", 2000
-            )
-            == 0
-        )
+        assert importCSV.report_missing_ratings("batting", stats, ratings, "PA", "Test", 2000) == 0
     assert caplog.text == ""

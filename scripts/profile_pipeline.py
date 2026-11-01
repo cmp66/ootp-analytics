@@ -29,12 +29,8 @@ def run(league: str, season: int) -> None:
     print(f"{league} {season}")
     source = get_save(league).source
     start = time.perf_counter()
-    r, b, br, bl, p, _, _, f, *_ = stage(
-        "import", importCSV.import_files, league, season, write_player_data=False
-    )
-    b, lg, _, _ = stage(
-        "batting", batting.process_batting_data, b, br, bl, r, league, season, source
-    )
+    r, b, br, bl, p, _, _, f, *_ = stage("import", importCSV.import_files, league, season, write_player_data=False)
+    b, lg, _, _ = stage("batting", batting.process_batting_data, b, br, bl, r, league, season, source)
     stage("fielding", fielding.process_fielding_data, f, lg, r, league, season)
     stage("pitching", pitching.process_pitching_data, p, r, league, season, lg)
     stage(

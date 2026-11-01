@@ -144,19 +144,13 @@ class PitchingModel(Modeler):
         self.role = role
         self.ratings_type = ratings_type
         self.use_potential = use_potential
-        self.modified_role = (
-            self.role + "-potential" if self.use_potential else self.role
-        )
-        self.model = Modeler(
-            feature_values[self.modified_role], targets[self.modified_role]
-        )
+        self.modified_role = self.role + "-potential" if self.use_potential else self.role
+        self.model = Modeler(feature_values[self.modified_role], targets[self.modified_role])
 
     def conform_data(self, data):
 
         df_id = data["ID"]
-        filtered_data = data[
-            feature_values[self.modified_role] + [targets[self.modified_role][0]]
-        ]
+        filtered_data = data[feature_values[self.modified_role] + [targets[self.modified_role][0]]]
 
         # create a dataset with a subset of the columns
         self.conform_column_types(
@@ -168,12 +162,8 @@ class PitchingModel(Modeler):
 
     def prepare_data(self, season, ip_limit):
         # load fielding dataset from csv
-        pitching = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv"
-        )
-        player_data = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
-        )
+        pitching = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv")
+        player_data = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv")
         with pd.option_context("future.no_silent_downcasting", True):
             pitching.replace("-", 0, inplace=True)
             player_data.replace("-", 0, inplace=True)
@@ -198,9 +188,7 @@ class PitchingModel(Modeler):
             filtered_data, df_id = self.prepare_data(season, ip_limit)
 
             self.filtered_data = (
-                filtered_data
-                if season == int(self.season_start)
-                else pd.concat([self.filtered_data, filtered_data])
+                filtered_data if season == int(self.season_start) else pd.concat([self.filtered_data, filtered_data])
             )
 
         print(self.filtered_data.shape)
@@ -215,11 +203,7 @@ class PitchingModel(Modeler):
         return self.model.evaluate()
 
     def predict(self, season, ip_limit=0, skip_load=False, preloaded_data=None):
-        filtered_data, df_id = (
-            self.conform_data(preloaded_data)
-            if skip_load
-            else self.prepare_data(season, ip_limit)
-        )
+        filtered_data, df_id = self.conform_data(preloaded_data) if skip_load else self.prepare_data(season, ip_limit)
         filtered_data = filtered_data.drop(columns=targets[self.modified_role][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
@@ -229,16 +213,10 @@ class PitchingModel(Modeler):
         return self.model.feature_importance()
 
     def save_model(self):
-        self.model.save_model(
-            f"./files/models/{self.ratings_type}-pitching-{self.modified_role}-model.pt"
-        )
+        self.model.save_model(f"./files/models/{self.ratings_type}-pitching-{self.modified_role}-model.pt")
 
     def load_model(self):
-        self.model.load_model(
-            f"./files/models/{self.ratings_type}-pitching-{self.modified_role}-model.pt"
-        )
+        self.model.load_model(f"./files/models/{self.ratings_type}-pitching-{self.modified_role}-model.pt")
 
     def load_released_model(self):
-        self.model.load_model(
-            f"./files/models/released/{self.ratings_type}-pitching-{self.modified_role}-model.pt"
-        )
+        self.model.load_model(f"./files/models/released/{self.ratings_type}-pitching-{self.modified_role}-model.pt")
