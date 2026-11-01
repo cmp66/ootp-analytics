@@ -1,4 +1,11 @@
-"""Cross-checks on real OOTP data. Nothing is written; tests are skipped when the csv files are missing."""
+"""Cross-checks on real OOTP data. Nothing is written.
+
+By default the small fixtures in tests/data are used (see scripts/make_test_data.py), so the tests run on a
+fresh clone. Set OOTP_TEST_DATA=full to run against the complete files under files/ instead.
+"""
+
+import os
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -8,6 +15,8 @@ from util import importCSV, paths
 from util.innings import ip_to_innings
 
 pytestmark = pytest.mark.integration
+
+DATA_ROOT = Path(__file__).parent / "data"
 
 SEASONS = [
     ("Model-Sim", 2045, "dump", "Standard27"),
@@ -107,8 +116,19 @@ def load(league, season, source, ratings):
     )
 
 
+@pytest.fixture(scope="module", autouse=True)
+def data_root():
+    if os.environ.get("OOTP_TEST_DATA") == "full":
+        yield
+        return
+    patch = pytest.MonkeyPatch()
+    patch.setattr(paths, "FILES_ROOT", DATA_ROOT)
+    yield
+    patch.undo()
+
+
 @pytest.fixture(scope="module", params=SEASONS, ids=[f"{s[0]}-{s[1]}" for s in SEASONS])
-def season(request):
+def season(request, data_root):
     league, year, source, ratings = request.param
     if not source_available(league, year, source, ratings):
         pytest.skip(f"no {source} files for {league} {year}")
