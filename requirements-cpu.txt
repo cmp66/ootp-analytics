@@ -88,6 +88,8 @@ idna==3.20
     #   httpx
     #   jsonschema
     #   requests
+iniconfig==2.3.1
+    # via pytest
 ipykernel==7.4.0
     # via jupyterlab
 ipython==9.18.0
@@ -228,6 +230,7 @@ packaging==26.3
     #   jupyterlab-server
     #   matplotlib
     #   nbconvert
+    #   pytest
     #   shap
     #   virtualenv
 pandas==3.1.0
@@ -249,6 +252,8 @@ platformdirs==4.14.2
     #   black
     #   jupyter-core
     #   virtualenv
+pluggy==1.7.0
+    # via pytest
 pre-commit==4.7.0
     # via -r requirements.in
 prometheus-client==0.26.0
@@ -276,8 +281,11 @@ pygments==2.21.0
     #   ipython
     #   ipython-pygments-lexers
     #   nbconvert
+    #   pytest
 pyparsing==3.3.3
     # via matplotlib
+pytest==9.2.0
+    # via -r requirements.in
 python-dateutil==4.0.0
     # via
     #   arrow

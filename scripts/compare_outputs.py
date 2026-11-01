@@ -42,6 +42,8 @@ def compare_file(old_path: str, new_path: str, tol: float) -> list[str]:
             new[col]
         ):
             diff = (old[col] - new[col]).abs()
+            nan_mismatch = old[col].isna() != new[col].isna()
+            diff = diff.mask(nan_mismatch, float("inf"))
             n = int((diff > tol).sum())
             if n:
                 lines.append(
