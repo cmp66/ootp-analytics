@@ -108,3 +108,28 @@ def test_team_innings_fold_extra_outs_into_ip():
     out = importCSV._team_innings(team)
     assert out["IP"].tolist() == pytest.approx([1000.2, 999.0])
     assert "IPF" not in out.columns
+
+
+def test_missing_ratings_are_reported(caplog):
+    stats = pd.DataFrame({"ID": [1, 2, 3], "PA": [100, 300, 100]})
+    ratings = pd.DataFrame({"ORG": [1, 1]}, index=pd.Index([1, 2], name="ID"))
+    with caplog.at_level("WARNING", logger="util.importCSV"):
+        missing = importCSV.report_missing_ratings(
+            "batting", stats, ratings, "PA", "Test", 2000
+        )
+    assert missing == 1
+    assert "1 of 3 players have no ratings" in caplog.text
+    assert "20.00% of PA" in caplog.text
+
+
+def test_nothing_is_logged_when_everyone_has_ratings(caplog):
+    stats = pd.DataFrame({"ID": [1, 2], "PA": [100, 300]})
+    ratings = pd.DataFrame({"ORG": [1, 1]}, index=pd.Index([1, 2], name="ID"))
+    with caplog.at_level("WARNING", logger="util.importCSV"):
+        assert (
+            importCSV.report_missing_ratings(
+                "batting", stats, ratings, "PA", "Test", 2000
+            )
+            == 0
+        )
+    assert caplog.text == ""

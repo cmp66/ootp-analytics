@@ -2,6 +2,7 @@ import pandas as pd
 from util import paths
 from util.innings import dump_ip_to_outs, outs_to_ip
 from util.config import get_save
+import logging
 import os
 from model import (
     convert_personalilty_trait,
@@ -18,6 +19,8 @@ from model import (
     convert_stars,
     convert_injury_prone,
 )
+
+logger = logging.getLogger(__name__)
 
 # Column that uniquely identifies each kind of in-game export file
 EXPORT_FILE_MARKERS = {
@@ -195,8 +198,13 @@ def import_ratings(
 
 
 def import_ootp_dump_ratings(
-    league: str, season: int, ratings_type: str, basedir: str
+    league: str,
+    season: int,
+    ratings_type: str,
+    basedir: str,
+    include_ids=(),
 ) -> pd.DataFrame:
+    """Ratings of everyone on a team, plus anyone in include_ids (e.g. free agents who played this season)."""
     filedir = paths.dump_dir(league, ratings_type, season)
 
     df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv", low_memory=False)
@@ -402,9 +410,10 @@ def import_ootp_dump_ratings(
         convert_dump_positions
     )
 
-    df_player_ratings_base = df_player_ratings_base[df_player_ratings_base["ORG"] > 0]
-
-    return df_player_ratings_base
+    on_a_team = df_player_ratings_base["ORG"] > 0
+    return df_player_ratings_base[
+        on_a_team | df_player_ratings_base.index.isin(include_ids)
+    ]
 
 
 BIZ_RENAMES = {
@@ -719,12 +728,41 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
     return df_player_ratings
 
 
-def import_files(
+def report_missing_ratings(
+    label: str,
+    df_stats: pd.DataFrame,
+    df_ratings: pd.DataFrame,
+    volume_column: str,
+    league: str,
+    season: int,
+) -> int:
+    """Log the players that have stats but no ratings: the stat calculations leave them out."""
+    missing = ~df_stats["ID"].isin(df_ratings.index)
+    count = int(missing.sum())
+    if count:
+        share = (
+            df_stats.loc[missing, volume_column].sum()
+            / df_stats[volume_column].sum()
+            * 100
+        )
+        logger.warning(
+            "%s %s %s: %d of %d players have no ratings and are left out (%.2f%% of %s)",
+            league,
+            season,
+            label,
+            count,
+            len(df_stats),
+            share,
+            volume_column,
+        )
+    return count
+
+
+def load_season(
     league: str,
     season: int,
     source: str | None = None,
     ratings: str | None = None,
-    write_player_data: bool = True,
 ) -> tuple[
     pd.DataFrame,
     pd.DataFrame,
@@ -743,7 +781,6 @@ def import_files(
     ratings = ratings or save.ratings
 
     if source == "dump":
-        df_player_ratings = import_ootp_dump_ratings(league, season, ratings, ".")
         (
             df_player_batting_stats,
             df_player_pitching_stats,
@@ -756,6 +793,15 @@ def import_files(
             df_player_pitching_right_stats,
             df_player_pitching_left_stats,
         ) = import_ootp_dump_stats(league, season, ratings, ".")
+        # free agents and released players who played this season still need their ratings
+        played = (
+            set(df_player_batting_stats["ID"])
+            | set(df_player_pitching_stats["ID"])
+            | set(df_player_fielding_stats["ID"])
+        )
+        df_player_ratings = import_ootp_dump_ratings(
+            league, season, ratings, ".", include_ids=played
+        )
     else:
         (
             df_player_batting_stats,
@@ -772,6 +818,50 @@ def import_files(
         df_player_pitching_left_stats = pd.DataFrame()
 
     df_player_ratings = clean_ratings(df_player_ratings)
+
+    for label, df, volume in [
+        ("batting", df_player_batting_stats, "PA"),
+        ("pitching", df_player_pitching_stats, "BF"),
+        ("fielding", df_player_fielding_stats, "IP"),
+    ]:
+        report_missing_ratings(label, df, df_player_ratings, volume, league, season)
+    return (
+        df_player_ratings,
+        df_player_batting_stats,
+        df_player_batting_right_stats,
+        df_player_batting_left_stats,
+        df_player_pitching_stats,
+        df_player_pitching_right_stats,
+        df_player_pitching_left_stats,
+        df_player_fielding_stats,
+        df_team_batting_stats,
+        df_team_pitching_stats,
+        df_team_fielding_stats,
+    )
+
+
+def import_files(
+    league: str,
+    season: int,
+    source: str | None = None,
+    ratings: str | None = None,
+    write_player_data: bool = True,
+):
+    """load_season plus the csv files that hold the cleaned ratings and the team tables."""
+    loaded = load_season(league, season, source, ratings)
+    (
+        df_player_ratings,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        _,
+        df_team_batting_stats,
+        df_team_pitching_stats,
+        df_team_fielding_stats,
+    ) = loaded
 
     # check of export direction exists, if not create it
     paths.output_dir(league, season, create=True)
@@ -790,16 +880,4 @@ def import_files(
         paths.output_file(league, season, "team-fielding")
     )
 
-    return (
-        df_player_ratings,
-        df_player_batting_stats,
-        df_player_batting_right_stats,
-        df_player_batting_left_stats,
-        df_player_pitching_stats,
-        df_player_pitching_right_stats,
-        df_player_pitching_left_stats,
-        df_player_fielding_stats,
-        df_team_batting_stats,
-        df_team_pitching_stats,
-        df_team_fielding_stats,
-    )
+    return loaded
