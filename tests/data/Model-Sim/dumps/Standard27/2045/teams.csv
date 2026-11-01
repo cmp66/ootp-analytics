@@ -1,0 +1,55 @@
+team_id,name,abbr,nickname,logo_file_name,city_id,park_id,league_id,sub_league_id,division_id,nation_id,parent_team_id,level,prevent_any_moves,human_team,human_id,gender,background_color_id,text_color_id,ballcaps_main_color_id,ballcaps_visor_color_id,jersey_main_color_id,jersey_away_color_id,jersey_secondary_color_id,jersey_pin_stripes_color_id,allstar_team,historical_id
+1,Arizona,AZ,Diamondbacks,arizona_diamondbacks.png,58739,7,203,1,2,206,0,1,0,0,0,0,#AA182C,#3EC1CC,#AA182C,#3EC1CC,#FFFFFF,#AAAAAA,#AA182C,#AA182C,0,ARI
+2,Atlanta,ATL,Braves,atlanta_braves.png,4704,186,203,1,0,206,0,1,0,0,0,0,#002D59,#D0043C,#002D59,#002D59,#FFFFFF,#AAAAAA,#002D59,#002D59,0,ATL
+3,Baltimore,BAL,Orioles,baltimore_orioles.png,6650,8,203,0,0,206,0,1,0,0,0,0,#DF4601,#000000,#000000,#000000,#FFFFFF,#AAAAAA,#DF4601,#DF4601,0,BAL
+4,Boston,BOS,Red Sox,boston_red_sox.png,10948,9,203,0,0,206,0,1,0,0,0,0,#BD3039,#0D2B56,#0D2B56,#0D2B56,#FFFFFF,#AAAAAA,#BD3039,#BD3039,0,BOS
+5,Chicago,CWS,White Sox,chicago_white_sox.png,13181,197,203,0,1,206,0,1,0,0,0,0,#FFFFFF,#1D1D1B,#1D1D1B,#1D1D1B,#FFFFFF,#AAAAAA,#FFFFFF,#FFFFFF,0,CHA
+6,Chicago,CHC,Cubs,chicago_cubs.png,13181,10,203,1,1,206,0,1,0,0,0,0,#004B8B,#DA052E,#004B8B,#004B8B,#FFFFFF,#AAAAAA,#004B8B,#004B8B,0,CHN
+7,Cincinnati,CIN,Reds,cincinnati_reds.png,13776,11,203,1,1,206,0,1,0,0,0,0,#C6011F,#041E42,#C6011F,#C6011F,#FFFFFF,#AAAAAA,#C6011F,#C6011F,0,CIN
+8,Cleveland,CLE,Guardians,cleveland_guardians.png,14082,12,203,0,1,206,0,1,0,0,0,0,#E31937,#002B5C,#002B5C,#002B5C,#FFFFFF,#AAAAAA,#E31937,#E31937,0,CLE
+9,Colorado,COL,Rockies,colorado_rockies.png,20170,13,203,1,2,206,0,1,0,0,0,0,#33006F,#C4CED4,#33006F,#C4CED4,#FFFFFF,#AAAAAA,#33006F,#33006F,0,COL
+10,Detroit,DET,Tigers,detroit_tigers.png,20315,14,203,0,1,206,0,1,0,0,0,0,#0C2C56,#FF6600,#0C2C56,#0C2C56,#FFFFFF,#AAAAAA,#0C2C56,#0C2C56,0,DET
+11,Miami,MIA,Marlins,miami_marlins.png,50031,15,203,1,0,206,0,1,0,0,0,0,#00A3E0,#EF3340,#000000,#000000,#FFFFFF,#AAAAAA,#00A3E0,#00A3E0,0,FLO
+12,Houston,HOU,Astros,houston_astros.png,32688,198,203,0,2,206,0,1,0,0,0,0,#002D62,#EB6E1F,#002D62,#002D62,#FFFFFF,#AAAAAA,#002D62,#002D62,0,HOU
+13,Kansas City,KC,Royals,kansas_city_royals.png,36925,16,203,0,1,206,0,1,0,0,0,0,#004687,#C09A5B,#004687,#004687,#FFFFFF,#AAAAAA,#004687,#004687,0,KCA
+14,Los Angeles,LAA,Angels,los_angeles_angels.png,2845,17,203,0,2,206,0,1,0,0,0,0,#BA0021,#003263,#BA0021,#BA0021,#FFFFFF,#AAAAAA,#BA0021,#BA0021,0,LAA
+15,Los Angeles,LAD,Dodgers,los_angeles_dodgers.png,41955,18,203,1,2,206,0,1,0,0,0,0,#005A9C,#FFFFFF,#005A9C,#005A9C,#FFFFFF,#AAAAAA,#005A9C,#005A9C,0,LAN
+16,Milwaukee,MIL,Brewers,milwaukee_brewers.png,50428,19,203,1,1,206,0,1,0,0,0,0,#13294B,#FFC72C,#13294B,#13294B,#FFFFFF,#AAAAAA,#13294B,#13294B,0,MIL
+17,Minnesota,MIN,Twins,minnesota_twins.png,50536,20,203,0,1,206,0,1,0,0,0,0,#031F40,#E20E32,#031F40,#031F40,#FFFFFF,#AAAAAA,#031F40,#031F40,0,MIN
+18,New York,NYY,Yankees,new_york_yankees.png,55211,21,203,0,0,206,0,1,0,0,0,0,#132448,#FFFFFF,#132448,#132448,#FFFFFF,#AAAAAA,#132448,#132448,0,NYA
+19,New York,NYM,Mets,new_york_mets.png,55211,22,203,1,0,206,0,1,0,0,0,0,#002D72,#FF5910,#002D72,#002D72,#FFFFFF,#AAAAAA,#002D72,#002D72,0,NYN
+20,Athletics,ATH,Athletics,_athletics.png,67700,72,203,0,2,206,0,1,0,0,0,0,#003831,#EFB21E,#003831,#003831,#FFFFFF,#AAAAAA,#003831,#003831,0,OAK
+21,Philadelphia,PHI,Phillies,philadelphia_phillies.png,58713,23,203,1,0,206,0,1,0,0,0,0,#E81828,#003278,#E81828,#E81828,#FFFFFF,#AAAAAA,#E81828,#E81828,0,PHI
+22,Pittsburgh,PIT,Pirates,pittsburgh_pirates.png,59354,24,203,1,1,206,0,1,0,0,0,0,#FDB827,#000000,#FDB827,#000000,#FFFFFF,#AAAAAA,#FDB827,#FDB827,0,PIT
+23,San Diego,SD,Padres,san_diego_padres.png,69896,25,203,1,2,206,0,1,0,0,0,0,#2F241D,#FFC425,#2F241D,#2F241D,#FFFFFF,#AAAAAA,#2F241D,#2F241D,0,SDN
+24,Seattle,SEA,Mariners,seattle_mariners.png,72460,26,203,0,2,206,0,1,0,0,0,0,#0C2C56,#005C5C,#0C2C56,#0C2C56,#FFFFFF,#AAAAAA,#0C2C56,#0C2C56,0,SEA
+25,San Francisco,SF,Giants,san_francisco_giants.png,69999,27,203,1,2,206,0,1,0,0,0,0,#EE712A,#1D1D1B,#1D1D1B,#1D1D1B,#FFFFFF,#AAAAAA,#EE712A,#EE712A,0,SFN
+26,St. Louis,STL,Cardinals,st_louis_cardinals.png,69095,28,203,1,1,206,0,1,0,0,0,0,#BE0A14,#001541,#BE0A14,#BE0A14,#FFFFFF,#AAAAAA,#BE0A14,#BE0A14,0,SLN
+27,Tampa Bay,TB,Rays,tampa_bay_rays.png,69137,29,203,0,0,206,0,1,0,0,0,0,#092C5C,#8FBCE6,#092C5C,#092C5C,#FFFFFF,#AAAAAA,#092C5C,#092C5C,0,TBA
+28,Texas,TEX,Rangers,texas_rangers.png,4076,30,203,0,2,206,0,1,0,0,0,0,#003278,#C0111F,#003278,#003278,#FFFFFF,#AAAAAA,#003278,#003278,0,TEX
+29,Toronto,TOR,Blue Jays,toronto_blue_jays.png,80680,31,203,0,0,36,0,1,0,0,0,0,#134A8E,#D50032,#134A8E,#134A8E,#FFFFFF,#AAAAAA,#134A8E,#134A8E,0,TOR
+30,Washington,WSH,Nationals,washington_nationals.png,87845,32,203,1,0,206,0,1,0,0,0,0,#AB0003,#11225B,#AB0003,#AB0003,#FFFFFF,#AAAAAA,#AB0003,#AB0003,0,WAS
+31,American League,AL,All-Stars,american_league_all-stars.png,0,72,203,0,0,0,0,1,0,0,0,0,#9B0101,#000000,#1D556C,#FFD700,#1D556C,#1D556C,#FFD700,#FFD700,1,
+32,National League,NL,All-Stars,national_league_all-stars.png,0,11,203,1,0,0,0,1,0,0,0,0,#1E1E9E,#FFFFFF,#FFEA01,#FFEA01,#FFFFFF,#B7B7B7,#FFEA01,#FFEA01,1,
+184,American League,AL,Future Stars,american_league_future_stars.png,0,72,203,0,0,0,0,1,0,0,0,0,#9B0101,#000000,#A10D0D,#A10D0D,#FFFFFF,#FFFFFF,#A10D0D,#A10D0D,1,
+185,National League,NL,Future Stars,national_league_future_stars.png,0,11,203,1,0,0,0,1,0,0,0,0,#1E1E9E,#FFFFFF,#A10D0D,#A10D0D,#FFFFFF,#C9C9C9,#A10D0D,#A10D0D,1,
+142,New York (DSL),MetB,Mets Blue,new_york_(dsl)_mets_blue.png,10196,4,234,0,4,56,19,6,0,0,0,0,#002D72,#FF5910,#002D72,#002D72,#FFFFFF,#AAAAAA,#002D72,#002D72,0,
+104,St. Louis (FCL),FSTL,Cardinals,st_louis_(fcl)_cardinals.png,35822,117,218,0,0,206,26,6,0,0,0,0,#BE0A14,#001541,#BE0A14,#BE0A14,#FFFFFF,#AAAAAA,#BE0A14,#BE0A14,0,
+70,Reading,REA,Fightin Phils,reading_fightin_phils.png,65266,83,206,0,0,206,21,3,0,0,0,0,#D0043C,#002E5F,#D0043C,#002E5F,#FFFFFF,#AAAAAA,#D0043C,#D0043C,0,
+107,Toronto (FCL),FTOR,Blue Jays,toronto_(fcl)_blue_jays.png,19593,121,218,0,1,206,29,6,0,0,0,0,#134A8E,#D50032,#134A8E,#134A8E,#FFFFFF,#AAAAAA,#134A8E,#134A8E,0,
+141,Kansas City (DSL),RoyV,Royals Ventura,kansas_city_(dsl)_royals_ventura.png,26838,3,234,0,5,56,13,6,0,0,0,0,#004687,#C09A5B,#004687,#004687,#FFFFFF,#AAAAAA,#004687,#004687,0,
+262,Toronto (DSL),JayB,Blue Jays Blue,toronto_(dsl)_blue_jays_blue.png,10196,199,234,0,3,56,29,6,0,0,0,0,#134A8E,#D50032,#134A8E,#134A8E,#FFFFFF,#AAAAAA,#134A8E,#134A8E,0,
+191,Jacksonville,JAC,Jumbo Shrimp,jacksonville_jumbo_shrimp.png,34776,84,204,0,0,206,11,2,0,0,0,0,#002E5F,#E73137,#002E5F,#E73137,#FFFFFF,#AAAAAA,#002E5F,#002E5F,0,
+255,All-Stars,AS2,All-Stars,_all-stars.png,0,152,215,0,0,0,0,5,0,0,0,0,#1D556C,#FFFFFF,#1D556C,#FFFFFF,#FFFFFF,#AAAAAA,#FFFFFF,#FFFFFF,1,
+187,Cleveland (DSL),GuaM,Guardians Mendoza,cleveland_(dsl)_guardians_mendoza.png,26838,189,234,0,2,56,8,6,0,0,0,0,#E31937,#002B5C,#002B5C,#002B5C,#FFFFFF,#AAAAAA,#E31937,#E31937,0,
+229,Dunedin,DUN,Blue Jays,dunedin_blue_jays.png,19593,121,252,0,1,206,29,4,0,0,0,0,#003DA5,#FFFFFF,#003DA5,#FFFFFF,#FFFFFF,#AAAAAA,#003DA5,#003DA5,0,
+109,New York A (FCL),FNYY,Yankees,new_york_a_(fcl)_yankees.png,78373,124,218,0,1,206,18,6,0,0,0,0,#132448,#FFFFFF,#132448,#132448,#FFFFFF,#AAAAAA,#132448,#132448,0,
+237,Hill City,HIL,Howlers,hill_city_howlers.png,41130,109,213,0,0,206,8,4,0,0,0,0,#005596,#D31245,#005596,#D31245,#FFFFFF,#AAAAAA,#005596,#005596,0,
+116,East Division,AS1,All-Stars,east_division_all-stars.png,0,68,205,0,0,0,0,2,0,0,0,0,#9B0101,#000000,#ED1C24,#066CC6,#FFFFFF,#AAAAAA,#ED1C24,#ED1C24,1,
+192,Sugar Land,SUG,Space Cowboys,sugar_land_space_cowboys.png,76678,175,205,0,0,206,12,2,0,0,0,0,#000000,#002B54,#000000,#002B54,#FFFFFF,#AAAAAA,#000000,#000000,0,
+269,Trenton,TT,Thunder,trenton_thunder.png,81062,206,75,0,0,206,0,9,0,0,0,0,#FFB81C,#003DA5,#FFB81C,#003DA5,#FFFFFF,#AAAAAA,#FFB81C,#FFB81C,0,
+167,Team 1,AS1,All-Stars,team_1_all-stars.png,0,3,234,0,0,0,0,6,0,0,0,0,#9B0101,#000000,#F37A03,#F37A03,#FFFFFF,#D0D0D0,#F37A03,#F37A03,1,
+219,Spokane,SPO,Indians,spokane_indians.png,75641,151,209,0,0,206,9,4,0,0,0,0,#BA0C2F,#F3CFB3,#BA0C2F,#F3CFB3,#FFFFFF,#AAAAAA,#BA0C2F,#BA0C2F,0,
+144,Seattle (DSL),Mari,Mariners,seattle_(dsl)_mariners.png,10196,192,234,0,3,56,24,6,0,0,0,0,#0C2C56,#005C5C,#0C2C56,#0C2C56,#FFFFFF,#AAAAAA,#0C2C56,#0C2C56,0,
+256,All-Stars,AS1,All-Stars,_all-stars.png,0,166,219,0,0,0,0,6,0,0,0,0,#000000,#32939C,#000000,#32939C,#FFFFFF,#AAAAAA,#32939C,#32939C,1,
+41,Norfolk,NOR,Tides,norfolk_tides.png,56019,53,204,0,0,206,3,2,0,0,0,0,#009353,#EE7029,#009353,#EE7029,#FFFFFF,#AAAAAA,#009353,#009353,0,

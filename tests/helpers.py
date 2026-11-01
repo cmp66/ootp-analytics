@@ -25,7 +25,7 @@ BATTING_COLUMNS += ["SB", "CS", "BB", "IBB", "GIDP", "SH", "SF", "UBR"]
 
 def make_ratings(ids, **extra_columns) -> pd.DataFrame:
     """Ratings frame indexed by ID, like importCSV produces."""
-    ratings = pd.DataFrame({"ORG": 1, "BABIP": 50, **extra_columns}, index=pd.Index(ids, name="ID"))
+    ratings = pd.DataFrame({"ORG": 1, "BABIP": 50, "B": 1, **extra_columns}, index=pd.Index(ids, name="ID"))
     return ratings
 
 

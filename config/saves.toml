@@ -2,14 +2,55 @@
 #   source:  "dump"   = OOTP database csv dumps, files/<save>/dumps/<ratings>/<season>/
 #            "export" = in-game csv export,      files/<save>/<season>/ (+ ratings/)
 #   ratings: name of the ratings/settings set (dump folder name; also keys models trained for this save)
+#   ballparks (optional): ballpark ratings csv in files/<save>/; without it the Adj stats equal the plain ones.
+#            files/<save>/<season>/ballpark_ratings.csv overrides it for that season.
+#   home_share (optional, default 0.5): share of a player's PA / BF played in his own park.
+#   [<save>.team_names] (optional): save team id -> "Team Name" in the ballpark csv. Dump saves match
+#            "city nickname" automatically (the table is for exceptions, keyed by team abbreviation or full name);
+#            export saves need it: key is the team abbreviation (ratings column TM).
 
 [Model-Sim]
 source = "dump"
 ratings = "Standard27"
+ballparks = "ballpark_ratings.csv"
+
+[Model-Sim.team_names]
+"Athletics Athletics" = "Athletics"
 
 [TGS]
 source = "export"
 ratings = "Standard27"
+ballparks = "ballpark_ratings.csv"
+
+[TGS.team_names]
+ANA = "Anaheim Angels"
+ARI = "Arizona Diamondbacks"
+BAL = "Baltimore Orioles"
+BOS = "Boston Red Sox"
+CHC = "Chicago Cubs"
+CIN = "Cincinnati Reds"
+CLE = "Cleveland Guardians"
+COL = "Colorado Rockies"
+CWS = "Chicago White Sox"
+FLA = "Florida Marlins"
+HOU = "Houston Astros"
+KCM = "Kansas City Monarchs"
+KCR = "Kansas City Royals"
+LAD = "Los Angeles Dodgers"
+MIL = "Milwaukee Brewers"
+MIN = "Minnesota Twins"
+MON = "Montreal Expos"
+NYM = "New York Mets"
+NYY = "New York Yankees"
+OAK = "Oakland Athletics"
+PHI = "Philadelphia Phillies"
+PIT = "Pittsburgh Pirates"
+SD = "San Diego Padres"
+STL = "St. Louis Cardinals"
+TB = "Tampa Bay Devil Rays"
+TEX = "Texas Rangers"
+TOR = "Toronto Blue Jays"
+WAS = "Washington Nationals"
 
 [PBL]
 source = "export"

@@ -88,9 +88,9 @@ def test_league_rates_do_not_double_count_ibb():
     assert lg["lgHR_RATE"] == pytest.approx(totals["HR"] / (totals["PA"] - totals["BB"] - totals["HP"]))
 
 
-def test_ofadj_is_alias_of_off():
+def test_offadj_equals_off_without_park_factors():
     total, _, _, _ = run_batting(make_batting())
-    assert total["OFFAdj"].tolist() == total["OFF"].tolist()
+    assert total["OFFAdj"].to_numpy() == pytest.approx(total["OFF"].to_numpy())
 
 
 def test_league_columns_are_added_once_per_stat():

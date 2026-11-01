@@ -138,9 +138,9 @@ def test_woba_against_uses_the_batting_coefficients():
     assert out_batting["wOBAa"].to_numpy() == pytest.approx((num / den).to_numpy())
 
 
-def test_waaadj_is_alias_of_waa():
+def test_waaadj_equals_waa_without_park_factors():
     out, _ = run_pitching(make_pitching())
-    assert out["WAAAdj"].tolist() == out["WAA"].tolist()
+    assert out["WAAAdj"].to_numpy() == pytest.approx(out["WAA"].to_numpy())
 
 
 def test_pitcher_with_runs_but_no_outs_is_charged_and_the_league_still_balances():
