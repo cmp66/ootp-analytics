@@ -1,6 +1,7 @@
 from pandas import DataFrame
 import pandas as pd
-from stats import leagueAdjustments, woba
+from util import paths
+from stats import woba
 
 
 def calculate_batting_attribute_averages(
@@ -65,8 +66,6 @@ def calculate_player_batting_stats(
     if not skip_handedness:
         df_player_stats_right = df_player_stats_right.merge(df_player_ratings, on="ID")
         df_player_stats_left = df_player_stats_left.merge(df_player_ratings, on="ID")
-
-    park_adjustments = leagueAdjustments.get_park_adjustments(league)
 
     df_player_stats_total["UBRAA"] = (
         df_player_stats_total["UBR"]
@@ -178,16 +177,8 @@ def calculate_player_batting_stats(
             df_player_stats_total["BSR"] + df_player_stats_left["wRAALeft"]
         )
 
-    df_player_stats_total["OFFAdj"] = df_player_stats_total["OFF"] * (
-        (
-            1
-            - df_player_stats_total["ORG"].apply(
-                lambda x: park_adjustments[x] if x in park_adjustments else 1.0
-            )
-        )
-        * 0.5
-        + 1.0
-    )
+    # Park factors removed; kept as an alias of OFF for downstream consumers
+    df_player_stats_total["OFFAdj"] = df_player_stats_total["OFF"]
     df_player_stats_total["OFF600"] = (
         df_player_stats_total["OFF"] * 600 / df_player_stats_total["PA"]
     )
@@ -276,7 +267,7 @@ def process_batting_data(
     df_lg_batting_stat.set_index("Stat", inplace=True)
 
     pd.DataFrame(league_batting_totals, index=[0]).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-batting-totals.csv"
+        paths.output_file(league, season, "batting-totals")
     )
 
     (
@@ -293,14 +284,12 @@ def process_batting_data(
     )
     df_player_batting_stats["season"] = season
     df_player_batting_stats["league"] = league
-    df_player_batting_stats.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-hitting.csv"
-    )
+    df_player_batting_stats.to_csv(paths.output_file(league, season, "hitting"))
     df_player_batting_stats_right.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-right-hitting.csv"
+        paths.output_file(league, season, "right-hitting")
     )
     df_player_batting_stats_left.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-left-hitting.csv"
+        paths.output_file(league, season, "left-hitting")
     )
 
     df_lg_batting_stat = calculate_batting_attribute_averages(
@@ -311,9 +300,7 @@ def process_batting_data(
     )
     df_lg_batting_stat["season"] = season
     df_lg_batting_stat["league"] = league
-    df_lg_batting_stat.round(9).to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
-    )
+    df_lg_batting_stat.round(9).to_csv(paths.output_file(league, season, "woba-calcs"))
 
     return (
         df_player_batting_stats,

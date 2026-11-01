@@ -13,3 +13,5 @@ scikit-learn
 shap
 unidecode
 xlsxwriter
+numpy
+requests

@@ -1,3 +1,4 @@
+from util import paths
 from pandas import DataFrame
 import math
 
@@ -575,13 +576,11 @@ def process_fielding_data(
     df_player_fielding_stats["season"] = season
     df_player_fielding_stats["league"] = league
     df_league_fielding_totals.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-fielding-totals.csv"
+        paths.output_file(league, season, "fielding-totals")
     )
     df_league_fielding_attributes.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-fielding-attributes.csv"
+        paths.output_file(league, season, "fielding-attributes")
     )
-    df_player_fielding_stats.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-fielding.csv"
-    )
+    df_player_fielding_stats.to_csv(paths.output_file(league, season, "fielding"))
 
     return df_player_fielding_stats

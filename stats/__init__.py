@@ -1,20 +1,15 @@
 import pandas as pd
+from util import paths
 
 
 def add_league_attribute_averages(league: str, season: int):
 
-    df_player_data = pd.read_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-player-data.csv"
-    )
+    df_player_data = pd.read_csv(paths.output_file(league, season, "player-data"))
 
-    df_woba = pd.read_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
-    )
+    df_woba = pd.read_csv(paths.output_file(league, season, "woba-calcs"))
     df_woba.set_index("Stat", inplace=True)
 
-    df_fielding = pd.read_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-fielding-attributes.csv"
-    )
+    df_fielding = pd.read_csv(paths.output_file(league, season, "fielding-attributes"))
     df_fielding.set_index("POS", inplace=True)
 
     df_player_data["lgBabipRating"] = df_woba.loc["lgBabipRating"]["Value"]
@@ -66,6 +61,6 @@ def add_league_attribute_averages(league: str, season: int):
     df_player_data["lgCBlock"] = df_fielding.loc[2]["Block"]
 
     df_player_data.to_csv(
-        f"./files/{league}/{season}/output/{league}-{season}-player-data.csv",
+        paths.output_file(league, season, "player-data"),
         index=False,
     )
