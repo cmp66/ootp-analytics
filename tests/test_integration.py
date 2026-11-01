@@ -182,15 +182,16 @@ def test_league_batting_runs_balance(season):
     assert total.index.is_unique
 
 
-def test_pitching_waa_balances_within_roles(season):
+def test_pitching_waa_balances_within_baseline_buckets(season):
     ratings, _, _, _, pit, _, *_ = season["data"]
     lg = pd.DataFrame(
         list(woba.calc_league_data(pitching.calculate_league_pitching_totals(pit)).items()),
         columns=["Stat", "Value"],
     ).set_index("Stat")
     out = pitching.calculate_player_pitching_stats(pit, lg, ratings, season["league"])
-    for role, group in out.groupby("PRole"):
-        assert group["WAA"].sum() == pytest.approx(0, abs=1e-6), role
+    for bucket, group in out.groupby("PBaseline"):
+        assert group["WAA"].sum() == pytest.approx(0, abs=1e-6), bucket
+    assert out["WAA"].sum() == pytest.approx(0, abs=1e-6)
     assert (out["IPClean"] > 0).all()
 
 
