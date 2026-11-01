@@ -1,3 +1,9 @@
 [tools.black]
 line-length = 120
 target-version = ['py314']
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = ["integration: needs the OOTP csv files under files/ (skipped when they are missing)"]
+filterwarnings = ["ignore::FutureWarning", "ignore::pandas.errors.PerformanceWarning"]

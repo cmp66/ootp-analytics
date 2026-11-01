@@ -2,7 +2,6 @@ import pandas as pd
 import os
 import openpyxl
 
-
 REPORTS_PATH = "./files/reports/"
 
 RATINGS = "PlayerRatings"
@@ -276,7 +275,10 @@ class ExcelReportWriter:
         df_batting_report = batting_stats[["ID", "wRAA", "BSR", "OFF", "OFFAdj"]]
         df_summary = pd.merge(df_summary, df_batting_report, on="ID", how="left")
 
-        fielding_group = fielding_stats.groupby("ID")["runsPAdj"].sum().reset_index()
+        non_pitcher_fielding = fielding_stats[fielding_stats["POS"] != 1]
+        fielding_group = (
+            non_pitcher_fielding.groupby("ID")["runsPAdj"].sum().reset_index()
+        )
         df_summary = pd.merge(
             df_summary, fielding_group, on="ID", how="left", suffixes=("", "_Sum")
         )

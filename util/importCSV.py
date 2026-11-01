@@ -1,5 +1,6 @@
 import pandas as pd
 from util import paths
+from util.innings import dump_ip_to_outs, outs_to_ip
 from util.config import get_save
 import os
 from model import (
@@ -18,6 +19,62 @@ from model import (
     convert_injury_prone,
 )
 
+# Column that uniquely identifies each kind of in-game export file
+EXPORT_FILE_MARKERS = {
+    "team_fielding": "CERA",
+    "team_pitching": "WIN%",
+    "team_batting": "wRC",
+    "player_batting": "PI/PA",
+    "player_pitching": "IRS",
+    "player_fielding": "BIZ-R",
+}
+
+STAT_COLUMN_RENAMES = {
+    "player_batting": {
+        "1B": "SINGLE",
+        "2B": "DOUBLE",
+        "3B": "TRIPLE",
+        "BABIP": "BABIP-O",
+        "K": "SO",
+    },
+    "player_pitching": {
+        "1B": "SINGLE",
+        "2B": "DOUBLE",
+        "3B": "TRIPLE",
+        "BABIP": "BABIP-O",
+        "FB": "FLYB",
+        "GB": "GROUNDB",
+    },
+}
+
+
+def classify_export_files(filedir) -> dict[str, list[pd.DataFrame]]:
+    """Read every csv in an export season folder and group them by table type."""
+    tables: dict[str, list[pd.DataFrame]] = {name: [] for name in EXPORT_FILE_MARKERS}
+    for file in sorted(
+        f for f in os.listdir(filedir) if os.path.isfile(os.path.join(filedir, f))
+    ):
+        df_temp = pd.read_csv(f"{filedir}/{file}")
+        for name, marker in EXPORT_FILE_MARKERS.items():
+            if marker in df_temp.columns:
+                tables[name].append(df_temp)
+                break
+    missing = [name for name, frames in tables.items() if not frames]
+    if missing:
+        raise FileNotFoundError(f"Export folder {filedir} has no file for: {missing}")
+    return tables
+
+
+def combine_export_tables(frames: list[pd.DataFrame], keys: list[str]) -> pd.DataFrame:
+    """Stack the files of one table type (e.g. one fielding file per position) and check the keys are unique."""
+    df = pd.concat(frames, ignore_index=True).drop_duplicates()
+    duplicated = df.duplicated(keys)
+    if duplicated.any():
+        raise ValueError(
+            f"{int(duplicated.sum())} rows share the same {keys}: {df.loc[duplicated, keys].head().to_dict('list')}"
+        )
+    return df
+
 
 def import_csv_flex(
     league: str, season: int, basedir
@@ -25,74 +82,23 @@ def import_csv_flex(
     pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame
 ]:
 
-    filedir = paths.export_dir(league, season)
-    fielding_index = 0
-    batting_index = 0
-    pitching_index = 0
-    fielding_dfs = [None] * 90
-    batting_dfs = [None] * 10
-    pitching_dfs = [None] * 10
+    tables = classify_export_files(paths.export_dir(league, season))
 
-    for file in [
-        f for f in os.listdir(filedir) if os.path.isfile(os.path.join(filedir, f))
-    ]:
-        df_temp = pd.read_csv(f"{filedir}/{file}")
-
-        # check if the PI/PA column exists
-        if "CERA" in df_temp.columns:
-            df_team_fielding = df_temp
-        elif "WIN%" in df_temp.columns:
-            df_team_pitching = df_temp
-        elif "wRC" in df_temp.columns:
-            df_team_batting = df_temp
-        elif "PI/PA" in df_temp.columns:
-            batting_dfs[batting_index] = (
-                batting_dfs[batting_index - 1].merge(df_temp, how="outer")
-                if batting_index != 0
-                else df_temp
-            )
-            batting_index += 1
-        elif "IRS" in df_temp.columns:
-            pitching_dfs[pitching_index] = (
-                pitching_dfs[pitching_index - 1].merge(df_temp, how="outer")
-                if pitching_index != 0
-                else df_temp
-            )
-            pitching_index += 1
-        elif "BIZ-R" in df_temp.columns:
-            fielding_dfs[fielding_index] = (
-                fielding_dfs[fielding_index - 1].merge(df_temp, how="outer")
-                if fielding_index != 0
-                else df_temp
-            )
-            fielding_index += 1
-
-    df_player_fielding_stats = fielding_dfs[fielding_index - 1]
-    df_player_batting_stats = batting_dfs[batting_index - 1]
-    df_player_pitching_stats = pitching_dfs[pitching_index - 1]
+    df_player_batting_stats = combine_export_tables(tables["player_batting"], ["ID"])
+    df_player_pitching_stats = combine_export_tables(tables["player_pitching"], ["ID"])
+    df_player_fielding_stats = combine_export_tables(
+        tables["player_fielding"], ["ID", "POS"]
+    )
+    df_team_batting = combine_export_tables(tables["team_batting"], ["ID"])
+    df_team_pitching = combine_export_tables(tables["team_pitching"], ["ID"])
+    df_team_fielding = combine_export_tables(tables["team_fielding"], ["ID"])
 
     # Need to rename columns which have the same name in the two table (batting and ratings)
-    df_player_batting_stats.rename(
-        columns={"1B": "SINGLE", "2B": "DOUBLE", "3B": "TRIPLE", "BABIP": "BABIP-O"},
-        inplace=True,
+    df_player_batting_stats = df_player_batting_stats.rename(
+        columns=STAT_COLUMN_RENAMES["player_batting"]
     )
-    df_player_pitching_stats.rename(
-        columns={
-            "1B": "SINGLE",
-            "2B": "DOUBLE",
-            "3B": "TRIPLE",
-            "BABIP": "BABIP-O",
-            "FB": "FLYB",
-            "GB": "GROUNDB",
-        },
-        inplace=True,
-    )
-
-    df_player_batting_stats.rename(
-        columns={
-            "K": "SO",
-        },
-        inplace=True,
+    df_player_pitching_stats = df_player_pitching_stats.rename(
+        columns=STAT_COLUMN_RENAMES["player_pitching"]
     )
 
     return (
@@ -105,41 +111,39 @@ def import_csv_flex(
     )
 
 
+# Export ratings column names that differ from the dump / duplicate between tables
+EXPORT_RATINGS_RENAMES = {
+    "ROOK": "ROOKIE",
+    "R": "REGION",
+    "CON vR.1": "CON.1 vR",
+    "CON vR_1": "CON.1 vR",
+    "CON vL.1": "CON.1 vL",
+    "CON vL_1": "CON.1 vL",
+    "CON P.1": "CON.1 P",
+    "CON_1": "CON.1",
+    "CON P_1": "CON.1 P",
+    "HT P": "BA P",
+    "POS": "LPOS",
+    "HRA": "HRR",
+    "HRA P": "HRR P",
+    "HRA vL": "HRR vL",
+    "HRA vR": "HRR vR",
+}
+
+
 def import_ratings(
     league: str, season: int, ratings_type: str, basedir: str
 ) -> pd.DataFrame:
 
-    df_player_ratings = None
-
     filedir = paths.export_ratings_dir(league, season)
-    print(os.listdir(filedir))
-    print(f"Reading ratings from {filedir} of type {ratings_type}")
-    for file in os.listdir(filedir):
-        print(f"Reading {file}")
-        df_temp = pd.read_csv(f"{filedir}/{file}")
-        df_player_ratings = (
-            df_temp
-            if df_player_ratings is None
-            else pd.concat([df_player_ratings, df_temp])
-        )
+    frames = [pd.read_csv(filedir / file) for file in sorted(os.listdir(filedir))]
+    if not frames:
+        raise FileNotFoundError(f"No ratings files in {filedir}")
+    df_player_ratings = pd.concat(frames, ignore_index=True)
 
-    df_player_ratings.rename(columns={"ROOK": "ROOKIE"}, inplace=True)
-    df_player_ratings.rename(columns={"R": "REGION"}, inplace=True)
-    df_player_ratings.rename(columns={"CON vR.1": "CON.1 vR"}, inplace=True)
-    df_player_ratings.rename(columns={"CON vR_1": "CON.1 vR"}, inplace=True)
-    df_player_ratings.rename(columns={"CON vL.1": "CON.1 vL"}, inplace=True)
-    df_player_ratings.rename(columns={"CON vL_1": "CON.1 vL"}, inplace=True)
-    df_player_ratings.rename(columns={"CON P.1": "CON.1 P"}, inplace=True)
-    df_player_ratings.rename(columns={"CON_1": "CON.1"}, inplace=True)
-    df_player_ratings.rename(columns={"CON P_1": "CON.1 P"}, inplace=True)
-    df_player_ratings.rename(columns={"HT P": "BA P"}, inplace=True)
-    df_player_ratings.rename(columns={"POS": "LPOS"}, inplace=True)
-    df_player_ratings = df_player_ratings.drop(columns=["EXP"])
-    df_player_ratings.rename(columns={"HRA": "HRR"}, inplace=True)
-    df_player_ratings.rename(columns={"HRA P": "HRR P"}, inplace=True)
-    df_player_ratings.rename(columns={"HRA vL": "HRR vL"}, inplace=True)
-    df_player_ratings.rename(columns={"HRA vR": "HRR vR"}, inplace=True)
-    df_player_ratings.set_index("ID", inplace=True)
+    df_player_ratings = df_player_ratings.rename(columns=EXPORT_RATINGS_RENAMES)
+    df_player_ratings = df_player_ratings.drop(columns=["EXP"], errors="ignore")
+    df_player_ratings = df_player_ratings.set_index("ID")
 
     df_player_ratings["LEA"] = df_player_ratings["LEA"].apply(
         convert_personalilty_trait
@@ -195,12 +199,12 @@ def import_ootp_dump_ratings(
 ) -> pd.DataFrame:
     filedir = paths.dump_dir(league, ratings_type, season)
 
-    df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv")
+    df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv", low_memory=False)
     df_player_batting_ratings_base = pd.read_csv(f"{filedir}/players_batting.csv")
     df_player_fielding_ratings_base = pd.read_csv(f"{filedir}/players_fielding.csv")
     df_player_pitching_ratings_base = pd.read_csv(f"{filedir}/players_pitching.csv")
 
-    df_player_ratings_base.rename(
+    df_player_ratings_base = df_player_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "ORG",
@@ -218,10 +222,9 @@ def import_ootp_dump_ratings(
             "personality_intelligence": "INT",
             "personality_leader": "LEA",
             "prone_overall": "Prone",
-        },
-        inplace=True,
+        }
     )
-    df_player_batting_ratings_base.rename(
+    df_player_batting_ratings_base = df_player_batting_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "Team Name",
@@ -257,10 +260,9 @@ def import_ootp_dump_ratings(
             "running_ratings_stealing_rate": "SR",
             "running_ratings_stealing": "STE",
             "running_ratings_baserunning": "RUN",
-        },
-        inplace=True,
+        }
     )
-    df_player_fielding_ratings_base.rename(
+    df_player_fielding_ratings_base = df_player_fielding_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "Team Name",
@@ -292,11 +294,10 @@ def import_ootp_dump_ratings(
             "fielding_rating_pos7_pot": "LF Pot",
             "fielding_rating_pos8_pot": "CF Pot",
             "fielding_rating_pos9_pot": "RF Pot",
-        },
-        inplace=True,
+        }
     )
 
-    df_player_pitching_ratings_base.rename(
+    df_player_pitching_ratings_base = df_player_pitching_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "Team Name",
@@ -350,8 +351,7 @@ def import_ootp_dump_ratings(
             "pitching_ratings_misc_stamina": "STM",
             "pitching_ratings_misc_ground_fly": "G/F",
             "pitching_ratings_misc_hold": "HLD",
-        },
-        inplace=True,
+        }
     )
 
     # Calculate the number of pitches for each player
@@ -373,19 +373,19 @@ def import_ootp_dump_ratings(
         df_player_pitching_ratings_base[pitch_columns].gt(0).sum(axis=1)
     )
 
-    df_player_ratings_base.set_index("ID", inplace=True)
-    df_player_batting_ratings_base.set_index("ID", inplace=True)
-    df_player_fielding_ratings_base.set_index("ID", inplace=True)
-    df_player_pitching_ratings_base.set_index("ID", inplace=True)
+    df_player_ratings_base = df_player_ratings_base.set_index("ID")
+    df_player_batting_ratings_base = df_player_batting_ratings_base.set_index("ID")
+    df_player_fielding_ratings_base = df_player_fielding_ratings_base.set_index("ID")
+    df_player_pitching_ratings_base = df_player_pitching_ratings_base.set_index("ID")
 
-    df_player_pitching_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True
+    df_player_pitching_ratings_base = df_player_pitching_ratings_base.drop(
+        columns=["league_id", "position", "role"]
     )
-    df_player_fielding_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True
+    df_player_fielding_ratings_base = df_player_fielding_ratings_base.drop(
+        columns=["league_id", "position", "role"]
     )
-    df_player_batting_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True
+    df_player_batting_ratings_base = df_player_batting_ratings_base.drop(
+        columns=["league_id", "position", "role"]
     )
 
     df_player_ratings_base = df_player_ratings_base.merge(
@@ -407,6 +407,161 @@ def import_ootp_dump_ratings(
     return df_player_ratings_base
 
 
+BIZ_RENAMES = {
+    "OPPS_0": "BIZ-R",
+    "OPPS_1": "BIZ-L",
+    "OPPS_2": "BIZ-E",
+    "OPPS_3": "BIZ-U",
+    "OPPS_4": "BIZ-Z",
+    "OPPS_5": "BIZ-I",
+    "OPPS_MADE_0": "BIZ-Rm",
+    "OPPS_MADE_1": "BIZ-Lm",
+    "OPPS_MADE_2": "BIZ-Em",
+    "OPPS_MADE_3": "BIZ-Um",
+    "OPPS_MADE_4": "BIZ-Zm",
+    "OPPS_MADE_5": "BIZ-Im",
+}
+
+DUMP_TEAM_PITCHING_RENAMES = {"TEAM_ID": "Team Name", "S": "SV"}
+DUMP_TEAM_BATTING_RENAMES = {
+    "TEAM_ID": "Team Name",
+    "K": "SO",
+    "S": "SINGLE",
+    "D": "DOUBLE",
+    "T": "TRIPLE",
+    "GDP": "GIDP",
+}
+DUMP_TEAM_FIELDING_RENAMES = {
+    "TEAM_ID": "Team Name",
+    "ER": "E",
+    "POSITION": "POS",
+    "FRAMING": "FRM",
+    **BIZ_RENAMES,
+}
+DUMP_PLAYER_FIELDING_RENAMES = {
+    "PLAYER_ID": "ID",
+    "TEAM_ID": "ORG",
+    "POSITION": "POS",
+    "FRAMING": "FRM",
+    **BIZ_RENAMES,
+}
+DUMP_PLAYER_PITCHING_RENAMES = {
+    "PLAYER_ID": "ID",
+    "TEAM_ID": "ORG",
+    "SA": "SINGLE",
+    "DA": "DOUBLE",
+    "TA": "TRIPLE",
+    "HRA": "HR",
+    "IW": "IBB",
+}
+DUMP_PLAYER_BATTING_RENAMES = {
+    "PLAYER_ID": "ID",
+    "TEAM_ID": "ORG",
+    "D": "DOUBLE",
+    "T": "TRIPLE",
+    "GDP": "GIDP",
+    "K": "SO",
+}
+
+# split_id values in the career stat dumps
+SPLIT_TOTAL, SPLIT_VS_LEFT, SPLIT_VS_RIGHT = 1, 2, 3
+MAJOR_LEAGUE_LEVEL = 1
+
+DUMP_BATTING_COLS = [
+    "AB",
+    "H",
+    "SO",
+    "PA",
+    "G",
+    "GS",
+    "SINGLE",
+    "DOUBLE",
+    "TRIPLE",
+    "HR",
+    "R",
+    "RBI",
+    "HP",
+    "SB",
+    "CS",
+    "BB",
+    "IBB",
+    "GIDP",
+    "SH",
+    "SF",
+    "UBR",
+]
+DUMP_PITCHING_COLS = [
+    "IP",
+    "K",
+    "BF",
+    "BB",
+    "R",
+    "ER",
+    "G",
+    "GS",
+    "W",
+    "L",
+    "S",
+    "SF",
+    "SH",
+    "HR",
+    "IBB",
+    "DP",
+    "HA",
+    "AB",
+    "SINGLE",
+    "DOUBLE",
+    "TRIPLE",
+    "HP",
+    "SB",
+    "CS",
+]
+DUMP_FIELDING_COLS = [
+    "TC",
+    "A",
+    "PO",
+    "E",
+    "IP",
+    "G",
+    "GS",
+    "DP",
+    "TP",
+    "PB",
+    "SBA",
+    "RTO",
+    "PLAYS",
+    "ARM",
+    "FRM",
+] + list(BIZ_RENAMES.values())
+
+
+def _team_innings(df: pd.DataFrame) -> pd.DataFrame:
+    """Fold IPF (extra outs) into IP using baseball notation."""
+    return df.assign(IP=outs_to_ip(dump_ip_to_outs(df))).drop(columns=["IPF"])
+
+
+def _season_split(df: pd.DataFrame, season: int, split_id: int | None) -> pd.DataFrame:
+    mask = (df["YEAR"] == season) & (df["LEVEL_ID"] == MAJOR_LEAGUE_LEVEL)
+    if split_id is not None:
+        mask &= df["SPLIT_ID"] == split_id
+    return df.loc[mask]
+
+
+def _batting_split(df: pd.DataFrame, season: int, split_id: int) -> pd.DataFrame:
+    df = _season_split(df, season, split_id).rename(columns=DUMP_PLAYER_BATTING_RENAMES)
+    df = df.assign(SINGLE=df["H"] - df["DOUBLE"] - df["TRIPLE"] - df["HR"])
+    return df.groupby(["ID", "SPLIT_ID"])[DUMP_BATTING_COLS].sum().reset_index()
+
+
+def _pitching_split(df: pd.DataFrame, season: int, split_id: int) -> pd.DataFrame:
+    df = _season_split(df, season, split_id).rename(
+        columns=DUMP_PLAYER_PITCHING_RENAMES
+    )
+    df = df.assign(IP=dump_ip_to_outs(df))
+    grouped = df.groupby("ID")[DUMP_PITCHING_COLS].sum().reset_index()
+    return grouped.assign(IP=outs_to_ip(grouped["IP"]))
+
+
 def import_ootp_dump_stats(
     league: str, season: int, ratings_type: str, basedir: str
 ) -> tuple[
@@ -424,374 +579,49 @@ def import_ootp_dump_stats(
 
     filedir = paths.dump_dir(league, ratings_type, season)
 
-    df_team_pitching = pd.read_csv(f"{filedir}/team_pitching_stats.csv")
-    df_team_batting = pd.read_csv(f"{filedir}/team_batting_stats.csv")
-    df_team_fielding = pd.read_csv(f"{filedir}/team_fielding_stats_stats.csv")
-    df_player_fielding = pd.read_csv(f"{filedir}/players_career_fielding_stats.csv")
-    df_player_batting = pd.read_csv(f"{filedir}/players_career_batting_stats.csv")
-    df_player_pitching = pd.read_csv(f"{filedir}/players_career_pitching_stats.csv")
+    def read(name: str) -> pd.DataFrame:
+        df = pd.read_csv(f"{filedir}/{name}.csv")
+        df.columns = df.columns.str.upper()
+        return df
 
-    df_team_pitching.columns = df_team_pitching.columns.str.upper()
-    df_team_batting.columns = df_team_batting.columns.str.upper()
-    df_team_fielding.columns = df_team_fielding.columns.str.upper()
-    df_player_fielding.columns = df_player_fielding.columns.str.upper()
-    df_player_batting.columns = df_player_batting.columns.str.upper()
-    df_player_pitching.columns = df_player_pitching.columns.str.upper()
-
-    df_player_batting_right = df_player_batting.copy(deep=True)
-    df_player_batting_left = df_player_batting.copy(deep=True)
-    df_player_pitching_right = df_player_pitching.copy(deep=True)
-    df_player_pitching_left = df_player_pitching.copy(deep=True)
-
-    df_player_fielding = df_player_fielding[
-        (df_player_fielding["YEAR"] == season) & (df_player_fielding["LEVEL_ID"] == 1)
-    ]
-    df_player_batting = df_player_batting[
-        (df_player_batting["YEAR"] == season)
-        & (df_player_batting["SPLIT_ID"] == 1)
-        & (df_player_batting["LEVEL_ID"] == 1)
-    ]
-    df_player_batting_right = df_player_batting_right[
-        (df_player_batting_right["YEAR"] == season)
-        & (df_player_batting_right["SPLIT_ID"] == 3)
-        & (df_player_batting_right["LEVEL_ID"] == 1)
-    ]
-    df_player_batting_left = df_player_batting_left[
-        (df_player_batting_left["YEAR"] == season)
-        & (df_player_batting_left["SPLIT_ID"] == 2)
-        & (df_player_batting_left["LEVEL_ID"] == 1)
-    ]
-
-    df_player_pitching = df_player_pitching[
-        (df_player_pitching["YEAR"] == season)
-        & (df_player_pitching["SPLIT_ID"] == 1)
-        & (df_player_pitching["LEVEL_ID"] == 1)
-    ]
-
-    df_player_pitching_right = df_player_pitching_right[
-        (df_player_pitching_right["YEAR"] == season)
-        & (df_player_pitching_right["SPLIT_ID"] == 3)
-        & (df_player_pitching_right["LEVEL_ID"] == 1)
-    ]
-    df_player_pitching_left = df_player_pitching_left[
-        (df_player_pitching_left["YEAR"] == season)
-        & (df_player_pitching_left["SPLIT_ID"] == 2)
-        & (df_player_pitching_left["LEVEL_ID"] == 1)
-    ]
-
-    df_team_pitching.rename(columns={"TEAM_ID": "Team Name", "S": "SV"}, inplace=True)
-
-    batting_cols = [
-        "AB",
-        "H",
-        "SO",
-        "PA",
-        "G",
-        "GS",
-        "D",
-        "T",
-        "HR",
-        "R",
-        "RBI",
-        "SB",
-        "CS",
-        " BB",
-        "IBB",
-        "GIDP",
-        "SH",
-        "SF",
-        "H",
-        "UBR",
-    ]
-
-    df_team_batting.rename(
-        columns={
-            "TEAM_ID": "Team Name",
-            "K": "SO",
-            "S": "SINGLE",
-            "D": "DOUBLE",
-            "T": "TRIPLE",
-            "GDP": "GIDP",
-        },
-        inplace=True,
+    df_team_pitching = _team_innings(read("team_pitching_stats")).rename(
+        columns=DUMP_TEAM_PITCHING_RENAMES
+    )
+    df_team_batting = read("team_batting_stats").rename(
+        columns=DUMP_TEAM_BATTING_RENAMES
+    )
+    df_team_fielding = _team_innings(read("team_fielding_stats_stats")).rename(
+        columns=DUMP_TEAM_FIELDING_RENAMES
     )
 
-    df_team_fielding.rename(
-        columns={
-            "TEAM_ID": "Team Name",
-            "ER": "E",
-            "POSITION": "POS",
-            "FRAMING": "FRM",
-            "OPPS_0": "BIZ-R",
-            "OPPS_1": "BIZ-L",
-            "OPPS_2": "BIZ-E",
-            "OPPS_3": "BIZ-U",
-            "OPPS_4": "BIZ-Z",
-            "OPPS_5": "BIZ-I",
-            "OPPS_MADE_0": "BIZ-Rm",
-            "OPPS_MADE_1": "BIZ-Lm",
-            "OPPS_MADE_2": "BIZ-Em",
-            "OPPS_MADE_3": "BIZ-Um",
-            "OPPS_MADE_4": "BIZ-Zm",
-            "OPPS_MADE_5": "BIZ-Im",
-        },
-        inplace=True,
-    )
+    df_player_fielding = read("players_career_fielding_stats")
+    df_player_batting = read("players_career_batting_stats")
+    df_player_pitching = read("players_career_pitching_stats")
 
-    fielding_cols = [
-        "TC",
-        "A",
-        "PO",
-        "E",
-        "IP",
-        "G",
-        "GS",
-        "G",
-        "GS",
-        "DP",
-        "TP",
-        "PB",
-        "SBA",
-        "RTO",
-        "PLAYS",
-        "ARM",
-        "FRM",
-    ]
-    fielding_cols += [
-        "BIZ-R",
-        "BIZ-L",
-        "BIZ-E",
-        "BIZ-U",
-        "BIZ-Z",
-        "BIZ-I",
-        "BIZ-Rm",
-        "BIZ-Lm",
-        "BIZ-Em",
-        "BIZ-Um",
-        "BIZ-Zm",
-        "BIZ-Im",
-    ]
-    df_player_fielding.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "POSITION": "POS",
-            "FRAMING": "FRM",
-            "OPPS_0": "BIZ-R",
-            "OPPS_1": "BIZ-L",
-            "OPPS_2": "BIZ-E",
-            "OPPS_3": "BIZ-U",
-            "OPPS_4": "BIZ-Z",
-            "OPPS_5": "BIZ-I",
-            "OPPS_MADE_0": "BIZ-Rm",
-            "OPPS_MADE_1": "BIZ-Lm",
-            "OPPS_MADE_2": "BIZ-Em",
-            "OPPS_MADE_3": "BIZ-Um",
-            "OPPS_MADE_4": "BIZ-Zm",
-            "OPPS_MADE_5": "BIZ-Im",
-        },
-        inplace=True,
+    df_player_fielding = _season_split(df_player_fielding, season, None).rename(
+        columns=DUMP_PLAYER_FIELDING_RENAMES
     )
-
-    pitching_cols = [
-        "IP",
-        "K",
-        "BF",
-        "BB",
-        "R",
-        "ER",
-        "G",
-        "GS",
-        "W",
-        "L",
-        "S",
-        "SF",
-        "SH",
-        "HR",
-        "IBB",
-        "DP",
-        "HA",
-        "AB",
-        "SINGLE",
-        "DOUBLE",
-        "TRIPLE",
-        "HP",
-        "SB",
-        "CS",
-    ]
-    df_player_pitching.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "SA": "SINGLE",
-            "DA": "DOUBLE",
-            "TA": "TRIPLE",
-            "HRA": "HR",
-            "IW": "IBB",
-            # "ER": "E",
-        },
-        inplace=True,
+    df_player_fielding = df_player_fielding.assign(
+        IP=dump_ip_to_outs(df_player_fielding)
     )
-    df_player_pitching_right.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "SA": "SINGLE",
-            "DA": "DOUBLE",
-            "TA": "TRIPLE",
-            "HRA": "HR",
-            "IW": "IBB",
-            # "ER": "E",
-        },
-        inplace=True,
-    )
-    df_player_pitching_left.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "SA": "SINGLE",
-            "DA": "DOUBLE",
-            "TA": "TRIPLE",
-            "HRA": "HR",
-            "IW": "IBB",
-            # "ER": "E",
-        },
-        inplace=True,
-    )
-
-    # print(df_player_batting.columns)
-
-    batting_cols = [
-        "AB",
-        "H",
-        "SO",
-        "PA",
-        "G",
-        "GS",
-        "SINGLE",
-        "DOUBLE",
-        "TRIPLE",
-        "HR",
-        "R",
-        "RBI",
-        "HP",
-        "SB",
-        "CS",
-        "BB",
-        "IBB",
-        "GIDP",
-        "SH",
-        "SF",
-        "UBR",
-    ]
-    df_player_batting.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "D": "DOUBLE",
-            "T": "TRIPLE",
-            "GDP": "GIDP",
-            "K": "SO",
-        },
-        inplace=True,
-    )
-    df_player_batting_right.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "D": "DOUBLE",
-            "T": "TRIPLE",
-            "GDP": "GIDP",
-            "K": "SO",
-        },
-        inplace=True,
-    )
-    df_player_batting_left.rename(
-        columns={
-            "PLAYER_ID": "ID",
-            "TEAM_ID": "ORG",
-            "D": "DOUBLE",
-            "T": "TRIPLE",
-            "GDP": "GIDP",
-            "K": "SO",
-        },
-        inplace=True,
-    )
-
-    df_player_batting["SINGLE"] = (
-        df_player_batting["H"]
-        - df_player_batting["DOUBLE"]
-        - df_player_batting["TRIPLE"]
-        - df_player_batting["HR"]
-    )
-    df_player_batting_right["SINGLE"] = (
-        df_player_batting_right["H"]
-        - df_player_batting_right["DOUBLE"]
-        - df_player_batting_right["TRIPLE"]
-        - df_player_batting_right["HR"]
-    )
-    df_player_batting_left["SINGLE"] = (
-        df_player_batting_left["H"]
-        - df_player_batting_left["DOUBLE"]
-        - df_player_batting_left["TRIPLE"]
-        - df_player_batting_left["HR"]
-    )
-
-    df_player_fielding.set_index("ID", inplace=True)
-    df_player_batting.set_index("ID", inplace=True)
-    df_player_batting_right.set_index("ID", inplace=True)
-    df_player_batting_left.set_index("ID", inplace=True)
-    df_player_pitching.set_index("ID", inplace=True)
-    df_player_pitching_right.set_index("ID", inplace=True)
-    df_player_pitching_left.set_index("ID", inplace=True)
-
-    df_player_batting_grouped = (
-        df_player_batting.groupby(["ID", "SPLIT_ID"])[batting_cols].sum().reset_index()
-    )
-    df_player_batting_right_grouped = (
-        df_player_batting_right.groupby(["ID", "SPLIT_ID"])[batting_cols]
-        .sum()
-        .reset_index()
-    )
-    df_player_batting_left_grouped = (
-        df_player_batting_left.groupby(["ID", "SPLIT_ID"])[batting_cols]
-        .sum()
-        .reset_index()
-    )
-    df_player_pitching_grouped = (
-        df_player_pitching.groupby("ID")[pitching_cols].sum().reset_index()
-    )
-    df_player_pitching_right_grouped = (
-        df_player_pitching_right.groupby("ID")[pitching_cols].sum().reset_index()
-    )
-
-    df_player_pitching_left_grouped = (
-        df_player_pitching_left.groupby("ID")[pitching_cols].sum().reset_index()
-    )
-
     df_player_fielding_grouped = (
-        df_player_fielding.groupby(["ID", "POS"])[fielding_cols].sum().reset_index()
+        df_player_fielding.groupby(["ID", "POS"])[DUMP_FIELDING_COLS]
+        .sum()
+        .reset_index()
     )
-
-    # df_player_fielding_grouped.set_index("ID", inplace=True)
-    # df_player_batting_grouped.set_index("ID", inplace=True)
-    # df_player_pitching_grouped.set_index("ID", inplace=True)
-
-    # print(df_player_batting_grouped.columns)
-    # print(df_player_fielding_grouped.columns)
-    # print(df_player_pitching_grouped.columns)
+    df_player_fielding_grouped["IP"] = outs_to_ip(df_player_fielding_grouped["IP"])
 
     return (
-        df_player_batting_grouped,
-        df_player_pitching_grouped,
+        _batting_split(df_player_batting, season, SPLIT_TOTAL),
+        _pitching_split(df_player_pitching, season, SPLIT_TOTAL),
         df_player_fielding_grouped,
         df_team_batting,
         df_team_pitching,
         df_team_fielding,
-        df_player_batting_right_grouped,
-        df_player_batting_left_grouped,
-        df_player_pitching_right_grouped,
-        df_player_pitching_left_grouped,
+        _batting_split(df_player_batting, season, SPLIT_VS_RIGHT),
+        _batting_split(df_player_batting, season, SPLIT_VS_LEFT),
+        _pitching_split(df_player_pitching, season, SPLIT_VS_RIGHT),
+        _pitching_split(df_player_pitching, season, SPLIT_VS_LEFT),
     )
 
 
@@ -857,7 +687,8 @@ attribute_columns = [
     "P",
 ]
 
-clean_skip = ["COMP;," "HSC"]
+# text columns where "-" is a legitimate value
+clean_skip = ["COMP", "HSC"]
 
 
 def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
@@ -869,20 +700,14 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
         "-", 0, regex=False
     )
 
-    # Convert non-integer values in POW columns to 20
+    # Rating columns: "-" (not rated at that position/skill) and anything non-numeric become 0
     for col in attribute_columns:
         if col in df_player_ratings.columns:
-            # Convert to numeric, setting non-numeric values to NaN
-            df_player_ratings[col] = pd.to_numeric(
-                df_player_ratings[col], errors="coerce"
+            df_player_ratings[col] = (
+                pd.to_numeric(df_player_ratings[col], errors="coerce")
+                .fillna(0)
+                .astype(int)
             )
-            # Replace NaN (non-integer values) with 20
-            df_player_ratings[col] = df_player_ratings[col].fillna(0)
-            # Also check for float values and convert non-whole numbers to 20
-            mask = df_player_ratings[col] % 1 != 0
-            df_player_ratings.loc[mask, col] = 0
-            # Convert back to integer
-            df_player_ratings[col] = df_player_ratings[col].astype(int)
 
     # FIXME
     # df_player_ratings["COMP"] = df_player_ratings["COMP"].replace(0, "None", regex=True)

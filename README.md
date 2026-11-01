@@ -17,3 +17,7 @@ The device is chosen at runtime by `util/device.py` (CUDA, then XPU, then CPU). 
 To update, edit `requirements.in` (shared) or `requirements-<hw>.in` and recompile, e.g.:
 
 `uv pip compile requirements-cpu.in -o requirements-cpu.txt --index-strategy unsafe-best-match`
+
+## Tests
+
+`python -m pytest` runs the unit tests and the integration cross-checks. The integration tests use the small csv fixtures in `tests/data` (about 4 MB: one Model-Sim dump season and one TGS export season), so they pass on a fresh clone without the large `files/` folder. To rebuild the fixtures from the full files run `python scripts/make_test_data.py`; to run the integration tests against the full files set `OOTP_TEST_DATA=full`.

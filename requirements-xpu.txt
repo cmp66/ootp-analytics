@@ -100,6 +100,8 @@ impi-rt==2021.18.1
     # via
     #   oneccl
     #   torch
+iniconfig==2.3.1
+    # via pytest
 intel-cmplr-lib-rt==2026.1.2
     # via
     #   intel-sycl-rt
@@ -306,6 +308,7 @@ packaging==26.3
     #   jupyterlab-server
     #   matplotlib
     #   nbconvert
+    #   pytest
     #   shap
     #   virtualenv
 pandas==3.1.0
@@ -327,6 +330,8 @@ platformdirs==4.14.2
     #   black
     #   jupyter-core
     #   virtualenv
+pluggy==1.7.0
+    # via pytest
 pre-commit==4.7.0
     # via -r requirements.in
 prometheus-client==0.26.0
@@ -356,8 +361,11 @@ pygments==2.21.0
     #   ipython
     #   ipython-pygments-lexers
     #   nbconvert
+    #   pytest
 pyparsing==3.3.3
     # via matplotlib
+pytest==9.2.0
+    # via -r requirements.in
 python-dateutil==4.0.0
     # via
     #   arrow
