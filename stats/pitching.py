@@ -80,6 +80,25 @@ def calculate_league_totals(df_player_stats: DataFrame, group_column: str = "PBa
     return df_pitching_totals
 
 
+def add_park_adjusted_waa(df_player_stats: DataFrame, lg_ra9: Series, df_park_factors: DataFrame | None) -> None:
+    """Add ParkRuns, ExpRA9Adj and WAAAdj (in place).
+
+    A pitcher's expected runs are his usage bucket's league RA9 times his park's run factor. Within each
+    bucket the expected runs are rescaled to equal the runs actually allowed, so WAAAdj still sums to 0 per
+    bucket. Without park factors every factor is 1 and WAAAdj equals WAA."""
+    if df_park_factors is None:
+        factor = Series(1.0, index=df_player_stats.index)
+    else:
+        factor = df_park_factors["RUNS"].reindex(df_player_stats["ID"]).fillna(1.0).set_axis(df_player_stats.index)
+
+    expected_runs = lg_ra9 * factor * df_player_stats["IPClean"] / 9
+    bucket = df_player_stats["PBaseline"]
+    scale = df_player_stats["R"].groupby(bucket).transform("sum") / expected_runs.groupby(bucket).transform("sum")
+    df_player_stats["ParkRuns"] = factor
+    df_player_stats["ExpRA9Adj"] = lg_ra9 * factor * scale
+    df_player_stats["WAAAdj"] = (expected_runs * scale - df_player_stats["R"]) / RUNS_PER_WIN
+
+
 def calculate_pitching_attribute_averages(
     df_player_pitching_stats: DataFrame,
     df_player_ratings: DataFrame,
@@ -112,8 +131,11 @@ def calculate_player_pitching_stats(
     df_player_ratings: DataFrame,
     league: str,
     df_lg_woba: DataFrame | None = None,
+    df_park_factors: DataFrame | None = None,
 ) -> DataFrame:
-    """df_lg_woba holds the wOBA coefficients / run values; defaults to the pitching-side league stats."""
+    """df_lg_woba holds the wOBA coefficients / run values; defaults to the pitching-side league stats.
+    df_park_factors: effective run park factor per pitcher ID (stats.parks.ParkFactors.pitching); neutral when omitted.
+    """
 
     lg = (df_lg_stat if df_lg_woba is None else df_lg_woba)["Value"]
     df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
@@ -142,8 +164,7 @@ def calculate_player_pitching_stats(
         df_player_stats["IPClean"] > 0
     )
 
-    # Park factors removed; kept as an alias of WAA for downstream consumers
-    df_player_stats["WAAAdj"] = df_player_stats["WAA"]
+    add_park_adjusted_waa(df_player_stats, lg_ra9, df_park_factors)
 
     columns_to_remove = [x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]]
     df_player_stats = df_player_stats.drop(columns=columns_to_remove)
@@ -182,6 +203,7 @@ def process_pitching_data(
     league: str,
     season: int,
     df_lg_batting_stat: DataFrame | None = None,
+    df_park_factors: DataFrame | None = None,
 ) -> DataFrame:
     """df_lg_batting_stat is the league table returned by batting.process_batting_data.
     Its wOBA coefficients are used for wOBAa so batters and pitchers share one set;
@@ -205,6 +227,7 @@ def process_pitching_data(
         df_player_ratings,
         league,
         df_lg_woba=df_lg_batting_stat,
+        df_park_factors=df_park_factors,
     )
 
     df_lg_pitching_stat = calculate_pitching_attribute_averages(

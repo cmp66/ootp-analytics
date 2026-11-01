@@ -26,6 +26,11 @@ def sample(df: pd.DataFrame, n: int) -> pd.DataFrame:
     return df.sample(n=min(n, len(df)), random_state=0)
 
 
+def copy_ballparks() -> None:
+    for save in (DUMP_SAVE, EXPORT_SAVE):
+        shutil.copy(SOURCE / save / "ballpark_ratings.csv", TARGET / save / "ballpark_ratings.csv")
+
+
 def build_dump() -> None:
     src = SOURCE / DUMP_SAVE / "dumps" / DUMP_RATINGS / str(DUMP_SEASON)
     dst = TARGET / DUMP_SAVE / "dumps" / DUMP_RATINGS / str(DUMP_SEASON)
@@ -44,6 +49,11 @@ def build_dump() -> None:
     for name in ["players", "players_batting", "players_fielding", "players_pitching"]:
         df = pd.read_csv(src / f"{name}.csv", low_memory=False)
         df[df["player_id"].isin(kept_ids)].to_csv(dst / f"{name}.csv", index=False)
+
+    teams = pd.read_csv(src / "teams.csv", low_memory=False)
+    pd.concat([teams[teams["level"] == 1], sample(teams[teams["level"] != 1], 20)]).to_csv(
+        dst / "teams.csv", index=False
+    )
 
     for name in [
         "team_batting_stats",
@@ -79,5 +89,6 @@ if __name__ == "__main__":
         shutil.rmtree(TARGET)
     build_dump()
     build_export()
+    copy_ballparks()
     size = sum(f.stat().st_size for f in TARGET.rglob("*") if f.is_file())
     print(f"wrote {TARGET} ({size / 1e6:.1f} MB)")
