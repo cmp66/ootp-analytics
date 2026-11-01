@@ -1,5 +1,6 @@
 import pandas as pd
 from util import paths
+from util.innings import dump_ip_to_outs, outs_to_ip
 from util.config import get_save
 import os
 from model import (
@@ -538,6 +539,11 @@ DUMP_FIELDING_COLS = [
 ] + list(BIZ_RENAMES.values())
 
 
+def _team_innings(df: pd.DataFrame) -> pd.DataFrame:
+    """Fold IPF (extra outs) into IP using baseball notation."""
+    return df.assign(IP=outs_to_ip(dump_ip_to_outs(df))).drop(columns=["IPF"])
+
+
 def _season_split(df: pd.DataFrame, season: int, split_id: int | None) -> pd.DataFrame:
     mask = (df["YEAR"] == season) & (df["LEVEL_ID"] == MAJOR_LEAGUE_LEVEL)
     if split_id is not None:
@@ -555,7 +561,9 @@ def _pitching_split(df: pd.DataFrame, season: int, split_id: int) -> pd.DataFram
     df = _season_split(df, season, split_id).rename(
         columns=DUMP_PLAYER_PITCHING_RENAMES
     )
-    return df.groupby("ID")[DUMP_PITCHING_COLS].sum().reset_index()
+    df = df.assign(IP=dump_ip_to_outs(df))
+    grouped = df.groupby("ID")[DUMP_PITCHING_COLS].sum().reset_index()
+    return grouped.assign(IP=outs_to_ip(grouped["IP"]))
 
 
 def import_ootp_dump_stats(
@@ -580,13 +588,13 @@ def import_ootp_dump_stats(
         df.columns = df.columns.str.upper()
         return df
 
-    df_team_pitching = read("team_pitching_stats").rename(
+    df_team_pitching = _team_innings(read("team_pitching_stats")).rename(
         columns=DUMP_TEAM_PITCHING_RENAMES
     )
     df_team_batting = read("team_batting_stats").rename(
         columns=DUMP_TEAM_BATTING_RENAMES
     )
-    df_team_fielding = read("team_fielding_stats_stats").rename(
+    df_team_fielding = _team_innings(read("team_fielding_stats_stats")).rename(
         columns=DUMP_TEAM_FIELDING_RENAMES
     )
 
@@ -597,11 +605,15 @@ def import_ootp_dump_stats(
     df_player_fielding = _season_split(df_player_fielding, season, None).rename(
         columns=DUMP_PLAYER_FIELDING_RENAMES
     )
+    df_player_fielding = df_player_fielding.assign(
+        IP=dump_ip_to_outs(df_player_fielding)
+    )
     df_player_fielding_grouped = (
         df_player_fielding.groupby(["ID", "POS"])[DUMP_FIELDING_COLS]
         .sum()
         .reset_index()
     )
+    df_player_fielding_grouped["IP"] = outs_to_ip(df_player_fielding_grouped["IP"])
 
     return (
         _batting_split(df_player_batting, season, SPLIT_TOTAL),
@@ -679,7 +691,8 @@ attribute_columns = [
     "P",
 ]
 
-clean_skip = ["COMP;," "HSC"]
+# text columns where "-" is a legitimate value
+clean_skip = ["COMP", "HSC"]
 
 
 def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
@@ -691,20 +704,14 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
         "-", 0, regex=False
     )
 
-    # Convert non-integer values in POW columns to 20
+    # Rating columns: "-" (not rated at that position/skill) and anything non-numeric become 0
     for col in attribute_columns:
         if col in df_player_ratings.columns:
-            # Convert to numeric, setting non-numeric values to NaN
-            df_player_ratings[col] = pd.to_numeric(
-                df_player_ratings[col], errors="coerce"
+            df_player_ratings[col] = (
+                pd.to_numeric(df_player_ratings[col], errors="coerce")
+                .fillna(0)
+                .astype(int)
             )
-            # Replace NaN (non-integer values) with 20
-            df_player_ratings[col] = df_player_ratings[col].fillna(0)
-            # Also check for float values and convert non-whole numbers to 20
-            mask = df_player_ratings[col] % 1 != 0
-            df_player_ratings.loc[mask, col] = 0
-            # Convert back to integer
-            df_player_ratings[col] = df_player_ratings[col].astype(int)
 
     # FIXME
     # df_player_ratings["COMP"] = df_player_ratings["COMP"].replace(0, "None", regex=True)

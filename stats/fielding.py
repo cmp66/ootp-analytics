@@ -1,6 +1,6 @@
 from util import paths
 from pandas import DataFrame
-import math
+from util.innings import ip_to_innings
 
 positions = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 of_positions = [7, 8, 9]
@@ -306,9 +306,7 @@ def calculate_player_fielding_stats(
         + df_player_stats["BIZ-Um"]
         + df_player_stats["BIZ-Zm"]
     )
-    df_player_stats["IPClean"] = df_player_stats["IP"].apply(
-        lambda x: math.modf(x)[1] + math.modf(x)[0] * 3.33
-    )
+    df_player_stats["IPClean"] = ip_to_innings(df_player_stats["IP"])
 
     df_player_stats["PlaysMadeSeason"] = (
         df_player_stats["PlaysMade"]

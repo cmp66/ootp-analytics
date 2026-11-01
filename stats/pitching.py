@@ -1,7 +1,7 @@
 from pandas import DataFrame
 import pandas as pd
 from util import paths
-import math
+from util.innings import ip_to_innings
 from stats import woba
 
 
@@ -99,9 +99,7 @@ def calculate_player_pitching_stats(
     df_player_stats["PRole"] = df_player_stats[["G", "GS"]].apply(
         lambda x: "SP" if x["GS"] == x["G"] else "RP" if x["GS"] == 0 else "Mix", axis=1
     )
-    df_player_stats["IPClean"] = df_player_stats["IP"].apply(
-        lambda x: math.modf(x)[1] + math.modf(x)[0] * 0.33
-    )
+    df_player_stats["IPClean"] = ip_to_innings(df_player_stats["IP"])
     df_player_stats["RA9"] = df_player_stats["R"] / df_player_stats["IPClean"] * 9
     df_pitching_totals = calculate_league_totals(df_player_stats)
 
