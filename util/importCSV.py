@@ -143,7 +143,7 @@ def import_ratings(
 
     df_player_ratings = df_player_ratings.rename(columns=EXPORT_RATINGS_RENAMES)
     df_player_ratings = df_player_ratings.drop(columns=["EXP"], errors="ignore")
-    df_player_ratings.set_index("ID", inplace=True)
+    df_player_ratings = df_player_ratings.set_index("ID")
 
     df_player_ratings["LEA"] = df_player_ratings["LEA"].apply(
         convert_personalilty_trait
@@ -199,12 +199,12 @@ def import_ootp_dump_ratings(
 ) -> pd.DataFrame:
     filedir = paths.dump_dir(league, ratings_type, season)
 
-    df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv")
+    df_player_ratings_base = pd.read_csv(f"{filedir}/players.csv", low_memory=False)
     df_player_batting_ratings_base = pd.read_csv(f"{filedir}/players_batting.csv")
     df_player_fielding_ratings_base = pd.read_csv(f"{filedir}/players_fielding.csv")
     df_player_pitching_ratings_base = pd.read_csv(f"{filedir}/players_pitching.csv")
 
-    df_player_ratings_base.rename(
+    df_player_ratings_base = df_player_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "ORG",
@@ -222,10 +222,9 @@ def import_ootp_dump_ratings(
             "personality_intelligence": "INT",
             "personality_leader": "LEA",
             "prone_overall": "Prone",
-        },
-        inplace=True,
+        }
     )
-    df_player_batting_ratings_base.rename(
+    df_player_batting_ratings_base = df_player_batting_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "Team Name",
@@ -261,10 +260,9 @@ def import_ootp_dump_ratings(
             "running_ratings_stealing_rate": "SR",
             "running_ratings_stealing": "STE",
             "running_ratings_baserunning": "RUN",
-        },
-        inplace=True,
+        }
     )
-    df_player_fielding_ratings_base.rename(
+    df_player_fielding_ratings_base = df_player_fielding_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "Team Name",
@@ -296,11 +294,10 @@ def import_ootp_dump_ratings(
             "fielding_rating_pos7_pot": "LF Pot",
             "fielding_rating_pos8_pot": "CF Pot",
             "fielding_rating_pos9_pot": "RF Pot",
-        },
-        inplace=True,
+        }
     )
 
-    df_player_pitching_ratings_base.rename(
+    df_player_pitching_ratings_base = df_player_pitching_ratings_base.rename(
         columns={
             "player_id": "ID",
             "team_id": "Team Name",
@@ -354,8 +351,7 @@ def import_ootp_dump_ratings(
             "pitching_ratings_misc_stamina": "STM",
             "pitching_ratings_misc_ground_fly": "G/F",
             "pitching_ratings_misc_hold": "HLD",
-        },
-        inplace=True,
+        }
     )
 
     # Calculate the number of pitches for each player
@@ -377,19 +373,19 @@ def import_ootp_dump_ratings(
         df_player_pitching_ratings_base[pitch_columns].gt(0).sum(axis=1)
     )
 
-    df_player_ratings_base.set_index("ID", inplace=True)
-    df_player_batting_ratings_base.set_index("ID", inplace=True)
-    df_player_fielding_ratings_base.set_index("ID", inplace=True)
-    df_player_pitching_ratings_base.set_index("ID", inplace=True)
+    df_player_ratings_base = df_player_ratings_base.set_index("ID")
+    df_player_batting_ratings_base = df_player_batting_ratings_base.set_index("ID")
+    df_player_fielding_ratings_base = df_player_fielding_ratings_base.set_index("ID")
+    df_player_pitching_ratings_base = df_player_pitching_ratings_base.set_index("ID")
 
-    df_player_pitching_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True
+    df_player_pitching_ratings_base = df_player_pitching_ratings_base.drop(
+        columns=["league_id", "position", "role"]
     )
-    df_player_fielding_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True
+    df_player_fielding_ratings_base = df_player_fielding_ratings_base.drop(
+        columns=["league_id", "position", "role"]
     )
-    df_player_batting_ratings_base.drop(
-        columns=["league_id", "position", "role"], inplace=True
+    df_player_batting_ratings_base = df_player_batting_ratings_base.drop(
+        columns=["league_id", "position", "role"]
     )
 
     df_player_ratings_base = df_player_ratings_base.merge(

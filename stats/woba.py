@@ -2,6 +2,27 @@
 # the wOBA coefficients for a given league.
 
 
+def woba_denominator(stats):
+    """wOBA denominator: AB + BB - IBB + SF + HBP. Works on a dict of totals or a DataFrame of players."""
+    return stats["AB"] + stats["BB"] - stats["IBB"] + stats["SF"] + stats["HP"]
+
+
+def woba_numerator(stats, coefs):
+    """Weighted on-base events. `stats` is a dict of totals or a DataFrame, `coefs` maps coef_* names to values."""
+    return (
+        stats["SINGLE" if "SINGLE" in stats else "1B"] * coefs["coef_1B"]
+        + stats["DOUBLE" if "DOUBLE" in stats else "2B"] * coefs["coef_2B"]
+        + stats["TRIPLE" if "TRIPLE" in stats else "3B"] * coefs["coef_3B"]
+        + stats["HR"] * coefs["coef_HR"]
+        + (stats["BB"] - stats["IBB"]) * coefs["coef_BB"]
+        + stats["HP"] * coefs["coef_HP"]
+    )
+
+
+def calc_woba(stats, coefs):
+    return woba_numerator(stats, coefs) / woba_denominator(stats)
+
+
 def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
 
     outs = (
@@ -82,15 +103,7 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
     )
     lg_wSB = lg_wSB if lg_wSB > 0 else 0
 
-    lg_woba = (
-        league_totals["BB"] * league_data["coef_BB"]
-        + league_totals["HP"] * league_data["coef_HP"]
-        + league_totals["1B"] * league_data["coef_1B"]
-        + league_totals["2B"] * league_data["coef_2B"]
-        + league_totals["3B"] * league_data["coef_3B"]
-        + league_totals["HR"] * league_data["coef_HR"]
-        + lg_wSB
-    ) / league_totals["PA"]
+    lg_woba = calc_woba(league_totals, league_data)
     lg_babip = (league_totals["H"] - league_totals["HR"]) / (
         league_totals["AB"]
         - league_totals["HR"]
@@ -118,20 +131,15 @@ def calc_league_data(league_totals: dict[str, float]) -> dict[str, float]:
         else 0
     )
     lg_3B_rate = league_totals["3B"] / (league_totals["2B"] + league_totals["3B"])
+    # IBB is already included in BB
     lg_k_rate = league_totals["SO"] / (
-        league_totals["PA"]
-        - league_totals["BB"]
-        - league_totals["HP"]
-        - league_totals["IBB"]
+        league_totals["PA"] - league_totals["BB"] - league_totals["HP"]
     )
     lg_ubb = (league_totals["BB"] - league_totals["IBB"]) / (
         league_totals["PA"] - league_totals["IBB"] - league_totals["HP"]
     )
     lg_hr_rate = league_totals["HR"] / (
-        league_totals["PA"]
-        - league_totals["BB"]
-        - league_totals["HP"]
-        - league_totals["IBB"]
+        league_totals["PA"] - league_totals["BB"] - league_totals["HP"]
     )
     runs_per_pa = league_totals["R"] / league_totals["PA"]
     lg_hp_rate = league_totals["HP"] / league_totals["PA"]

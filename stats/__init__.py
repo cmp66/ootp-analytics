@@ -7,10 +7,10 @@ def add_league_attribute_averages(league: str, season: int):
     df_player_data = pd.read_csv(paths.output_file(league, season, "player-data"))
 
     df_woba = pd.read_csv(paths.output_file(league, season, "woba-calcs"))
-    df_woba.set_index("Stat", inplace=True)
+    df_woba = df_woba.set_index("Stat")
 
     df_fielding = pd.read_csv(paths.output_file(league, season, "fielding-attributes"))
-    df_fielding.set_index("POS", inplace=True)
+    df_fielding = df_fielding.set_index("POS")
 
     df_player_data["lgBabipRating"] = df_woba.loc["lgBabipRating"]["Value"]
     df_player_data["lgAvkRating"] = df_woba.loc["lgAvkRating"]["Value"]
