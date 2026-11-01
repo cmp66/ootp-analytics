@@ -146,6 +146,9 @@ def calculate_league_totals(
 def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame:
 
     df_fielding_averages = DataFrame()
+    # create a columns called POS and set it to be the index
+    df_fielding_averages["POS"] = positions
+    df_fielding_averages.set_index("POS", inplace=True)
 
     for position in of_positions:
         filter = df_player_stats["POS"] == position
@@ -153,6 +156,12 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
 
         df_player_stats.loc[filter, "Weight"] = (
             df_player_stats.loc[filter, "IPClean"] / iptotal
+        )
+        df_player_stats.loc[filter, "PosWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[
+                filter, "LF" if position == 7 else "CF" if position == 8 else "RF"
+            ]
         )
         df_player_stats.loc[filter, "RangeWeight"] = (
             df_player_stats.loc[filter, "Weight"]
@@ -167,6 +176,9 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
             * df_player_stats.loc[filter, "OF ARM"]
         )
 
+        df_fielding_averages.loc[position, "PRat"] = df_player_stats.loc[
+            filter, "PosWeight"
+        ].sum()
         df_fielding_averages.loc[position, "Range"] = df_player_stats.loc[
             filter, "RangeWeight"
         ].sum()
@@ -185,6 +197,21 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
         df_player_stats.loc[filter, "Weight"] = (
             df_player_stats.loc[filter, "IPClean"] / iptotal
         )
+        df_player_stats.loc[filter, "PosWeight"] = (
+            df_player_stats.loc[filter, "Weight"]
+            * df_player_stats.loc[
+                filter,
+                (
+                    "1B"
+                    if position == 3
+                    else (
+                        "2B"
+                        if position == 4
+                        else "3B" if position == 5 else "SS" if position == 6 else "P"
+                    )
+                ),
+            ]
+        )
         df_player_stats.loc[filter, "RangeWeight"] = (
             df_player_stats.loc[filter, "Weight"]
             * df_player_stats.loc[filter, "IF RNG"]
@@ -201,6 +228,9 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
             df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "TDP"]
         )
 
+        df_fielding_averages.loc[position, "PRat"] = df_player_stats.loc[
+            filter, "PosWeight"
+        ].sum()
         df_fielding_averages.loc[position, "Range"] = df_player_stats.loc[
             filter, "RangeWeight"
         ].sum()
@@ -216,8 +246,12 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
 
     filter = df_player_stats["POS"] == 2
     iptotal = df_player_stats.loc[filter, "IPClean"].sum()
+    # pos_rating_column = convert_fielding_position(2)
     df_player_stats.loc[filter, "Weight"] = (
         df_player_stats.loc[filter, "IPClean"] / iptotal
+    )
+    df_player_stats.loc[filter, "PosWeight"] = (
+        df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "C"]
     )
     df_player_stats.loc[filter, "FRMWeight"] = (
         df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "C FRM"]
@@ -228,6 +262,7 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
     df_player_stats.loc[filter, "ARMWeight"] = (
         df_player_stats.loc[filter, "Weight"] * df_player_stats.loc[filter, "C ARM"]
     )
+    df_fielding_averages.loc[2, "PRat"] = df_player_stats.loc[filter, "PosWeight"].sum()
     df_fielding_averages.loc[2, "Frame"] = df_player_stats.loc[
         filter, "FRMWeight"
     ].sum()
@@ -261,7 +296,7 @@ def calculate_player_fielding_stats(
         + df_player_stats["BIZ-E"]
         + df_player_stats["BIZ-U"]
         + df_player_stats["BIZ-Z"]
-        + df_player_stats["BIZ-I"]
+        # + df_player_stats["BIZ-I"]
     )
     df_player_stats["PlaysMade"] = (
         df_player_stats["BIZ-Rm"]

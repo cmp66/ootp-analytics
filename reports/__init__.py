@@ -3,12 +3,10 @@ import requests
 from io import StringIO
 import pandas as pd
 
-STATS_PLUS_LEAGUE_NAMES = {
-    "Dugout": "thedugout",
-    "TGS": "tgs",
-}
+STATS_PLUS_LEAGUE_NAMES = {"Dugout": "thedugout", "TGS": "tgs", "PBL": "paramount"}
 
 STATS_BASE = "https://statsplus.net/"
+DUGOUT_URL = "https://thedugoutsim.com/api/v1/draft/picks?format=csv"
 
 
 def get_drafted_players_from_statsplus(league: str) -> list:
@@ -19,6 +17,20 @@ def get_drafted_players_from_statsplus(league: str) -> list:
         raise Exception(f"Failed to fetch data from {url}")
     csv_dataas = StringIO(response.text)
     drafted_players = pd.read_csv(csv_dataas)
+    drafted_list = drafted_players["ID"].tolist()
+
+    return drafted_list
+
+
+def get_drafted_players_from_dugout(league: str) -> list:
+
+    url = DUGOUT_URL
+    response = requests.get(url)
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch data from {url}")
+    csv_dataas = StringIO(response.text)
+    drafted_players = pd.read_csv(csv_dataas)
+    drafted_players.rename(columns={"player_id": "ID"}, inplace=True)
     drafted_list = drafted_players["ID"].tolist()
 
     return drafted_list

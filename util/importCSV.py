@@ -12,6 +12,8 @@ from model import (
     convert_gbt,
     convert_fbt,
     convert_dump_positions,
+    convert_stars,
+    convert_injury_prone,
 )
 
 
@@ -84,6 +86,13 @@ def import_csv_flex(
         inplace=True,
     )
 
+    df_player_batting_stats.rename(
+        columns={
+            "K": "SO",
+        },
+        inplace=True,
+    )
+
     return (
         df_player_batting_stats,
         df_player_pitching_stats,
@@ -115,11 +124,19 @@ def import_ratings(
     df_player_ratings.rename(columns={"ROOK": "ROOKIE"}, inplace=True)
     df_player_ratings.rename(columns={"R": "REGION"}, inplace=True)
     df_player_ratings.rename(columns={"CON vR.1": "CON.1 vR"}, inplace=True)
+    df_player_ratings.rename(columns={"CON vR_1": "CON.1 vR"}, inplace=True)
     df_player_ratings.rename(columns={"CON vL.1": "CON.1 vL"}, inplace=True)
+    df_player_ratings.rename(columns={"CON vL_1": "CON.1 vL"}, inplace=True)
     df_player_ratings.rename(columns={"CON P.1": "CON.1 P"}, inplace=True)
+    df_player_ratings.rename(columns={"CON_1": "CON.1"}, inplace=True)
+    df_player_ratings.rename(columns={"CON P_1": "CON.1 P"}, inplace=True)
     df_player_ratings.rename(columns={"HT P": "BA P"}, inplace=True)
     df_player_ratings.rename(columns={"POS": "LPOS"}, inplace=True)
     df_player_ratings = df_player_ratings.drop(columns=["EXP"])
+    df_player_ratings.rename(columns={"HRA": "HRR"}, inplace=True)
+    df_player_ratings.rename(columns={"HRA P": "HRR P"}, inplace=True)
+    df_player_ratings.rename(columns={"HRA vL": "HRR vL"}, inplace=True)
+    df_player_ratings.rename(columns={"HRA vR": "HRR vR"}, inplace=True)
     df_player_ratings.set_index("ID", inplace=True)
 
     df_player_ratings["LEA"] = df_player_ratings["LEA"].apply(
@@ -136,7 +153,7 @@ def import_ratings(
     df_player_ratings["INT"] = df_player_ratings["INT"].apply(
         convert_personalilty_trait
     )
-    # df_player_ratings["PRONE"] = df_player_ratings["PRONE"].apply(convert_personalilty_trait)
+    df_player_ratings["Prone"] = df_player_ratings["Prone"].apply(convert_injury_prone)
 
     df_player_ratings["WT"] = df_player_ratings["WT"].apply(lambda x: int(x[:3]))
     df_player_ratings["HT"] = df_player_ratings["HT"].apply(convert_height_to_cm)
@@ -145,6 +162,7 @@ def import_ratings(
         convert_groundball_flyball
     )
     df_player_ratings["VELO"] = df_player_ratings["VELO"].apply(convert_velocity)
+    df_player_ratings["VT"] = df_player_ratings["VT"].apply(convert_velocity)
     df_player_ratings["T"] = df_player_ratings["T"].apply(convert_throws)
     df_player_ratings["PT"] = df_player_ratings["PT"].apply(convert_pitch_type)
     df_player_ratings["Slot"] = df_player_ratings["Slot"].apply(convert_slot)
@@ -163,6 +181,9 @@ def import_ratings(
     df_player_ratings["ORG"] = df_player_ratings["ORG"].apply(
         lambda x: "FA" if x in ["-", "", "0"] else x
     )
+
+    df_player_ratings["POT"] = df_player_ratings["POT"].apply(convert_stars)
+    df_player_ratings["OVR"] = df_player_ratings["OVR"].apply(convert_stars)
 
     return df_player_ratings
 
@@ -194,7 +215,7 @@ def import_ootp_dump_ratings(
             "personality_work_ethic": "WE",
             "personality_intelligence": "INT",
             "personality_leader": "LEA",
-            "prone_overall": "PRONE",
+            "prone_overall": "Prone",
         },
         inplace=True,
     )
@@ -322,6 +343,7 @@ def import_ootp_dump_ratings(
             "pitching_ratings_pitches_talent_knuckleball": "KNP",
             "pitching_ratings_pitches_talent_knucklecurve": "KCP",
             "pitching_ratings_misc_velocity": "VELO",
+            "pitching_ratings_misc_velocity_target": "VT",
             "pitching_ratings_misc_arm_slot": "Slot",
             "pitching_ratings_misc_stamina": "STM",
             "pitching_ratings_misc_ground_fly": "G/F",
@@ -822,6 +844,15 @@ attribute_columns = [
     "MOV P",
     "HRR P",
     "PBABIP P",
+    "LF",
+    "RF",
+    "CF",
+    "3B",
+    "2B",
+    "1B",
+    "SS",
+    "C",
+    "P",
 ]
 
 clean_skip = ["COMP;," "HSC"]
@@ -835,6 +866,21 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
     df_player_ratings[clean_columns] = df_player_ratings[clean_columns].replace(
         "-", 0, regex=False
     )
+
+    # Convert non-integer values in POW columns to 20
+    for col in attribute_columns:
+        if col in df_player_ratings.columns:
+            # Convert to numeric, setting non-numeric values to NaN
+            df_player_ratings[col] = pd.to_numeric(
+                df_player_ratings[col], errors="coerce"
+            )
+            # Replace NaN (non-integer values) with 20
+            df_player_ratings[col] = df_player_ratings[col].fillna(0)
+            # Also check for float values and convert non-whole numbers to 20
+            mask = df_player_ratings[col] % 1 != 0
+            df_player_ratings.loc[mask, col] = 0
+            # Convert back to integer
+            df_player_ratings[col] = df_player_ratings[col].astype(int)
 
     # FIXME
     # df_player_ratings["COMP"] = df_player_ratings["COMP"].replace(0, "None", regex=True)
