@@ -32,9 +32,7 @@ def test_woba_denominator_and_identity():
     expected_den = df["AB"] + df["BB"] - df["IBB"] + df["SF"] + df["HP"]
     assert woba.woba_denominator(df).tolist() == expected_den.tolist()
     # the league wOBA is the same formula applied to the league totals
-    assert lg["lgwOBA"] == pytest.approx(
-        woba.woba_numerator(df, lg).sum() / expected_den.sum()
-    )
+    assert lg["lgwOBA"] == pytest.approx(woba.woba_numerator(df, lg).sum() / expected_den.sum())
 
 
 def test_league_wraa_sums_to_zero():
@@ -58,9 +56,7 @@ def test_woba_coefficients_reproduce_league_run_scale():
 def test_obp_uses_standard_denominator():
     df = make_batting()
     total, _, _, _ = run_batting(df)
-    expected = (df["H"] + df["BB"] + df["HP"]) / (
-        df["AB"] + df["BB"] + df["HP"] + df["SF"]
-    )
+    expected = (df["H"] + df["BB"] + df["HP"]) / (df["AB"] + df["BB"] + df["HP"] + df["SF"])
     assert total["OBP"].to_numpy() == pytest.approx(expected.to_numpy())
 
 
@@ -88,12 +84,8 @@ def test_league_rates_do_not_double_count_ibb():
     df = make_batting()
     totals = batting_league_totals(df)
     lg = league_table(totals)["Value"]
-    assert lg["lgK_RATE"] == pytest.approx(
-        totals["SO"] / (totals["PA"] - totals["BB"] - totals["HP"])
-    )
-    assert lg["lgHR_RATE"] == pytest.approx(
-        totals["HR"] / (totals["PA"] - totals["BB"] - totals["HP"])
-    )
+    assert lg["lgK_RATE"] == pytest.approx(totals["SO"] / (totals["PA"] - totals["BB"] - totals["HP"]))
+    assert lg["lgHR_RATE"] == pytest.approx(totals["HR"] / (totals["PA"] - totals["BB"] - totals["HP"]))
 
 
 def test_ofadj_is_alias_of_off():

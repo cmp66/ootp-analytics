@@ -100,11 +100,7 @@ class HittingModel(Modeler):
         self.file_mod = (
             ""
             if self.vsType == "total"
-            else (
-                "-potential"
-                if self.vsType == "potential"
-                else "-right" if self.vsType == "right" else "-left"
-            )
+            else ("-potential" if self.vsType == "potential" else "-right" if self.vsType == "right" else "-left")
         )
         self.model = Modeler(feature_values[self.vsType], [targets[self.vsType][0]])
 
@@ -122,9 +118,7 @@ class HittingModel(Modeler):
         filtered_data = data[feature_values[self.vsType] + [targets[self.vsType][0]]]
 
         # create a dataset with a subset of the columns
-        self.conform_column_types(
-            filtered_data, feature_values[self.vsType] + targets[self.vsType]
-        )
+        self.conform_column_types(filtered_data, feature_values[self.vsType] + targets[self.vsType])
 
         return filtered_data, df_id
 
@@ -135,9 +129,7 @@ class HittingModel(Modeler):
         hitting = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}{local_file_mod}-hitting.csv"
         )
-        player_data = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
-        )
+        player_data = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv")
         with pd.option_context("future.no_silent_downcasting", True):
             hitting.replace("-", 0, inplace=True)
             player_data.replace("-", 0, inplace=True)
@@ -147,20 +139,12 @@ class HittingModel(Modeler):
         master_data = master_data[master_data["PA"] >= pa_limit]
 
         if self.vsType == "total" or self.vsType == "potential":
-            master_data = master_data[
-                (master_data["wRAA600"] >= -40.0) & (master_data["wRAA600"] <= 60.0)
-            ]
+            master_data = master_data[(master_data["wRAA600"] >= -40.0) & (master_data["wRAA600"] <= 60.0)]
         else:
             master_data = (
-                master_data[
-                    (master_data["wRAA600Right"] >= -40.0)
-                    & (master_data["wRAA600Right"] <= 60.0)
-                ]
+                master_data[(master_data["wRAA600Right"] >= -40.0) & (master_data["wRAA600Right"] <= 60.0)]
                 if self.vsType == "right"
-                else master_data[
-                    (master_data["wRAA600Left"] >= -50.0)
-                    & (master_data["wRAA600Left"] <= 80.0)
-                ]
+                else master_data[(master_data["wRAA600Left"] >= -50.0) & (master_data["wRAA600Left"] <= 80.0)]
             )
 
         if self.vsType == "potential":
@@ -175,9 +159,7 @@ class HittingModel(Modeler):
             filtered_data, df_id = self.prepare_data(season, pa_limit)
 
             self.filtered_data = (
-                filtered_data
-                if season == int(self.season_start)
-                else pd.concat([self.filtered_data, filtered_data])
+                filtered_data if season == int(self.season_start) else pd.concat([self.filtered_data, filtered_data])
             )
 
         print(self.filtered_data.shape)
@@ -194,11 +176,7 @@ class HittingModel(Modeler):
 
     def predict(self, season, pa_limit=0, skip_load=False, preloaded_data=None):
 
-        filtered_data, df_id = (
-            self.conform_data(preloaded_data)
-            if skip_load
-            else self.prepare_data(season, pa_limit)
-        )
+        filtered_data, df_id = self.conform_data(preloaded_data) if skip_load else self.prepare_data(season, pa_limit)
         filtered_data = filtered_data.drop(columns=targets[self.vsType][0])
         results = self.model.predict(filtered_data)
         results["ID"] = df_id.copy()
@@ -208,16 +186,10 @@ class HittingModel(Modeler):
         return self.model.feature_importance()
 
     def save_model(self):
-        self.model.save_model(
-            f"./files/models/{self.ratings_type}{self.file_mod}-hitting-model.pt"
-        )
+        self.model.save_model(f"./files/models/{self.ratings_type}{self.file_mod}-hitting-model.pt")
 
     def load_model(self):
-        self.model.load_model(
-            f"./files/models/{self.ratings_type}{self.file_mod}-hitting-model.pt"
-        )
+        self.model.load_model(f"./files/models/{self.ratings_type}{self.file_mod}-hitting-model.pt")
 
     def load_released_model(self):
-        self.model.load_model(
-            f"./files/models/released/{self.ratings_type}{self.file_mod}-hitting-model.pt"
-        )
+        self.model.load_model(f"./files/models/released/{self.ratings_type}{self.file_mod}-hitting-model.pt")

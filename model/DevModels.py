@@ -442,17 +442,11 @@ class DevModel(Modeler):
                 league, season_start, season_end, self.ratings_type, vsType="total"
             )
         elif self.category == CATEGORY_BASERUNNING:
-            self.target_predict_model = BSRModel(
-                league, season_start, season_end, self.ratings_type, "10"
-            )
+            self.target_predict_model = BSRModel(league, season_start, season_end, self.ratings_type, "10")
         elif self.category == CATEGORY_SP:
-            self.target_predict_model = PitchingModel(
-                league, season_start, season_end, "SP", self.ratings_type, False
-            )
+            self.target_predict_model = PitchingModel(league, season_start, season_end, "SP", self.ratings_type, False)
         elif self.category == CATEGORY_RP:
-            self.target_predict_model = PitchingModel(
-                league, season_start, season_end, "RP", self.ratings_type, False
-            )
+            self.target_predict_model = PitchingModel(league, season_start, season_end, "RP", self.ratings_type, False)
         elif self.category in [
             CATEGORY_C,
             CATEGORY_1B,
@@ -524,24 +518,15 @@ class DevModel(Modeler):
         # Filter out players who are not in the target positions
         if self.category == CATEGORY_HITTING:
             data = data[
-                (data["LPOS"] != "P")
-                & (data["LPOS"] != "SP")
-                & (data["LPOS"] != "RP")
-                & (data["LPOS"] != "CL")
+                (data["LPOS"] != "P") & (data["LPOS"] != "SP") & (data["LPOS"] != "RP") & (data["LPOS"] != "CL")
             ]
         elif self.category == CATEGORY_BASERUNNING:
             data = data[
-                (data["LPOS"] != "P")
-                & (data["LPOS"] != "SP")
-                & (data["LPOS"] != "RP")
-                & (data["LPOS"] != "CL")
+                (data["LPOS"] != "P") & (data["LPOS"] != "SP") & (data["LPOS"] != "RP") & (data["LPOS"] != "CL")
             ]
         elif self.category == CATEGORY_RP or self.category == CATEGORY_SP:
             data = data[
-                (data["LPOS"] == "P")
-                | (data["LPOS"] == "SP")
-                | (data["LPOS"] == "RP")
-                | (data["LPOS"] == "CL")
+                (data["LPOS"] == "P") | (data["LPOS"] == "SP") | (data["LPOS"] == "RP") | (data["LPOS"] == "CL")
             ]
         elif self.category == CATEGORY_RF:
             data = data[data["RF"] > 0]
@@ -589,12 +574,8 @@ class DevModel(Modeler):
                 skip_load=True,
                 preloaded_data=pd.DataFrame(predict_data),
             )
-            predictions.rename(
-                columns={"Predictions": targets[self.category][0]}, inplace=True
-            )
-            master_data = data.merge(
-                predictions[["ID", targets[self.category][0]]], on="ID", how="left"
-            )
+            predictions.rename(columns={"Predictions": targets[self.category][0]}, inplace=True)
+            master_data = data.merge(predictions[["ID", targets[self.category][0]]], on="ID", how="left")
             master_data = master_data[master_data[targets[self.category][0]] > -500]
         else:
             # print("USING TARGETS")
@@ -605,23 +586,17 @@ class DevModel(Modeler):
             # if DEV_PREDICTION_AGE_MAX < DEV_AGE_TARGET:
             #    master_data = master_data[master_data["Age"] <= DEV_PREDICTION_AGE_MAX]
 
-        filtered_data = master_data[
-            feature_values[self.category] + targets[self.category]
-        ]
+        filtered_data = master_data[feature_values[self.category] + targets[self.category]]
 
         # create a dataset with a subset of the columns
-        self.conform_column_types(
-            filtered_data, feature_values[self.category] + targets[self.category]
-        )
+        self.conform_column_types(filtered_data, feature_values[self.category] + targets[self.category])
 
         return filtered_data, df_id
 
     def prepare_data(self, season, max_age=DEV_AGE_TARGET, generate_targets=True):
         # load fielding dataset from csv
 
-        player_data = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
-        )
+        player_data = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv")
         with pd.option_context("future.no_silent_downcasting", True):
             player_data.replace("-", 0, inplace=True)
 
@@ -634,14 +609,10 @@ class DevModel(Modeler):
             filtered_data = self.prepare_data(season)
 
             self.filtered_data = (
-                filtered_data
-                if season == int(self.season_start)
-                else pd.concat([self.filtered_data, filtered_data])
+                filtered_data if season == int(self.season_start) else pd.concat([self.filtered_data, filtered_data])
             )
 
-        conformed_data, df_id = self.conform_data(
-            self.filtered_data, generate_targets=True
-        )
+        conformed_data, df_id = self.conform_data(self.filtered_data, generate_targets=True)
 
         # print(conformed_data.shape)
         # print(self.filtered_data.columns)
@@ -657,9 +628,7 @@ class DevModel(Modeler):
 
         self.filtered_data = filtered_data
 
-        conformed_data, df_id = self.conform_data(
-            self.filtered_data, generate_targets=False
-        )
+        conformed_data, df_id = self.conform_data(self.filtered_data, generate_targets=False)
 
         # print(conformed_data.shape)
         # print(self.filtered_data.columns)
@@ -696,16 +665,10 @@ class DevModel(Modeler):
         return self.model.feature_importance()
 
     def save_model(self):
-        self.model.save_model(
-            f"./files/models/{self.ratings_type}-dev-{self.category}-model.pt"
-        )
+        self.model.save_model(f"./files/models/{self.ratings_type}-dev-{self.category}-model.pt")
 
     def load_model(self):
-        self.model.load_model(
-            f"./files/models/{self.ratings_type}-dev-{self.category}-model.pt"
-        )
+        self.model.load_model(f"./files/models/{self.ratings_type}-dev-{self.category}-model.pt")
 
     def load_released_model(self):
-        self.model.load_model(
-            f"./files/models/released/{self.ratings_type}-dev-{self.category}-model.pt"
-        )
+        self.model.load_model(f"./files/models/released/{self.ratings_type}-dev-{self.category}-model.pt")

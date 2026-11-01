@@ -35,12 +35,8 @@ def build_dump() -> None:
     for name in ["batting", "pitching", "fielding"]:
         df = pd.read_csv(src / f"players_career_{name}_stats.csv", low_memory=False)
         major = df[(df["year"] == DUMP_SEASON) & (df["level_id"] == 1)]
-        minor = sample(
-            df[(df["year"] == DUMP_SEASON) & (df["level_id"] != 1)], EXTRA_ROWS
-        )
-        earlier = sample(
-            df[(df["year"] < DUMP_SEASON) & (df["level_id"] == 1)], EXTRA_ROWS
-        )
+        minor = sample(df[(df["year"] == DUMP_SEASON) & (df["level_id"] != 1)], EXTRA_ROWS)
+        earlier = sample(df[(df["year"] < DUMP_SEASON) & (df["level_id"] == 1)], EXTRA_ROWS)
         kept = pd.concat([major, minor, earlier])
         kept.to_csv(dst / f"players_career_{name}_stats.csv", index=False)
         kept_ids |= set(kept["player_id"])
@@ -56,9 +52,7 @@ def build_dump() -> None:
     ]:
         df = pd.read_csv(src / f"{name}.csv", low_memory=False)
         major = df[df["level_id"] == 1]
-        pd.concat([major, sample(df[df["level_id"] != 1], 20)]).to_csv(
-            dst / f"{name}.csv", index=False
-        )
+        pd.concat([major, sample(df[df["level_id"] != 1], 20)]).to_csv(dst / f"{name}.csv", index=False)
 
 
 def build_export() -> None:
@@ -71,17 +65,13 @@ def build_export() -> None:
     stat_ids: set[int] = set()
     for file in src.glob("*.csv"):
         df = pd.read_csv(file)
-        if (
-            "ID" in df.columns and len(df) > 100
-        ):  # player stat files, not the 28-row team files
+        if "ID" in df.columns and len(df) > 100:  # player stat files, not the 28-row team files
             stat_ids |= set(df["ID"])
 
     for file in (src / "ratings").glob("*.csv"):
         df = pd.read_csv(file, low_memory=False)
         keep = df["ID"].isin(stat_ids)
-        pd.concat([df[keep], sample(df[~keep], EXTRA_PLAYERS)]).to_csv(
-            dst / "ratings" / file.name, index=False
-        )
+        pd.concat([df[keep], sample(df[~keep], EXTRA_PLAYERS)]).to_csv(dst / "ratings" / file.name, index=False)
 
 
 if __name__ == "__main__":

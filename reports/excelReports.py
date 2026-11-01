@@ -228,9 +228,7 @@ class ExcelReportWriter:
         wb = openpyxl.load_workbook(filename=self.filename)
         for ws in wb.worksheets:
             if ws.title == sheet_name:
-                for row in ws.iter_rows(
-                    min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column
-                ):
+                for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
                     for cell in row:
                         cell.value = None
 
@@ -251,21 +249,13 @@ class ExcelReportWriter:
         df_summary = pd.merge(df_summary, df_batting_report, on="ID", how="left")
 
         non_pitcher_fielding = fielding_stats[fielding_stats["POS"] != 1]
-        fielding_group = (
-            non_pitcher_fielding.groupby("ID")["runsPAdj"].sum().reset_index()
-        )
-        df_summary = pd.merge(
-            df_summary, fielding_group, on="ID", how="left", suffixes=("", "_Sum")
-        )
+        fielding_group = non_pitcher_fielding.groupby("ID")["runsPAdj"].sum().reset_index()
+        df_summary = pd.merge(df_summary, fielding_group, on="ID", how="left", suffixes=("", "_Sum"))
 
-        df_pitching_report = pitching_stats[
-            ["ID", "IPClean", "WAA", "WAAAdj", "WAA200"]
-        ]
+        df_pitching_report = pitching_stats[["ID", "IPClean", "WAA", "WAAAdj", "WAA200"]]
         df_summary = pd.merge(df_summary, df_pitching_report, on="ID", how="left")
 
-        df_summary = df_summary[
-            (df_summary["wRAA"].notna()) | (df_summary["IPClean"].notna())
-        ]
+        df_summary = df_summary[(df_summary["wRAA"].notna()) | (df_summary["IPClean"].notna())]
         df_summary.fillna(-500.0, inplace=True)
 
         df_summary = df_summary[
@@ -298,18 +288,10 @@ class ExcelReportWriter:
             for tab in TABS:
                 self.clear_workbook(tab)
 
-        ratings = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv"
-        )
-        batting_stats = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-hitting.csv"
-        )
-        pitching_stats = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv"
-        )
-        fielding_stats = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-fielding.csv"
-        )
+        ratings = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-player-data.csv")
+        batting_stats = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-hitting.csv")
+        pitching_stats = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-pitching.csv")
+        fielding_stats = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-fielding.csv")
         league_batting_stats = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-team-batting.csv"
         )
@@ -319,9 +301,7 @@ class ExcelReportWriter:
         # league_fielding_stats = pd.read_csv(
         #     f"./files/{self.league}/{season}/output/{self.league}-{season}-team-fielding.csv"
         # )
-        woba = pd.read_csv(
-            f"./files/{self.league}/{season}/output/{self.league}-{season}-woba-calcs.csv"
-        )
+        woba = pd.read_csv(f"./files/{self.league}/{season}/output/{self.league}-{season}-woba-calcs.csv")
         fielding_playables = pd.read_csv(
             f"./files/{self.league}/{season}/output/{self.league}-{season}-fielding-attributes.csv"
         )
@@ -332,9 +312,7 @@ class ExcelReportWriter:
         if "BSR2" in batting_stats.columns:
             batting_stats.rename(columns={"BSR2": "BSR"}, inplace=True)
 
-        observed_summary = self.create_summary(
-            ratings, batting_stats, pitching_stats, fielding_stats
-        )
+        observed_summary = self.create_summary(ratings, batting_stats, pitching_stats, fielding_stats)
 
         args = {
             "path": self.filename,
@@ -367,19 +345,13 @@ class ExcelReportWriter:
             batting_stats.to_excel(writer, sheet_name=PLAYER_BATTING, index=False)
             pitching_stats.to_excel(writer, sheet_name=PLAYER_PITCHING, index=False)
             fielding_stats.to_excel(writer, sheet_name=PLAYER_FIELDING, index=False)
-            league_batting_stats.to_excel(
-                writer, sheet_name=LEAGUE_BATTING, index=False
-            )
-            league_pitching_stats.to_excel(
-                writer, sheet_name=LEAGUE_PITCHING, index=False
-            )
+            league_batting_stats.to_excel(writer, sheet_name=LEAGUE_BATTING, index=False)
+            league_pitching_stats.to_excel(writer, sheet_name=LEAGUE_PITCHING, index=False)
             # league_fielding_stats.to_excel(
             #     writer, sheet_name=LEAGUE_FIELDING, index=False
             # )
             woba.to_excel(writer, sheet_name=WOBA, index=False)
-            fielding_playables.to_excel(
-                writer, sheet_name=FIELDING_PLAYABLES, index=False
-            )
+            fielding_playables.to_excel(writer, sheet_name=FIELDING_PLAYABLES, index=False)
             # Styler.to_excel(writer, sheet_name=RATINGS, float_format="%.3f")
 
         wb = openpyxl.load_workbook(filename=self.filename)

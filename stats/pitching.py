@@ -30,9 +30,7 @@ def calculate_league_totals(df_player_stats: DataFrame) -> DataFrame:
     df_pitching_totals = by_role.reindex(PITCHER_ROLES)
     df_pitching_totals.loc["Total"] = df_player_stats[["IPClean", "R"]].sum()
     df_pitching_totals.index.name = "POS"
-    df_pitching_totals["RA9"] = (
-        df_pitching_totals["R"] / df_pitching_totals["IPClean"] * 9
-    )
+    df_pitching_totals["RA9"] = df_pitching_totals["R"] / df_pitching_totals["IPClean"] * 9
     return df_pitching_totals
 
 
@@ -47,37 +45,17 @@ def calculate_pitching_attribute_averages(
     # weight only by the batters faced of pitchers that have ratings
     lg_bf = df_player_stats_temp["BF"].sum()
 
-    df_player_stats_temp["pbabip_weight"] = (
-        df_player_stats_temp["PBABIP"] * df_player_stats_temp["BF"]
-    )
-    df_player_stats_temp["stu_weight"] = (
-        df_player_stats_temp["STU"] * df_player_stats_temp["BF"]
-    )
-    df_player_stats_temp["hrr_weight"] = (
-        df_player_stats_temp["HRR"] * df_player_stats_temp["BF"]
-    )
-    df_player_stats_temp["ctl_weight"] = (
-        df_player_stats_temp["CON.1"] * df_player_stats_temp["BF"]
-    )
-    df_player_stats_temp["mov_weight"] = (
-        df_player_stats_temp["MOV"] * df_player_stats_temp["BF"]
-    )
+    df_player_stats_temp["pbabip_weight"] = df_player_stats_temp["PBABIP"] * df_player_stats_temp["BF"]
+    df_player_stats_temp["stu_weight"] = df_player_stats_temp["STU"] * df_player_stats_temp["BF"]
+    df_player_stats_temp["hrr_weight"] = df_player_stats_temp["HRR"] * df_player_stats_temp["BF"]
+    df_player_stats_temp["ctl_weight"] = df_player_stats_temp["CON.1"] * df_player_stats_temp["BF"]
+    df_player_stats_temp["mov_weight"] = df_player_stats_temp["MOV"] * df_player_stats_temp["BF"]
 
-    df_lg_pitching_stat.loc["lgPbabipRating", "Value"] = (
-        df_player_stats_temp["pbabip_weight"].sum() / lg_bf
-    )
-    df_lg_pitching_stat.loc["lgStuRating", "Value"] = (
-        df_player_stats_temp["stu_weight"].sum() / lg_bf
-    )
-    df_lg_pitching_stat.loc["lgHrrRating", "Value"] = (
-        df_player_stats_temp["hrr_weight"].sum() / lg_bf
-    )
-    df_lg_pitching_stat.loc["lgCtlRating", "Value"] = (
-        df_player_stats_temp["ctl_weight"].sum() / lg_bf
-    )
-    df_lg_pitching_stat.loc["lgMovRating", "Value"] = (
-        df_player_stats_temp["mov_weight"].sum() / lg_bf
-    )
+    df_lg_pitching_stat.loc["lgPbabipRating", "Value"] = df_player_stats_temp["pbabip_weight"].sum() / lg_bf
+    df_lg_pitching_stat.loc["lgStuRating", "Value"] = df_player_stats_temp["stu_weight"].sum() / lg_bf
+    df_lg_pitching_stat.loc["lgHrrRating", "Value"] = df_player_stats_temp["hrr_weight"].sum() / lg_bf
+    df_lg_pitching_stat.loc["lgCtlRating", "Value"] = df_player_stats_temp["ctl_weight"].sum() / lg_bf
+    df_lg_pitching_stat.loc["lgMovRating", "Value"] = df_player_stats_temp["mov_weight"].sum() / lg_bf
 
     return df_lg_pitching_stat
 
@@ -100,39 +78,24 @@ def calculate_player_pitching_stats(
     df_pitching_totals = calculate_league_totals(df_player_stats)
 
     lg_ra9 = df_player_stats["PRole"].map(df_pitching_totals["RA9"])
-    df_player_stats["wSBA"] = (
-        df_player_stats["SB"] * lg["run_value_sb"]
-        + df_player_stats["CS"] * lg["run_value_cs"]
-    )
+    df_player_stats["wSBA"] = df_player_stats["SB"] * lg["run_value_sb"] + df_player_stats["CS"] * lg["run_value_cs"]
     df_player_stats["WAA"] = (
-        lg_ra9 * df_player_stats["IPClean"] / 9
-        - df_player_stats["IPClean"] * df_player_stats["RA9"] / 9
+        lg_ra9 * df_player_stats["IPClean"] / 9 - df_player_stats["IPClean"] * df_player_stats["RA9"] / 9
     ) / RUNS_PER_WIN
     df_player_stats["KPercent"] = df_player_stats["K"] / df_player_stats["BF"] * 100
     df_player_stats["HRPercent"] = df_player_stats["HR"] / df_player_stats["BF"] * 100
-    df_player_stats["pBABIP"] = (
-        df_player_stats["SINGLE"]
-        + df_player_stats["DOUBLE"]
-        + df_player_stats["TRIPLE"]
-    ) / (
-        df_player_stats["AB"]
-        - df_player_stats["K"]
-        - df_player_stats["HR"]
-        + df_player_stats["SF"]
+    df_player_stats["pBABIP"] = (df_player_stats["SINGLE"] + df_player_stats["DOUBLE"] + df_player_stats["TRIPLE"]) / (
+        df_player_stats["AB"] - df_player_stats["K"] - df_player_stats["HR"] + df_player_stats["SF"]
     )
     df_player_stats["BBPercent"] = df_player_stats["BB"] / df_player_stats["BF"] * 100
     # same formula and coefficients as batter wOBA
     df_player_stats["wOBAa"] = woba.calc_woba(df_player_stats, lg)
-    df_player_stats["WAA200"] = (
-        df_player_stats["WAA"] * 200 / df_player_stats["IPClean"]
-    )
+    df_player_stats["WAA200"] = df_player_stats["WAA"] * 200 / df_player_stats["IPClean"]
 
     # Park factors removed; kept as an alias of WAA for downstream consumers
     df_player_stats["WAAAdj"] = df_player_stats["WAA"]
 
-    columns_to_remove = [
-        x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]
-    ]
+    columns_to_remove = [x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]]
     df_player_stats = df_player_stats.drop(columns=columns_to_remove)
     df_player_stats = df_player_stats.assign(**df_lg_stat["Value"].to_dict())
 
@@ -184,9 +147,7 @@ def process_pitching_data(
     df_lg_pitching_stat = df_lg_pitching_stat.set_index("Stat")
 
     if df_lg_batting_stat is None:
-        df_lg_batting_stat = pd.read_csv(
-            paths.output_file(league, season, "woba-calcs")
-        ).set_index("Stat")
+        df_lg_batting_stat = pd.read_csv(paths.output_file(league, season, "woba-calcs")).set_index("Stat")
 
     df_player_pitching_stats = calculate_player_pitching_stats(
         df_player_pitching_stats,
@@ -233,9 +194,7 @@ def process_pitching_data(
     )
     df_woba.to_csv(paths.output_file(league, season, "woba-calcs"))
 
-    DataFrame(league_pitching_totals, index=[0]).to_csv(
-        paths.output_file(league, season, "pitching-totals")
-    )
+    DataFrame(league_pitching_totals, index=[0]).to_csv(paths.output_file(league, season, "pitching-totals"))
     df_player_pitching_stats.to_csv(paths.output_file(league, season, "pitching"))
 
     return df_player_pitching_stats
