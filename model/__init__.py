@@ -76,6 +76,37 @@ def convert_10_rating(rating: int) -> int:
     return float(rating) / 10.0
 
 
+def convert_stars(rating: str) -> int:
+    # check for integer first
+    try:
+        return int(rating)
+    except ValueError:
+        pass
+
+    if rating == "0.5 Stars":
+        return 1
+    elif rating == "1.0 Stars":
+        return 2
+    elif rating == "1.5 Stars":
+        return 3
+    elif rating == "2.0 Stars":
+        return 4
+    elif rating == "2.5 Stars":
+        return 5
+    elif rating == "3.0 Stars":
+        return 6
+    elif rating == "3.5 Stars":
+        return 7
+    elif rating == "4.0 Stars":
+        return 8
+    elif rating == "4.5 Stars":
+        return 9
+    elif rating == "5.0 Stars":
+        return 10
+    else:
+        return rating
+
+
 def convert_bbt(bbt: str) -> int:
     if bbt in ["Line Drive"]:
         return 0
@@ -233,13 +264,13 @@ class MLPexplicit(nn.Module):
         super().__init__()
 
         self.layers = nn.Sequential(
-            nn.Linear(num_features, 32),
+            nn.Linear(num_features, 256),
             nn.ReLU(),
-            nn.Linear(32, 32),
+            nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Linear(32, 32),
+            nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(32, 32),
+            nn.Linear(64, 32),
             nn.ReLU(),
             nn.Linear(32, 1),
         )
@@ -270,7 +301,7 @@ class RegressionRunner:
             )
         X_scaled = StandardScaler().fit_transform(X)
 
-        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.25)
+        X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.50)
 
         # Convert the data to PyTorch tensors
         self.X_train_tensor = torch.tensor(X_train, dtype=torch.float32)

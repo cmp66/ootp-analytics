@@ -18,8 +18,10 @@ from model.DevModels import (
     CATEGORY_CF,
     CATEGORY_RF,
 )
-from model import convert_injury_prone, convert_personalilty_trait
-from reports import get_drafted_players_from_statsplus
+from model import convert_personalilty_trait
+from reports import (
+    get_drafted_players_from_statsplus,
+)  # get_drafted_players_from_dugout
 
 
 class PredictionMaker:
@@ -74,8 +76,8 @@ class PredictionMaker:
 
     def conform_exported_data(self, df_ratings: pd.DataFrame) -> pd.DataFrame:
 
-        df_ratings.rename(columns={"Prone": "PRONE"}, inplace=True)
-        df_ratings["PRONE"] = df_ratings["PRONE"].apply(convert_injury_prone)
+        # df_ratings.rename(columns={"Prone": "PRONE"}, inplace=True)
+        # df_ratings["PRONE"] = df_ratings["PRONE"].apply(convert_injury_prone)
         df_ratings["WE"] = df_ratings["WE"].apply(convert_personalilty_trait)
         df_ratings["INT"] = df_ratings["INT"].apply(convert_personalilty_trait)
 
@@ -354,7 +356,7 @@ class PredictionMaker:
         else:
             df_baseline_players = df_ratings[
                 (df_ratings["Lev"] == "MLB")
-                | ((df_ratings["Lev"] == "FA") & (df_ratings["OVR"] >= 30))
+                # | ((df_ratings["Lev"] == "FA") & (df_ratings["Age"] >= 23))
             ]
 
         if calc_offsets:
@@ -390,10 +392,10 @@ class PredictionMaker:
                 | (df_ratings["Lev"] == "WL")
             ]
 
-        if self.model_type == "Standard":
-            df_non_baseline_players = df_non_baseline_players[
-                df_non_baseline_players["POT"] >= 30
-            ]
+        # if self.model_type == "Standard":
+        #    df_non_baseline_players = df_non_baseline_players[
+        #        df_non_baseline_players["POT"] >= 25
+        #    ]
 
         if use_potential:
             df_baseline_players = df_baseline_players[
@@ -532,7 +534,7 @@ class PredictionMaker:
                     f"./files/{self.league}/{self.season}/draft/draft.csv"
                 )["ID"].tolist()
                 final_predictions = final_predictions[
-                    final_predictions["ID"].isin(drafted_players)
+                    ~final_predictions["ID"].isin(drafted_players)
                 ]
 
         elif iafa:
@@ -590,7 +592,7 @@ class PredictionMaker:
 
         # print(df_ratings_process.loc[df_ratings_process.isnull().any(axis=1)])
 
-        hittingModel.load_model()
+        hittingModel.load_released_model()
 
         predictions = hittingModel.predict(
             self.season, skip_load=True, preloaded_data=df_ratings_process
@@ -654,7 +656,7 @@ class PredictionMaker:
                     use_potential=use_potential,
                 )
 
-            pitchingModel.load_model()
+            pitchingModel.load_released_model()
             predictions = pitchingModel.predict(
                 self.season, skip_load=True, preloaded_data=df_ratings_process
             )
@@ -795,7 +797,7 @@ class PredictionMaker:
                     ratings_type=self.model_type,
                 )
 
-            fieldingModel.load_model()
+            fieldingModel.load_released_model()
             predictions = fieldingModel.predict(
                 self.season, skip_load=True, preloaded_data=df_ratings_process
             )
@@ -847,7 +849,7 @@ class PredictionMaker:
                 scale="10",
             )
 
-        bsrModel.load_model()
+        bsrModel.load_released_model()
         predictions = bsrModel.predict(
             self.season, skip_load=True, preloaded_data=df_ratings_process
         )

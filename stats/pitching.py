@@ -1,4 +1,5 @@
 from pandas import DataFrame
+import pandas as pd
 import math
 from stats import leagueAdjustments, woba
 
@@ -38,6 +39,51 @@ def calculate_league_totals(df_player_stats: DataFrame) -> dict[str, float]:
     )
 
     return df_pitching_totals
+
+
+def calculate_pitching_attribute_averages(
+    df_player_pitching_stats: DataFrame,
+    df_player_ratings: DataFrame,
+    df_lg_pitching_stat: DataFrame,
+    lg_bf: int,
+) -> DataFrame:
+
+    df_player_stats_temp = df_player_pitching_stats.copy()
+    df_player_stats_temp = df_player_stats_temp.merge(df_player_ratings, on="ID")
+
+    df_player_stats_temp["pbabip_weight"] = (
+        df_player_stats_temp["PBABIP"] * df_player_stats_temp["BF"]
+    )
+    df_player_stats_temp["stu_weight"] = (
+        df_player_stats_temp["STU"] * df_player_stats_temp["BF"]
+    )
+    df_player_stats_temp["hrr_weight"] = (
+        df_player_stats_temp["HRR"] * df_player_stats_temp["BF"]
+    )
+    df_player_stats_temp["ctl_weight"] = (
+        df_player_stats_temp["CON.1"] * df_player_stats_temp["BF"]
+    )
+    df_player_stats_temp["mov_weight"] = (
+        df_player_stats_temp["MOV"] * df_player_stats_temp["BF"]
+    )
+
+    df_lg_pitching_stat.loc["lgPbabipRating"] = (
+        df_player_stats_temp["pbabip_weight"].sum() / lg_bf
+    )
+    df_lg_pitching_stat.loc["lgStuRating"] = (
+        df_player_stats_temp["stu_weight"].sum() / lg_bf
+    )
+    df_lg_pitching_stat.loc["lgHrrRating"] = (
+        df_player_stats_temp["hrr_weight"].sum() / lg_bf
+    )
+    df_lg_pitching_stat.loc["lgCtlRating"] = (
+        df_player_stats_temp["ctl_weight"].sum() / lg_bf
+    )
+    df_lg_pitching_stat.loc["lgMovRating"] = (
+        df_player_stats_temp["mov_weight"].sum() / lg_bf
+    )
+
+    return df_lg_pitching_stat
 
 
 def calculate_player_pitching_stats(
@@ -108,15 +154,22 @@ def calculate_player_pitching_stats(
         (
             df_player_stats["PRole"].apply(lambda x: df_pitching_totals.loc[x, "RA9"])
             * df_player_stats["IPClean"]
-            / 9
-        )
-        - (
-            df_player_stats["IPClean"] * df_player_stats["RA9"] / 9
-            + df_player_stats["ORG"].apply(
-                lambda x: park_adjustments[x] if x in park_adjustments else 0
+            * (
+                (
+                    (
+                        df_player_stats["ORG"].apply(
+                            lambda x: (
+                                park_adjustments[x] if x in park_adjustments else 1.0
+                            )
+                        )
+                        - 1.0
+                    )
+                    * 0.5
+                )
+                + 1.0
             )
-            / 600
-            * df_player_stats["BF"]
+            / 9
+            - df_player_stats["IPClean"] * df_player_stats["RA9"] / 9
         )
     ) / 10
 
@@ -169,8 +222,47 @@ def process_pitching_data(
     df_player_pitching_stats = calculate_player_pitching_stats(
         df_player_pitching_stats, df_lg_pitching_stat, df_player_ratings, league
     )
+
+    df_lg_pitching_stat = calculate_pitching_attribute_averages(
+        df_player_pitching_stats,
+        df_player_ratings,
+        df_lg_pitching_stat,
+        league_pitching_totals["PA"],
+    )
     df_player_pitching_stats["season"] = season
     df_player_pitching_stats["league"] = league
+
+    df_woba = pd.read_csv(
+        f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv"
+    )
+    df_woba.set_index("Stat", inplace=True)
+    df_woba.loc["lgBF"] = league_pitching_totals["PA"], season, league
+    df_woba.loc["lgPbabipRating"] = (
+        df_lg_pitching_stat.loc["lgPbabipRating"]["Value"],
+        season,
+        league,
+    )
+    df_woba.loc["lgStuRating"] = (
+        df_lg_pitching_stat.loc["lgStuRating"]["Value"],
+        season,
+        league,
+    )
+    df_woba.loc["lgHrrRating"] = (
+        df_lg_pitching_stat.loc["lgHrrRating"]["Value"],
+        season,
+        league,
+    )
+    df_woba.loc["lgCtlRating"] = (
+        df_lg_pitching_stat.loc["lgCtlRating"]["Value"],
+        season,
+        league,
+    )
+    df_woba.loc["lgMovRating"] = (
+        df_lg_pitching_stat.loc["lgMovRating"]["Value"],
+        season,
+        league,
+    )
+    df_woba.to_csv(f"./files/{league}/{season}/output/{league}-{season}-woba-calcs.csv")
 
     DataFrame(league_pitching_totals, index=[0]).to_csv(
         f"./files/{league}/{season}/output/{league}-{season}-pitching-totals.csv"

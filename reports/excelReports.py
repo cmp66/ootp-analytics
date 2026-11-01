@@ -3,7 +3,7 @@ import os
 import openpyxl
 
 
-REPORTS_PATH = "./files/reports/"
+REPORTS_PATH = "./files/reports"
 
 RATINGS = "PlayerRatings"
 CURRENT_PIVOTS = "CurrentPivots"
@@ -147,7 +147,7 @@ REPORT_COLUMNS = {
         "league",
     ],
     FIELDING_PLAYABLES: [
-        "Unnamed: 0",
+        "POS",
         "Range",
         "Error",
         "Arm",
@@ -337,7 +337,7 @@ class ExcelReportWriter:
         args = {
             "path": self.filename,
             "engine": "openpyxl",
-            "mode": "a" if file_exists else "w",
+            "mode": "a" if os.path.exists(self.filename) else "w",
         }
 
         args = args | ({"if_sheet_exists": "overlay"} if file_exists else {})
@@ -354,6 +354,9 @@ class ExcelReportWriter:
         # ]
         woba = woba[REPORT_COLUMNS[WOBA]]
         fielding_playables = fielding_playables[REPORT_COLUMNS[FIELDING_PLAYABLES]]
+
+        curpath = os.path.abspath(os.curdir)
+        print("Current path is: %s" % curpath)
 
         with pd.ExcelWriter(**args) as writer:
 

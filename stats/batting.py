@@ -41,7 +41,9 @@ def calculate_batting_attribute_averages(
     df_lg_batting_stat.loc["lgEyeRating"] = (
         df_player_stats_temp["eye_weight"].sum() / lg_pa
     )
-    # df_lg_batting_stat.loc["lgPowRating"] = df_player_stats_temp['pow_weight'].sum() / lg_pa
+    df_lg_batting_stat.loc["lgPowRating"] = (
+        df_player_stats_temp["pow_weight"].sum() / lg_pa
+    )
 
     return df_lg_batting_stat
 
@@ -175,12 +177,16 @@ def calculate_player_batting_stats(
         df_player_stats_left["OFFLeft"] = (
             df_player_stats_total["BSR"] + df_player_stats_left["wRAALeft"]
         )
-    df_player_stats_total["OFFAdj"] = (df_player_stats_total["OFF"]) + (
-        df_player_stats_total["ORG"].apply(
-            lambda x: park_adjustments[x] if x in park_adjustments else 0
+
+    df_player_stats_total["OFFAdj"] = df_player_stats_total["OFF"] * (
+        (
+            1
+            - df_player_stats_total["ORG"].apply(
+                lambda x: park_adjustments[x] if x in park_adjustments else 1.0
+            )
         )
-        / 600
-        * df_player_stats_total["PA"]
+        * 0.5
+        + 1.0
     )
     df_player_stats_total["OFF600"] = (
         df_player_stats_total["OFF"] * 600 / df_player_stats_total["PA"]
