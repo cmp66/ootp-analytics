@@ -8,6 +8,8 @@ import copy
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+from util.device import get_device
+
 ratings_conversions_80 = {
     -50: -1.000,
     -30: -0.315,
@@ -283,7 +285,8 @@ class RegressionRunner:
     def __init__(self, feature_values: list[str]):
         self.num_features = len(feature_values)
         np.random.seed(42)
-        self.model = MLPexplicit(self.num_features)
+        self.device = get_device()
+        self.model = MLPexplicit(self.num_features).to(self.device)
 
     def create_X_y(self, data: pd.DataFrame, targetCol: str):
         y = data[targetCol]
@@ -304,14 +307,15 @@ class RegressionRunner:
         X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.50)
 
         # Convert the data to PyTorch tensors
-        self.X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-        self.y_train_tensor = torch.tensor(y_train.values, dtype=torch.float32).view(
-            -1, 1
-        )
-        self.X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-        self.y_test_tensor = torch.tensor(y_test.values, dtype=torch.float32).view(
-            -1, 1
-        )
+        dev = self.device
+        self.X_train_tensor = torch.tensor(X_train, dtype=torch.float32, device=dev)
+        self.y_train_tensor = torch.tensor(
+            y_train.values, dtype=torch.float32, device=dev
+        ).view(-1, 1)
+        self.X_test_tensor = torch.tensor(X_test, dtype=torch.float32, device=dev)
+        self.y_test_tensor = torch.tensor(
+            y_test.values, dtype=torch.float32, device=dev
+        ).view(-1, 1)
 
         # self.criterion = nn.MSELoss()
         self.criterion = nn.L1Loss()
@@ -367,7 +371,7 @@ class RegressionRunner:
 
         scaler = StandardScaler()
         X = scaler.fit_transform(data)
-        X_tensor = torch.tensor(X, dtype=torch.float32)
+        X_tensor = torch.tensor(X, dtype=torch.float32, device=self.device)
 
         # Check if the number of features matches the expected number of features
         if X.shape[1] != self.num_features:
@@ -378,16 +382,19 @@ class RegressionRunner:
         self.model.eval()
         with torch.no_grad():
             predictions = self.model(X_tensor)
-        return predictions
+        return predictions.cpu()
 
     def feature_importance(self, feature_values: list[str]):
         self.model.eval()
-        explainer = shap.GradientExplainer(self.model, self.X_train_tensor)
+        # SHAP runs on CPU: copy the model and data off the accelerator
+        cpu_model = copy.deepcopy(self.model).cpu()
+        X_train_cpu = self.X_train_tensor.cpu()
+        explainer = shap.GradientExplainer(cpu_model, X_train_cpu)
 
         # perm = torch.randperm(self.X_train_tensor.size(0))
         # k = 5
         # idx = perm[:k]
-        samples = self.X_train_tensor
+        samples = X_train_cpu
         shap_values = explainer.shap_values(samples)
 
         df = pd.DataFrame(
@@ -400,12 +407,12 @@ class RegressionRunner:
         return df.sort_values("mean_abs_shap", ascending=False)[: self.num_features]
 
     def save_model(self, path):
-        torch.save(self.model.state_dict(), path)
+        torch.save({k: v.cpu() for k, v in self.model.state_dict().items()}, path)
         # for param_tensor in self.model.state_dict():
         #    print(param_tensor, "\t", self.model.state_dict()[param_tensor].size())
 
     def load_model(self, path):
-        self.model.load_state_dict(torch.load(path))
+        self.model.load_state_dict(torch.load(path, map_location=self.device))
         self.model.eval()
         # print("Model's state_dict:")
         # for param_tensor in self.model.state_dict():
@@ -417,11 +424,7 @@ class Modeler:
         self.feature_values = feature_values
         self.targets = targets
         self.model = RegressionRunner(feature_values)
-
-        if torch.cuda.is_available():
-            self.device = torch.device("cuda")
-        else:
-            self.device = torch.device("cpu")
+        self.device = self.model.device
 
     def load_data(self, data: pd.DataFrame, targetCol: str):
         self.model.load_data(data, targetCol)
