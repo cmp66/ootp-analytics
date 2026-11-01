@@ -88,32 +88,15 @@ def source_available(league, season, source, ratings):
 
 def load(league, season, source, ratings):
     """Imported tables, without the csv writes done by importCSV.import_files."""
+    df_ratings, bat, bat_r, bat_l, pit, _, _, fld, team_bat, team_pit, team_fld = (
+        importCSV.load_season(league, season, source, ratings)
+    )
     if source == "dump":
-        df_ratings = importCSV.import_ootp_dump_ratings(league, season, ratings, ".")
-        bat, pit, fld, team_bat, team_pit, team_fld, bat_r, bat_l, *_ = (
-            importCSV.import_ootp_dump_stats(league, season, ratings, ".")
-        )
         # the dump team tables hold every level (minor leagues too)
         team_bat, team_pit, team_fld = (
             t[t["LEVEL_ID"] == 1] for t in (team_bat, team_pit, team_fld)
         )
-    else:
-        bat, pit, fld, team_bat, team_pit, team_fld = importCSV.import_csv_flex(
-            league, season, "."
-        )
-        df_ratings = importCSV.import_ratings(league, season, ratings, ".")
-        bat_r = bat_l = pd.DataFrame()
-    return (
-        importCSV.clean_ratings(df_ratings),
-        bat,
-        bat_r,
-        bat_l,
-        pit,
-        fld,
-        team_bat,
-        team_pit,
-        team_fld,
-    )
+    return df_ratings, bat, bat_r, bat_l, pit, fld, team_bat, team_pit, team_fld
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -151,6 +134,36 @@ def test_keys_are_unique(season):
     assert not fld.duplicated(["ID", "POS"]).any()
 
 
+def test_dump_ratings_include_free_agents_who_played():
+    if os.environ.get("OOTP_TEST_DATA") == "full":
+        pytest.skip("fixture-specific")
+    patch = pytest.MonkeyPatch()
+    patch.setattr(paths, "FILES_ROOT", DATA_ROOT)
+    try:
+        bat, *_ = importCSV.import_ootp_dump_stats("Model-Sim", 2045, "Standard27", ".")
+        default = importCSV.import_ootp_dump_ratings(
+            "Model-Sim", 2045, "Standard27", "."
+        )
+        with_played = importCSV.import_ootp_dump_ratings(
+            "Model-Sim", 2045, "Standard27", ".", include_ids=set(bat["ID"])
+        )
+    finally:
+        patch.undo()
+    unrated = set(bat["ID"]) - set(default.index)
+    assert unrated, "fixture should contain players released or unsigned at dump time"
+    assert unrated <= set(with_played.index)
+    assert set(default.index) <= set(with_played.index)
+    assert (with_played.loc[sorted(unrated), "ORG"] <= 0).all()
+
+
+def test_every_player_with_stats_has_ratings_in_the_dump_source(season):
+    if season["source"] != "dump":
+        pytest.skip("export ratings come from the in-game lists and can be incomplete")
+    ratings, bat, _, _, pit, fld, *_ = season["data"]
+    for table in (bat, pit, fld):
+        assert table["ID"].isin(ratings.index).all()
+
+
 def test_batting_tables_agree_with_team_totals(season):
     _, bat, _, _, _, _, team_bat, *_ = season["data"]
     for column in ["HR", "SB", "BB"]:
@@ -178,8 +191,8 @@ def test_league_batting_runs_balance(season):
         bat, bat_r, bat_l, lg, ratings, season["league"]
     )
     runs_per_600 = total["wRAA"].sum() / total["PA"].sum() * 600
-    # players without a ratings row are left out, so allow a little slack
-    assert abs(runs_per_600) < 1.0
+    # everyone who played has ratings, so the league balances
+    assert abs(runs_per_600) < 0.05
     assert total.index.is_unique
 
 
