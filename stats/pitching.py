@@ -63,19 +63,19 @@ def calculate_pitching_attribute_averages(
         df_player_stats_temp["MOV"] * df_player_stats_temp["BF"]
     )
 
-    df_lg_pitching_stat.loc["lgPbabipRating"] = (
+    df_lg_pitching_stat.loc["lgPbabipRating", "Value"] = (
         df_player_stats_temp["pbabip_weight"].sum() / lg_bf
     )
-    df_lg_pitching_stat.loc["lgStuRating"] = (
+    df_lg_pitching_stat.loc["lgStuRating", "Value"] = (
         df_player_stats_temp["stu_weight"].sum() / lg_bf
     )
-    df_lg_pitching_stat.loc["lgHrrRating"] = (
+    df_lg_pitching_stat.loc["lgHrrRating", "Value"] = (
         df_player_stats_temp["hrr_weight"].sum() / lg_bf
     )
-    df_lg_pitching_stat.loc["lgCtlRating"] = (
+    df_lg_pitching_stat.loc["lgCtlRating", "Value"] = (
         df_player_stats_temp["ctl_weight"].sum() / lg_bf
     )
-    df_lg_pitching_stat.loc["lgMovRating"] = (
+    df_lg_pitching_stat.loc["lgMovRating", "Value"] = (
         df_player_stats_temp["mov_weight"].sum() / lg_bf
     )
 

@@ -2,9 +2,18 @@ import pandas as pd
 from util import paths
 
 
-def add_league_attribute_averages(league: str, season: int):
+def add_league_attribute_averages(
+    league: str, season: int, df_player_data: pd.DataFrame | None = None
+) -> pd.DataFrame:
+    """Add the league average rating columns to the player data and write player-data.csv.
 
-    df_player_data = pd.read_csv(paths.output_file(league, season, "player-data"))
+    df_player_data is the cleaned ratings frame (indexed by ID). When omitted it is read from the
+    player-data csv written by importCSV.import_files."""
+
+    if df_player_data is None:
+        df_player_data = pd.read_csv(paths.output_file(league, season, "player-data"))
+    else:
+        df_player_data = df_player_data.reset_index()
 
     df_woba = pd.read_csv(paths.output_file(league, season, "woba-calcs"))
     df_woba = df_woba.set_index("Stat")
@@ -12,55 +21,60 @@ def add_league_attribute_averages(league: str, season: int):
     df_fielding = pd.read_csv(paths.output_file(league, season, "fielding-attributes"))
     df_fielding = df_fielding.set_index("POS")
 
-    df_player_data["lgBabipRating"] = df_woba.loc["lgBabipRating"]["Value"]
-    df_player_data["lgAvkRating"] = df_woba.loc["lgAvkRating"]["Value"]
-    df_player_data["lgConRating"] = df_woba.loc["lgConRating"]["Value"]
-    df_player_data["lgEyeRating"] = df_woba.loc["lgEyeRating"]["Value"]
-    df_player_data["lgPowRating"] = df_woba.loc["lgPowRating"]["Value"]
-    df_player_data["lgPbabipRating"] = df_woba.loc["lgPbabipRating"]["Value"]
-    df_player_data["lgStuRating"] = df_woba.loc["lgStuRating"]["Value"]
-    df_player_data["lgHrrRating"] = df_woba.loc["lgHrrRating"]["Value"]
-    df_player_data["lgCtlRating"] = df_woba.loc["lgCtlRating"]["Value"]
-    df_player_data["lgMovRating"] = df_woba.loc["lgMovRating"]["Value"]
-    df_player_data["lgCRating"] = df_fielding.loc[2]["PRat"]
-    df_player_data["lg1BRating"] = df_fielding.loc[3]["PRat"]
-    df_player_data["lg2BRating"] = df_fielding.loc[4]["PRat"]
-    df_player_data["lg3BRating"] = df_fielding.loc[5]["PRat"]
-    df_player_data["lgSSRating"] = df_fielding.loc[6]["PRat"]
-    df_player_data["lgLFRating"] = df_fielding.loc[7]["PRat"]
-    df_player_data["lgCFRating"] = df_fielding.loc[8]["PRat"]
-    df_player_data["lgRFRating"] = df_fielding.loc[9]["PRat"]
+    woba = df_woba["Value"]
+    league_columns = {
+        "lgBabipRating": woba["lgBabipRating"],
+        "lgAvkRating": woba["lgAvkRating"],
+        "lgConRating": woba["lgConRating"],
+        "lgEyeRating": woba["lgEyeRating"],
+        "lgPowRating": woba["lgPowRating"],
+        "lgPbabipRating": woba["lgPbabipRating"],
+        "lgStuRating": woba["lgStuRating"],
+        "lgHrrRating": woba["lgHrrRating"],
+        "lgCtlRating": woba["lgCtlRating"],
+        "lgMovRating": woba["lgMovRating"],
+    }
+    # (column name, position, fielding-attributes column)
+    for name, position, column in [
+        ("lgCRating", 2, "PRat"),
+        ("lg1BRating", 3, "PRat"),
+        ("lg2BRating", 4, "PRat"),
+        ("lg3BRating", 5, "PRat"),
+        ("lgSSRating", 6, "PRat"),
+        ("lgLFRating", 7, "PRat"),
+        ("lgCFRating", 8, "PRat"),
+        ("lgRFRating", 9, "PRat"),
+        ("lg1BRange", 3, "Range"),
+        ("lg2BRange", 4, "Range"),
+        ("lg3BRange", 5, "Range"),
+        ("lgSSRange", 6, "Range"),
+        ("lgLFRange", 7, "Range"),
+        ("lgCFRange", 8, "Range"),
+        ("lgRFRange", 9, "Range"),
+        ("lgRFError", 9, "Error"),
+        ("lgCFError", 8, "Error"),
+        ("lgLFError", 7, "Error"),
+        ("lgSSError", 6, "Error"),
+        ("lg3BError", 5, "Error"),
+        ("lg2BError", 4, "Error"),
+        ("lg1BError", 3, "Error"),
+        ("lgRFArm", 9, "Arm"),
+        ("lgCFArm", 8, "Arm"),
+        ("lgLFArm", 7, "Arm"),
+        ("lgCArm", 2, "Arm"),
+        ("lgSSArm", 6, "Arm"),
+        ("lg3BArm", 5, "Arm"),
+        ("lg2BArm", 4, "Arm"),
+        ("lg1BArm", 3, "Arm"),
+        ("lg1BDP", 3, "DP"),
+        ("lg2BDP", 4, "DP"),
+        ("lg3BDP", 5, "DP"),
+        ("lgSSDP", 6, "DP"),
+        ("lgCFrm", 2, "Frame"),
+        ("lgCBlock", 2, "Block"),
+    ]:
+        league_columns[name] = df_fielding.loc[position, column]
 
-    df_player_data["lg1BRange"] = df_fielding.loc[3]["Range"]
-    df_player_data["lg2BRange"] = df_fielding.loc[4]["Range"]
-    df_player_data["lg3BRange"] = df_fielding.loc[5]["Range"]
-    df_player_data["lgSSRange"] = df_fielding.loc[6]["Range"]
-    df_player_data["lgLFRange"] = df_fielding.loc[7]["Range"]
-    df_player_data["lgCFRange"] = df_fielding.loc[8]["Range"]
-    df_player_data["lgRFRange"] = df_fielding.loc[9]["Range"]
-    df_player_data["lgRFError"] = df_fielding.loc[9]["Error"]
-    df_player_data["lgCFError"] = df_fielding.loc[8]["Error"]
-    df_player_data["lgLFError"] = df_fielding.loc[7]["Error"]
-    df_player_data["lgSSError"] = df_fielding.loc[6]["Error"]
-    df_player_data["lg3BError"] = df_fielding.loc[5]["Error"]
-    df_player_data["lg2BError"] = df_fielding.loc[4]["Error"]
-    df_player_data["lg1BError"] = df_fielding.loc[3]["Error"]
-    df_player_data["lgRFArm"] = df_fielding.loc[9]["Arm"]
-    df_player_data["lgCFArm"] = df_fielding.loc[8]["Arm"]
-    df_player_data["lgLFArm"] = df_fielding.loc[7]["Arm"]
-    df_player_data["lgCArm"] = df_fielding.loc[2]["Arm"]
-    df_player_data["lgSSArm"] = df_fielding.loc[6]["Arm"]
-    df_player_data["lg3BArm"] = df_fielding.loc[5]["Arm"]
-    df_player_data["lg2BArm"] = df_fielding.loc[4]["Arm"]
-    df_player_data["lg1BArm"] = df_fielding.loc[3]["Arm"]
-    df_player_data["lg1BDP"] = df_fielding.loc[3]["DP"]
-    df_player_data["lg2BDP"] = df_fielding.loc[4]["DP"]
-    df_player_data["lg3BDP"] = df_fielding.loc[5]["DP"]
-    df_player_data["lgSSDP"] = df_fielding.loc[6]["DP"]
-    df_player_data["lgCFrm"] = df_fielding.loc[2]["Frame"]
-    df_player_data["lgCBlock"] = df_fielding.loc[2]["Block"]
-
-    df_player_data.to_csv(
-        paths.output_file(league, season, "player-data"),
-        index=False,
-    )
+    df_player_data = df_player_data.assign(**league_columns)
+    df_player_data.to_csv(paths.output_file(league, season, "player-data"), index=False)
+    return df_player_data

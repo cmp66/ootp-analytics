@@ -720,7 +720,11 @@ def clean_ratings(df_player_ratings: pd.DataFrame) -> pd.DataFrame:
 
 
 def import_files(
-    league: str, season: int, source: str | None = None, ratings: str | None = None
+    league: str,
+    season: int,
+    source: str | None = None,
+    ratings: str | None = None,
+    write_player_data: bool = True,
 ) -> tuple[
     pd.DataFrame,
     pd.DataFrame,
@@ -772,7 +776,9 @@ def import_files(
     # check of export direction exists, if not create it
     paths.output_dir(league, season, create=True)
 
-    df_player_ratings.to_csv(paths.output_file(league, season, "player-data"))
+    # the pipeline writes player-data itself once the league averages have been added
+    if write_player_data:
+        df_player_ratings.to_csv(paths.output_file(league, season, "player-data"))
 
     df_team_batting_stats.round(3).to_csv(
         paths.output_file(league, season, "team-batting")
