@@ -101,42 +101,22 @@ def add_player_targets(table: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
     return out
 
 
-def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None = None) -> pd.DataFrame:
-    """Training / scoring rows of one family: one per player, season and slot he is ranked at, with features and targets.
+CONTEXT_COLUMNS = ["ID", "season", "Age", "level", "best_value", "WE_ord", "INT_ord", "Prone3_ord"]
 
-    Targets per horizon h: `dvalue_h` (value at t+h minus value now, NaN if the player is gone or beyond the table),
-    `top50_h`, `top10_h` (0 when gone or not ranked then, NaN beyond the table), `observed_h`."""
-    tables = tables or outlook_data.read_tables(save)
-    players, values, every = tables["players"], tables["values"], tables["slot_values"]
-    if every is None:
-        raise FileNotFoundError(f"{save}: no slot_values table; run scripts/build_outlook_tables.py {save}")
-    slots = FAMILIES[family]
-    rows = values[values["slot"].isin(slots)][["ID", "season", "slot", "value", "pct", "tier"]].rename(
-        columns={"value": "value_now", "pct": "pct_now"}
-    )
-    ptable = player_table(players, values)
-    context = ptable[
-        [
-            "ID",
-            "season",
-            "Age",
-            "level",
-            "best_value",
-            "WE_ord",
-            "INT_ord",
-            "Prone3_ord",
-            *[f"observed_h{h}" for h in horizons],
-        ]
-    ]
-    frame = rows.merge(context, on=["ID", "season"], how="left")
-    seasons = sorted(players["season"].unique())
-    ratings = load_ratings(
-        save,
-        seasons,
-        [*RATING_COLUMNS[family], *SHARED_RATINGS, *outlook_data.POSITION_RATINGS, *outlook_data.POTENTIAL_RATINGS],
-    )
-    frame = frame.merge(ratings, on=["ID", "season"], how="left")
+
+def rating_columns_needed(family: str) -> list[str]:
+    return [*RATING_COLUMNS[family], *SHARED_RATINGS, *outlook_data.POSITION_RATINGS, *outlook_data.POTENTIAL_RATINGS]
+
+
+def family_features(rows: pd.DataFrame, context: pd.DataFrame, ratings: pd.DataFrame, family: str) -> pd.DataFrame:
+    """Feature rows of one family, the same for training and for scoring.
+
+    rows: ID, season, slot, value_now, pct_now (one per player and ranked slot); context: the player-season columns of
+    CONTEXT_COLUMNS (plus anything to carry along); ratings: the player-data ratings of those player-seasons. The slot is
+    kept as `slot_name` and coded in `slot`."""
+    frame = rows.merge(context, on=["ID", "season"], how="left").merge(ratings, on=["ID", "season"], how="left")
     if family == "hitters":
+        slots = FAMILIES[family]
         by_slot = {slot: i for i, slot in enumerate(slots)}
         position = frame[outlook_data.POSITION_RATINGS].to_numpy()
         potential = frame[outlook_data.POTENTIAL_RATINGS].to_numpy()
@@ -145,9 +125,26 @@ def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None 
         pick = np.where(valid, index, 0)
         frame["slot_rating"] = np.where(valid, position[np.arange(len(frame)), pick], np.nan)
         frame["slot_pot"] = np.where(valid, potential[np.arange(len(frame)), pick], np.nan)
-    frame["slot"] = frame["slot"].map(SLOT_CODES).astype(float)
-    slot_names = {code: name for name, code in SLOT_CODES.items()}
-    keyed = frame.assign(slot_name=frame["slot"].map(slot_names))
+    frame["slot_name"] = frame["slot"]
+    frame["slot"] = frame["slot_name"].map(SLOT_CODES).astype(float)
+    return frame
+
+
+def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None = None) -> pd.DataFrame:
+    """Training rows of one family: one per player, season and slot he is ranked at, with features and targets.
+
+    Targets per horizon h: `dvalue_h` (value at t+h minus value now, NaN if the player is gone or beyond the table),
+    `top50_h`, `top10_h` (0 when gone or not ranked then, NaN beyond the table), `observed_h`."""
+    tables = tables or outlook_data.read_tables(save)
+    players, values, every = tables["players"], tables["values"], tables["slot_values"]
+    if every is None:
+        raise FileNotFoundError(f"{save}: no slot_values table; run scripts/build_outlook_tables.py {save}")
+    rows = values[values["slot"].isin(FAMILIES[family])][["ID", "season", "slot", "value", "pct", "tier"]]
+    rows = rows.rename(columns={"value": "value_now", "pct": "pct_now"})
+    ptable = player_table(players, values)
+    context = ptable[[*CONTEXT_COLUMNS, *[f"observed_h{h}" for h in horizons]]]
+    ratings = load_ratings(save, sorted(players["season"].unique()), rating_columns_needed(family))
+    keyed = family_features(rows, context, ratings, family)
     for h in horizons:
         later_value = every[["ID", "slot", "season", "value"]].assign(season=every["season"] - h)
         later_value = later_value.rename(columns={"slot": "slot_name", "value": f"value_h{h}"})
@@ -308,6 +305,10 @@ def load(save: str, ratings: str, name: str) -> Artifact:
 AGE_BANDS = {"16-19": (16, 19), "20-22": (20, 22), "23-26": (23, 26), "27-30": (27, 30), "31+": (31, 60)}
 MAX_ROWS = 400_000
 BAND_LEVEL = 0.8
+TRAINING_TEAMS = {
+    "Model-Sim": 30,
+    "Model-Sim-26-Std": 32,
+}  # MLB teams of the training leagues (the tiers scale with it)
 
 
 @dataclass
@@ -451,6 +452,17 @@ def classifier_metrics(test: pd.DataFrame, target: str, probability: np.ndarray,
     }
 
 
+def expected_counts(table: pd.DataFrame, column: str) -> dict:
+    """Per slot, the average over seasons of how many of the players ranked now are top 10 / top 50 at the slot h seasons on.
+
+    This count is a fixed property of the game (the tier is a rank, so a league always has 10 or 50 such players per slot, a
+    stable share of whom are already in the league): scoring rescales the chances of any league to add up to it."""
+    labelled = table[table[column].notna()]
+    names = {code: name for name, code in SLOT_CODES.items()}
+    sums = labelled.groupby(["season", "slot"])[column].sum().groupby("slot").mean()
+    return {names[int(code)]: float(count) for code, count in sums.items()}
+
+
 def train_value_models(run: Run, family: str, table: pd.DataFrame, horizon: int, train_seasons, test_seasons) -> dict:
     features = feature_names(family)
     column = f"dvalue_h{horizon}"
@@ -490,7 +502,14 @@ def train_tier_models(run: Run, family: str, table: pd.DataFrame, horizon: int, 
             calibration = fit_probability_calibration(y, probability)
         final = subsample_players(labelled, run.max_rows)
         model = fit_classifier(final[features], final[column].to_numpy(), categorical_mask(features))
-        notes = {"kind": tier, "family": family, "horizon": horizon, "calibration": calibration}
+        notes = {
+            "kind": tier,
+            "family": family,
+            "horizon": horizon,
+            "calibration": calibration,
+            "expected_count": expected_counts(table, column),
+            "teams": TRAINING_TEAMS.get(run.save),
+        }
         run.store(artifact_name(tier, family, horizon), model, features, column, metrics, notes)
         results[tier] = metrics
     return results
@@ -624,3 +643,19 @@ def train_outlook_models(
     for h in horizons:
         results["player"][h] = train_player_models(run, ptable, h)
     return results
+
+
+def patch_expected_counts(
+    save: str, ratings: str, families=("hitters", "pitchers"), horizons=HORIZONS, log=print
+) -> None:
+    """Add the expected counts to tier classifiers that were trained without them (no retraining: they come from the labels)."""
+    tables = outlook_data.read_tables(save)
+    for family in families:
+        table = family_table(save, family, horizons, tables)
+        for h in horizons:
+            for tier in ("top50", "top10"):
+                loaded = load_artifact(save, ratings, artifact_name(tier, family, h))
+                loaded.notes["expected_count"] = expected_counts(table, f"{tier}_h{h}")
+                loaded.notes["teams"] = TRAINING_TEAMS.get(save)
+                save_artifact(loaded)
+        log(f"{family}: expected counts stored for horizons {list(horizons)}")

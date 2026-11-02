@@ -133,6 +133,8 @@ def season_state(save: str, season: int) -> pd.DataFrame:
     state["level"] = state["league_id"].map(league_levels(save, season)) if "league_id" in state else np.nan
     if "free_agent" in state:
         state["level"] = state["level"].where(state["free_agent"] != 1)  # a free agent is between teams
+    if get_save(save).source == "export" and "Lev" in players.columns:  # the export names the level instead
+        state["level"] = players["Lev"].map(lambda value: formats.export_level_number(value, get_save(save).ratings))
     return state
 
 

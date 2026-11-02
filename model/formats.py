@@ -125,3 +125,13 @@ def level_group(level, source: str, free_agent: bool = False) -> str:
 def draft_route(age_at_draft) -> str:
     """High school or college draft from the age at the draft (the export has no college flag)."""
     return "college_draft" if age_at_draft >= AGE_AT_DRAFT_COLLEGE else "hs_draft"
+
+
+def export_level_number(level, ratings: str) -> float:
+    """The numeric team level of the dump (1 MLB, 2 AAA, 3 AA, 4 A, 6 Rookie; OOTP 26 also 5 for low A) from an export level.
+
+    Free agents, winter league and international rows have no level (NaN), as in the dump."""
+    text = str(level).strip()
+    low_a = 5 if ratings == "Standard26" else 4  # OOTP 26 has a separate low-A level
+    numbers = {"MLB": 1, "AAA": 2, "AA": 3, "A+": 4, "A": 4, "A-": low_a, "R+": 6, "R": 6, "R-": 6}
+    return float(numbers.get(text, np.nan))
