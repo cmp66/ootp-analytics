@@ -4,6 +4,7 @@ import pandas as pd
 from util import paths
 from util.innings import ip_to_innings
 from stats import woba
+from util.frames import add_constant_columns, numeric_columns
 
 RUNS_PER_WIN = 10
 # FIP weights (home runs, walks and hit batters, strikeouts); runs = numerator / 9. The weights derived from each
@@ -163,7 +164,7 @@ def calculate_pitching_attribute_averages(
 ) -> DataFrame:
 
     df_player_stats_temp = df_player_pitching_stats.copy()
-    df_player_stats_temp = df_player_stats_temp.merge(df_player_ratings, on="ID")
+    df_player_stats_temp = df_player_stats_temp.merge(numeric_columns(df_player_ratings), on="ID")
     # weight only by the batters faced of pitchers that have ratings
     lg_bf = df_player_stats_temp["BF"].sum()
 
@@ -195,6 +196,7 @@ def calculate_player_pitching_stats(
     """
 
     lg = (df_lg_stat if df_lg_woba is None else df_lg_woba)["Value"]
+    df_player_ratings = numeric_columns(df_player_ratings)
     df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
 
     df_player_stats["PRole"] = classify_pitcher_role(df_player_stats)
@@ -231,7 +233,7 @@ def calculate_player_pitching_stats(
 
     columns_to_remove = [x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]]
     df_player_stats = df_player_stats.drop(columns=columns_to_remove)
-    df_player_stats = df_player_stats.assign(**df_lg_stat["Value"].to_dict())
+    df_player_stats = add_constant_columns(df_player_stats, df_lg_stat["Value"].to_dict())
 
     return df_player_stats.set_index("ID")
 

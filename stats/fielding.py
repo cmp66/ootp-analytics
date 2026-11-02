@@ -1,6 +1,7 @@
 from util import paths
 import numpy as np
 from pandas import DataFrame, Index, Series
+from util.frames import add_constant_columns, numeric_columns
 from util.innings import ip_to_innings
 
 positions = [1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -215,6 +216,7 @@ def calculate_player_fielding_stats(
     df_player_stats["DP"] = df_player_stats["DP"] * _by_position(get_dp_adjustment, pos)
     df_player_stats["ARM"] = df_player_stats["ARM"] * pos.isin(of_positions)
 
+    df_player_ratings = numeric_columns(df_player_ratings)
     df_player_stats = df_player_stats.merge(df_player_ratings, on="ID")
     pos = df_player_stats["POS"]
 
@@ -366,7 +368,7 @@ def calculate_player_fielding_stats(
 
     columns_to_remove = [x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]]
     df_player_stats = df_player_stats.drop(columns=columns_to_remove)
-    df_player_stats = df_player_stats.assign(**df_lg_stat["Value"].to_dict())
+    df_player_stats = add_constant_columns(df_player_stats, df_lg_stat["Value"].to_dict())
 
     return (
         df_positional_totals,

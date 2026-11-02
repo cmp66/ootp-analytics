@@ -40,3 +40,7 @@ The volume columns (`PlayMadeAA*`, `PlayAAASeason`, `runsPSeason`, `runsPNow`, `
 ## Ability values for the models
 
 Fielding: `FldRunsSeason` / `FldRunsAdj` (runs: tier-adjusted plays, catcher framing, outfield arm) are the fielding value without the noisy errors; `ErrRunsSeason` / `ErrRunsAdj` are the error charge on its own. Pitching: `WAA` splits into `FIPRuns` (home runs, walks and hit batters, strikeouts against the usage-bucket average, 13 / 3 / -2 weights), `BABIPRuns` (hits on balls in play against the league BABIP; mostly luck and defense, use `BIP` as the weight) and `OtherRuns` (sequencing, unearned runs, defense): `WAA x 10 = FIPRuns + BABIPRuns + OtherRuns`. `scripts/validate_ability_targets.py` reports how repeatable each value is.
+
+## Processing a save
+
+`python scripts/process_seasons.py <save>` reads the raw files of a save (a folder under `files/` with a table in `config/saves.toml`, which sets the source, ratings set and ballpark file) and writes the processed csv files to `files/<save>/<season>/output/`. By default it processes the latest season only; `--season N` does one season, `--start N` runs from N through the latest, `--start N --stop M` runs the range, and `--list` shows the seasons that have data. A failing season is reported and the rest still run (exit status 1). This replaces `dataImport.ipynb`.

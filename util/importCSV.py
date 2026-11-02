@@ -1,5 +1,6 @@
 import pandas as pd
 from util import paths
+from util.frames import consolidate
 from util.innings import dump_ip_to_outs, outs_to_ip
 from util.config import get_save
 import logging
@@ -351,18 +352,24 @@ def import_ootp_dump_ratings(
     ]
     df_player_pitching_ratings_base["PIT"] = df_player_pitching_ratings_base[pitch_columns].gt(0).sum(axis=1)
 
-    df_player_ratings_base = df_player_ratings_base.set_index("ID")
-    df_player_batting_ratings_base = df_player_batting_ratings_base.set_index("ID")
-    df_player_fielding_ratings_base = df_player_fielding_ratings_base.set_index("ID")
-    df_player_pitching_ratings_base = df_player_pitching_ratings_base.set_index("ID")
+    df_player_ratings_base = consolidate(df_player_ratings_base.set_index("ID"))
+    df_player_batting_ratings_base = consolidate(df_player_batting_ratings_base.set_index("ID"))
+    df_player_fielding_ratings_base = consolidate(df_player_fielding_ratings_base.set_index("ID"))
+    df_player_pitching_ratings_base = consolidate(df_player_pitching_ratings_base.set_index("ID"))
 
     df_player_pitching_ratings_base = df_player_pitching_ratings_base.drop(columns=["league_id", "position", "role"])
     df_player_fielding_ratings_base = df_player_fielding_ratings_base.drop(columns=["league_id", "position", "role"])
     df_player_batting_ratings_base = df_player_batting_ratings_base.drop(columns=["league_id", "position", "role"])
 
-    df_player_ratings_base = df_player_ratings_base.merge(df_player_batting_ratings_base, on="ID", how="outer")
-    df_player_ratings_base = df_player_ratings_base.merge(df_player_fielding_ratings_base, on="ID", how="outer")
-    df_player_ratings_base = df_player_ratings_base.merge(df_player_pitching_ratings_base, on="ID", how="outer")
+    df_player_ratings_base = consolidate(
+        df_player_ratings_base.merge(df_player_batting_ratings_base, on="ID", how="outer")
+    )
+    df_player_ratings_base = consolidate(
+        df_player_ratings_base.merge(df_player_fielding_ratings_base, on="ID", how="outer")
+    )
+    df_player_ratings_base = consolidate(
+        df_player_ratings_base.merge(df_player_pitching_ratings_base, on="ID", how="outer")
+    )
 
     df_player_ratings_base["LPOS"] = df_player_ratings_base["LPOS"].apply(convert_dump_positions)
 
