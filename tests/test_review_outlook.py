@@ -33,6 +33,11 @@ def test_cluster_ols_matches_a_brute_force_calculation_and_gives_the_r2():
     assert r2 == pytest.approx(1 - (residual**2).sum() / ((y - y.mean()) ** 2).sum())
 
 
+def test_cluster_ols_without_enough_rows_returns_nan_instead_of_warning():
+    beta, se, r2 = review.cluster_ols(np.array([1.0]), np.ones((1, 2)), np.array([1]))
+    assert np.isnan(beta).all() and np.isnan(se).all() and np.isnan(r2)
+
+
 def synthetic_pairs(n=6000, seed=0):
     """Pairs of seasons for hitters aged 16-22 where work ethic and missed time change the yearly change of 'BABIP'."""
     rng = np.random.default_rng(seed)
@@ -155,3 +160,128 @@ def test_the_review_runs_end_to_end_on_the_fixture_seasons(tmp_path, monkeypatch
         assert heading in text
     assert (tmp_path / "csv" / "Model-Sim-baseline.csv").exists()
     assert review.main(["Nope"]) == 2
+
+
+def entry_fixture():
+    """Three entrants and later seasons: A is top 50 three seasons on, B is gone, C is ranked but not top 50."""
+    players = pd.DataFrame(
+        {
+            "ID": [1, 2, 3, 1, 3, 1, 3],
+            "season": [10, 10, 10, 13, 13, 15, 15],
+            "Age": [18, 18, 22, 21, 25, 23, 27],
+            "left_truncated": False,
+            "entry_season": [10, 10, 10, 10, 10, 10, 10],
+            "entry_route": [
+                "hs_draft",
+                "hs_draft",
+                "college_draft",
+                "hs_draft",
+                "college_draft",
+                "hs_draft",
+                "college_draft",
+            ],
+            "WE_cat": "N",
+            "INT_cat": "N",
+            "Prone3_cat": "Normal",
+            "observed_h1": True,
+            "observed_h3": [True, True, True, True, True, False, False],
+            "observed_h5": [True, True, True, False, False, False, False],
+        }
+    )
+    values = pd.DataFrame(
+        {
+            "ID": [1, 2, 3, 1, 3, 1, 3],
+            "season": [10, 10, 10, 13, 13, 15, 15],
+            "slot": "SS",
+            "value": [-20.0, -30.0, -5.0, 8.0, -4.0, 10.0, -3.0],
+            "tier": ["rest", "rest", "rest", "top50", "rest", "top10", "rest"],
+        }
+    )
+    return players, values
+
+
+def test_best_by_player_season_and_entrant_outcomes_do_not_look_back():
+    players, values = entry_fixture()
+    best = review.best_by_player_season(values)
+    assert best.set_index(["season", "ID"]).loc[(13, 1), ["best_value", "top50", "top10"]].tolist() == [
+        8.0,
+        True,
+        False,
+    ]
+    new = review.entrants(players, best, horizons=(3, 5))
+    new = new[new["season"] == 10].set_index("ID")
+    assert new.loc[1, "top50_h3"] == 1.0 and new.loc[3, "top50_h3"] == 0.0
+    assert new.loc[2, "top50_h3"] == 0.0  # gone by season 13: counts as not top 50
+    assert new.loc[1, "top10_h5"] == 1.0  # season 15
+    assert new.loc[3, "top50_h5"] == 0.0 and new.loc[1, "entry_value"] == -20.0
+
+
+def test_top50_at_age_counts_missing_players_as_not_top_50_and_skips_unobserved_ages():
+    players, values = entry_fixture()
+    best = review.best_by_player_season(values)
+    new = review.entrants(players, best, horizons=(3, 5))
+    new = new[new["season"] == 10].assign(entry_pct=[30.0, 30.0, 80.0])
+    assert review.top50_at_age(players, best, new, 21).empty  # three entrants: too few for any row of the report
+    full = review.top50_at_age(players, best, new.loc[new.index.repeat(60)], 21)
+    hs = full[full["route"] == "hs_draft"].iloc[0]
+    assert hs["present"] == pytest.approx(0.5) and hs["top50"] == pytest.approx(0.5)  # A is there and top 50, B is gone
+
+
+def test_route_tables_need_enough_entrants_and_age_adds_to_the_value():
+    rng = np.random.default_rng(0)
+    n = 3000
+    age = rng.integers(17, 23, n)
+    entry = rng.normal(-30, 15, n)
+    frame = pd.DataFrame(
+        {
+            "ID": np.arange(n),
+            "Age": age,
+            "entry_route": np.where(age < 20, "hs_draft", "college_draft"),
+            "entry_value": entry,
+            "entry_pct": np.clip(50 + entry, 0, 100),
+            "top50_h3": (entry + rng.normal(0, 10, n) > -10).astype(float),
+            "top50_h5": (entry + rng.normal(0, 10, n) > -10).astype(float),
+            "top10_h5": 0.0,
+            "value_h3": entry + 3.0 * (age - 20) + rng.normal(0, 5, n),
+            "WE_cat": "N",
+            "INT_cat": "N",
+            "Prone3_cat": "Normal",
+        }
+    )
+    by_value = review.route_by_value(frame)
+    low = by_value[by_value["band"] == "< -30"]["top50_h5"].mean()
+    high = by_value[by_value["band"].isin(["0 to 10", "10 to 20", "20+"])]["top50_h5"].mean()
+    assert low < 0.2 < 0.8 < high or pd.isna(high)
+    matters = review.age_matters(frame).set_index("model")["r2"]
+    assert matters["+ age"] > matters["entry value only"] + 0.05  # age was built into the future value
+
+
+def test_missed_time_is_lower_for_fragile_players_at_equal_value():
+    rng = np.random.default_rng(2)
+    n = 6000
+    tier = rng.choice(["Durable", "Normal", "Fragile"], n)
+    players = pd.DataFrame(
+        {
+            "ID": np.arange(n),
+            "season": 1,
+            "Age": rng.integers(22, 35, n),
+            "primary_level": 1.0,
+            "Prone3_cat": tier,
+            "Prone": np.where(tier == "Fragile", 140.0, np.where(tier == "Durable", 20.0, 80.0)),
+            "time_share": np.clip(
+                0.8 + 0.05 * (tier == "Durable") - 0.1 * (tier == "Fragile") + rng.normal(0, 0.1, n), 0, 1
+            ),
+        }
+    )
+    best = pd.DataFrame({"ID": np.arange(n), "season": 1, "best_value": rng.normal(0, 5, n)})
+    table = review.missed_time(players, best).set_index(["group", "tier"])
+    assert (
+        table.loc[("26-30", "Fragile"), "relative_to_normal"]
+        < 0.95
+        < 1.0
+        < table.loc[("26-30", "Durable"), "relative_to_normal"]
+    )
+    effects = review.missed_time_effects(players, best)
+    assert effects.loc["Fragile", "effect"] == pytest.approx(-0.1, abs=0.02) and effects.loc[
+        "Durable", "effect"
+    ] == pytest.approx(0.05, abs=0.02)

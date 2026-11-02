@@ -388,3 +388,143 @@ How well today's value predicts the value h seasons ahead (players ranked at the
 | SP | 5 | 16-21 | 25339 | 0.71 | 0.50 | 100% |
 | SP | 5 | 22-27 | 21580 | 0.77 | 0.59 | 73% |
 | SP | 5 | 28+ | 8920 | 0.82 | 0.67 | 36% |
+
+## 4 Missed time and proneness (for the injury-risk column)
+
+Playing time of MLB-level players (`time_share`: 1 is a full season for the level; benching and call-ups are in it
+too, so only the difference between the tiers says something about injuries). By proneness tier and age group:
+
+| Age | Tier | Player-seasons | Mean time share | Relative to normal | Under 70 % of a season |
+|---|---|---:|---:|---:|---:|
+| 20-25 | Durable | 671 | 0.83 | 1.05 | 23% |
+| 20-25 | Normal | 4480 | 0.79 | 1.00 | 29% |
+| 20-25 | Fragile | 1172 | 0.67 | 0.85 | 49% |
+| 26-30 | Durable | 2083 | 0.81 | 1.06 | 26% |
+| 26-30 | Normal | 14089 | 0.76 | 1.00 | 34% |
+| 26-30 | Fragile | 8122 | 0.69 | 0.90 | 47% |
+| 31+ | Durable | 2241 | 0.74 | 1.08 | 37% |
+| 31+ | Normal | 10441 | 0.68 | 1.00 | 47% |
+| 31+ | Fragile | 15282 | 0.61 | 0.89 | 60% |
+
+Effect of proneness on the time share at equal age and value (regression, clustered by player):
+
+| Term | Effect on time share | t | Player-seasons |
+|---|---:|---:|---:|
+| Durable | +0.048 | +6.9 | 58581 |
+| Fragile | -0.080 | -21.1 | 58581 |
+| Prone (per 50 points) | -0.048 | -31.1 | 58581 |
+
+## 5 Entry routes: high school draft, college draft, international signing
+
+Entrants are players first seen after the table starts. Value is the best rating-based slot value; the entry level is
+its percentile among all players of that season. 'Top 50' means top 50 at any slot, `h` seasons after entry (a player
+who is gone counts as not top 50).
+
+| Route | Entrants | Median age | Median entry level | Top 50 after 3 | Top 50 after 5 | Top 10 after 5 |
+|---|---:|---:|---:|---:|---:|---:|
+| hs_draft | 19455 | 18 | 13 | 0% | 2% | 0% |
+| college_draft | 15107 | 22 | 38 | 5% | 6% | 1% |
+| international | 6755 | 17 | 2 | 0% | 2% | 1% |
+| other | 6204 | 23 | 23 | 1% | 1% | 0% |
+
+### What a prospect must reach at entry
+
+Chance of becoming a top-50 player (any slot) by entry level (percentile of the rating-based value among all players
+that season):
+
+| Route | Entry level | Entrants | Top 50 after 3 | Top 50 after 5 | Top 10 after 5 |
+|---|---|---:|---:|---:|---:|
+| hs_draft | <50 | 19327 | 0% | 1% | 0% |
+| hs_draft | 50-70 | 120 | 5% | 15% | 5% |
+| college_draft | <50 | 10709 | 2% | 2% | 0% |
+| college_draft | 50-70 | 3219 | 6% | 7% | 1% |
+| college_draft | 70-85 | 849 | 18% | 26% | 6% |
+| college_draft | 85-95 | 295 | 52% | 64% | 22% |
+| international | <50 | 6735 | 0% | 2% | 1% |
+| other | <50 | 5448 | 0% | 0% | 0% |
+| other | 50-70 | 376 | 0% | 1% | 0% |
+| other | 70-85 | 176 | 2% | 1% | 0% |
+| other | 85-95 | 100 | 5% | 6% | 1% |
+| other | 95+ | 104 | 51% | 33% | 5% |
+
+Same, by the entry value itself (best slot value in runs per season, league-relative; comparable between leagues of
+one version, unlike a percentile of one league's pool):
+
+| Route | Entry value | Entrants | Top 50 after 5 | Top 10 after 5 |
+|---|---|---:|---:|---:|
+| hs_draft | < -30 | 19218 | 1% | 0% |
+| hs_draft | -30 to -20 | 201 | 8% | 3% |
+| college_draft | < -30 | 9297 | 2% | 0% |
+| college_draft | -30 to -20 | 3529 | 4% | 1% |
+| college_draft | -20 to -10 | 1646 | 15% | 2% |
+| college_draft | -10 to 0 | 522 | 46% | 12% |
+| college_draft | 0 to 10 | 96 | 78% | 41% |
+| international | < -30 | 6724 | 2% | 1% |
+| other | < -30 | 5239 | 0% | 0% |
+| other | -30 to -20 | 441 | 0% | 0% |
+| other | -20 to -10 | 257 | 0% | 0% |
+| other | -10 to 0 | 127 | 4% | 1% |
+| other | 0 to 10 | 62 | 7% | 0% |
+| other | 10 to 20 | 40 | 36% | 0% |
+
+### Is there time to develop? Top 50 at a given age
+
+Entrants of each route and entry level who are top 50 at the age shown (gone counts as no), and the share still in
+the league:
+
+| Age | Route | Entry level | Entrants | Still in the league | Top 50 | Mean value of those present |
+|---:|---|---|---:|---:|---:|---:|
+| 22 | hs_draft | <70 | 18233 | 88% | 0% | -33.9 |
+| 22 | college_draft | <70 | 6337 | 97% | 0% | -33.9 |
+| 22 | college_draft | 70-90 | 245 | 100% | 5% | -4.0 |
+| 22 | international | <70 | 6176 | 89% | 2% | -45.1 |
+| 22 | other | <70 | 2083 | 73% | 0% | -38.6 |
+| 24 | hs_draft | <70 | 17614 | 72% | 3% | -22.6 |
+| 24 | college_draft | <70 | 13343 | 94% | 2% | -23.5 |
+| 24 | college_draft | 70-90 | 987 | 100% | 17% | +1.6 |
+| 24 | college_draft | 90+ | 145 | 100% | 63% | +17.8 |
+| 24 | international | <70 | 5947 | 41% | 4% | -21.0 |
+| 24 | other | <70 | 4347 | 62% | 1% | -34.7 |
+| 26 | hs_draft | <70 | 17004 | 64% | 4% | -17.1 |
+| 26 | college_draft | <70 | 12910 | 78% | 4% | -17.3 |
+| 26 | college_draft | 70-90 | 971 | 99% | 30% | +5.7 |
+| 26 | college_draft | 90+ | 141 | 100% | 79% | +23.0 |
+| 26 | international | <70 | 5756 | 37% | 5% | -15.3 |
+| 26 | other | <70 | 5161 | 37% | 1% | -27.2 |
+| 26 | other | 70-90 | 87 | 89% | 7% | -9.2 |
+| 28 | hs_draft | <70 | 16346 | 32% | 3% | -8.5 |
+| 28 | college_draft | <70 | 12471 | 41% | 3% | -9.5 |
+| 28 | college_draft | 70-90 | 947 | 93% | 28% | +5.9 |
+| 28 | college_draft | 90+ | 138 | 99% | 77% | +21.6 |
+| 28 | international | <70 | 5538 | 21% | 5% | -4.7 |
+| 28 | other | <70 | 5144 | 8% | 1% | -15.3 |
+| 28 | other | 70-90 | 116 | 61% | 3% | -10.3 |
+| 28 | other | 90+ | 64 | 95% | 39% | +8.5 |
+
+### Route effects at equal entry value and age
+
+Linear probability model for being top 50 five seasons after entry (share points; routes against international; age
+at entry and entry value controlled; clustered by player):
+
+| Term | Effect | t |
+|---|---:|---:|
+| entry_value | +0.0157 | +26.0 |
+| route_hs_draft | -0.0298 | -7.7 |
+| route_college_draft | -0.0031 | -0.6 |
+| route_other | -0.0352 | -7.3 |
+| WE_L | +0.0172 | +4.7 |
+| WE_H | +0.0256 | +11.2 |
+| INT_L | -0.0046 | -2.1 |
+| INT_H | +0.0247 | +7.7 |
+| Prone3_Fragile | -0.0258 | -7.3 |
+
+### Does the age of a prospect matter?
+
+Explained variance (R²) of the best value three seasons later, for prospects still ranked:
+
+| Model | R² | Players |
+|---|---:|---:|
+| entry value only | 0.631 | 36986 |
+| + age | 0.672 | 36986 |
+| + age x value | 0.703 | 36986 |
+| + route | 0.711 | 36986 |

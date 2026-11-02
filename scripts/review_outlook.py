@@ -65,7 +65,9 @@ MIN_ROWS = 400
 
 
 def cluster_ols(y: np.ndarray, x: np.ndarray, groups: np.ndarray) -> tuple[np.ndarray, np.ndarray, float]:
-    """OLS coefficients, cluster-robust standard errors (clustered by `groups`) and R^2."""
+    """OLS coefficients, cluster-robust standard errors (clustered by `groups`) and R^2 (NaN without more rows than terms)."""
+    if x.shape[0] <= x.shape[1]:
+        return np.full(x.shape[1], np.nan), np.full(x.shape[1], np.nan), float("nan")
     xtx_inv = np.linalg.pinv(x.T @ x)
     beta = xtx_inv @ (x.T @ y)
     resid = y - x @ beta
@@ -310,6 +312,254 @@ def baseline_prediction(
     return pd.DataFrame(rows)
 
 
+# ---------------------------------------------------------------- entry routes (draft, college, international)
+
+ROUTES = ["hs_draft", "college_draft", "international", "other"]
+PCT_BINS = [0, 50, 70, 85, 95, 100.0001]
+PCT_LABELS = ["<50", "50-70", "70-85", "85-95", "95+"]
+TARGET_AGES = [22, 24, 26, 28]
+
+
+def best_by_player_season(values: pd.DataFrame) -> pd.DataFrame:
+    """Best slot value of every player-season, whether he is top 10 / top 50 at any slot, and his percentile (0-100) among
+    all players with a value that season."""
+    flagged = values.assign(is_top50=values["tier"] != "rest", is_top10=values["tier"] == "top10")
+    best = flagged.groupby(["season", "ID"]).agg(
+        best_value=("value", "max"), top50=("is_top50", "max"), top10=("is_top10", "max")
+    )
+    best = best.reset_index()
+    best["pct"] = best.groupby("season")["best_value"].rank(pct=True) * 100
+    return best
+
+
+def entrants(players: pd.DataFrame, best: pd.DataFrame, horizons=(1, 3, 5)) -> pd.DataFrame:
+    """New entrants (first season seen after the table starts) with their value at entry and what became of them.
+
+    `top50_h` / `top10_h` are False when the player is gone or no longer ranked, NaN when season + h is beyond the table.
+    """
+    new = players[(~players["left_truncated"].astype(bool)) & (players["entry_season"] == players["season"])]
+    new = new[
+        ["ID", "season", "Age", "entry_route", "WE_cat", "INT_cat", "Prone3_cat", *[f"observed_h{h}" for h in horizons]]
+    ]
+    frame = new.merge(best, on=["season", "ID"], how="left")
+    frame = frame.rename(
+        columns={"best_value": "entry_value", "pct": "entry_pct", "top50": "entry_top50", "top10": "entry_top10"}
+    )
+    for h in horizons:
+        later = best.assign(season=best["season"] - h)[["season", "ID", "best_value", "top50", "top10"]]
+        later = later.rename(columns={"best_value": f"value_h{h}", "top50": f"top50_h{h}", "top10": f"top10_h{h}"})
+        frame = frame.merge(later, on=["season", "ID"], how="left")
+        observed = frame[f"observed_h{h}"].astype(bool)
+        for name in ("top50", "top10"):
+            frame[f"{name}_h{h}"] = frame[f"{name}_h{h}"].fillna(False).astype(float).where(observed)
+    return frame
+
+
+def route_summary(frame: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for route in ROUTES:
+        part = frame[frame["entry_route"] == route]
+        if len(part) < 50:
+            continue
+        rows.append(
+            {
+                "route": route,
+                "n": len(part),
+                "entry_age": part["Age"].median(),
+                "entry_pct": part["entry_pct"].median(),
+                "top50_h3": part["top50_h3"].mean(),
+                "top50_h5": part["top50_h5"].mean(),
+                "top10_h5": part["top10_h5"].mean(),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def route_by_level(frame: pd.DataFrame, min_rows: int = 50) -> pd.DataFrame:
+    """Chances by route and by the entry value percentile (what a player must reach, at entry, for a given chance)."""
+    frame = frame.assign(level=pd.cut(frame["entry_pct"], PCT_BINS, labels=PCT_LABELS, right=False))
+    rows = []
+    for route in ROUTES:
+        for label in PCT_LABELS:
+            part = frame[(frame["entry_route"] == route) & (frame["level"] == label)]
+            if len(part) < min_rows:
+                continue
+            rows.append(
+                {
+                    "route": route,
+                    "level": label,
+                    "n": len(part),
+                    "top50_h3": part["top50_h3"].mean(),
+                    "top50_h5": part["top50_h5"].mean(),
+                    "top10_h5": part["top10_h5"].mean(),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+VALUE_EDGES = [-np.inf, -30, -20, -10, 0, 10, 20, np.inf]
+VALUE_LABELS = ["< -30", "-30 to -20", "-20 to -10", "-10 to 0", "0 to 10", "10 to 20", "20+"]
+
+
+def route_by_value(frame: pd.DataFrame, min_rows: int = 40) -> pd.DataFrame:
+    """Chance of being top 50 five seasons after entry by the entry value itself (best slot value, runs per season,
+    league-relative): the same for every league of a version, unlike a percentile of one league's pool."""
+    frame = frame.assign(band=pd.cut(frame["entry_value"], VALUE_EDGES, labels=VALUE_LABELS))
+    rows = []
+    for route in ROUTES:
+        for label in VALUE_LABELS:
+            part = frame[(frame["entry_route"] == route) & (frame["band"] == label)]
+            if len(part) >= min_rows:
+                rows.append(
+                    {
+                        "route": route,
+                        "band": label,
+                        "n": len(part),
+                        "top50_h5": part["top50_h5"].mean(),
+                        "top10_h5": part["top10_h5"].mean(),
+                    }
+                )
+    return pd.DataFrame(rows)
+
+
+def top50_at_age(players: pd.DataFrame, best: pd.DataFrame, new: pd.DataFrame, target_age: int) -> pd.DataFrame:
+    """Share of entrants of each route and entry level that are top 50 (at any slot) in the season they turn `target_age`.
+
+    Entrants who are gone by then count as not top 50; entrants whose age-`target_age` season is beyond the table, or
+    who were already older, are left out. Also the share still in the league and the mean value of those that are."""
+    new = new[new["Age"] < target_age].copy()
+    new["target_season"] = new["season"] + (target_age - new["Age"])
+    last = players["season"].max()
+    new = new[new["target_season"] <= last]
+    at_age = players[players["Age"] == target_age][["ID", "season"]].merge(best, on=["ID", "season"], how="left")
+    at_age = at_age.rename(columns={"season": "target_season", "best_value": "value_at", "top50": "top50_at"})
+    joined = new.merge(at_age[["ID", "target_season", "value_at", "top50_at"]], on=["ID", "target_season"], how="left")
+    joined["present"] = joined["value_at"].notna()
+    joined["top50_at"] = joined["top50_at"].fillna(False).astype(float)
+    joined["level"] = pd.cut(joined["entry_pct"], [0, 70, 90, 100.0001], labels=["<70", "70-90", "90+"], right=False)
+    rows = []
+    for route in ROUTES:
+        for level in ("<70", "70-90", "90+"):
+            part = joined[(joined["entry_route"] == route) & (joined["level"] == level)]
+            if len(part) < 50:
+                continue
+            rows.append(
+                {
+                    "age": target_age, "route": route, "level": level, "n": len(part), "present": part["present"].mean(),
+                    "top50": part["top50_at"].mean(), "value_if_present": part.loc[part["present"], "value_at"].mean(),
+                }  # fmt: skip
+            )
+    return pd.DataFrame(rows, columns=["age", "route", "level", "n", "present", "top50", "value_if_present"])
+
+
+def route_effects(frame: pd.DataFrame, horizon: int = 5) -> pd.DataFrame:
+    """Route effects on the chance of being top 50 `horizon` seasons later, at equal entry value and entry age.
+
+    Linear probability model on entrants with a known future: entry value (best slot value), age at entry as dummies,
+    route against international, work ethic and intelligence tiers, fragile proneness. Clustered by player."""
+    column = f"top50_h{horizon}"
+    sample = frame.dropna(subset=["entry_value", column])
+    x = pd.DataFrame(index=sample.index)
+    x["const"] = 1.0
+    x["entry_value"] = sample["entry_value"] / 10.0
+    for age in sorted(sample["Age"].unique())[1:]:
+        x[f"age_{int(age)}"] = (sample["Age"] == age).astype(float)
+    for route in ("hs_draft", "college_draft", "other"):
+        x[f"route_{route}"] = (sample["entry_route"] == route).astype(float)
+    for trait, tier in [*TRAIT_TIERS, ("Prone3", "Fragile")]:
+        x[f"{trait}_{tier}"] = (sample[f"{trait}_cat"] == tier).astype(float)
+    x = x.loc[:, x.std(ddof=0).fillna(0).gt(0) | (x.columns == "const")]
+    beta, se, r2 = cluster_ols(sample[column].to_numpy(dtype=float), x.to_numpy(dtype=float), sample["ID"].to_numpy())
+    out = pd.DataFrame({"effect": beta, "se": se}, index=x.columns)
+    out["t"] = out["effect"] / out["se"]
+    out["n"] = len(sample)
+    out["r2"] = r2
+    return out.loc[[c for c in out.index if not c.startswith("age_") and c != "const"]]
+
+
+def age_matters(frame: pd.DataFrame, horizon: int = 3) -> pd.DataFrame:
+    """R^2 of the best value `horizon` seasons later (players still ranked) from the entry value alone, with age added, and with
+    the route added: how much knowing the age of a prospect adds to knowing his current rating value."""
+    sample = frame.dropna(subset=["entry_value", f"value_h{horizon}"])
+    y = sample[f"value_h{horizon}"].to_numpy(dtype=float)
+    ages = pd.get_dummies(sample["Age"].astype(int), prefix="age", drop_first=True).astype(float)
+    routes = pd.get_dummies(sample["entry_route"], prefix="route", drop_first=True).astype(float)
+    value = sample[["entry_value"]].astype(float)
+    interaction = ages.mul(sample["entry_value"].to_numpy(dtype=float), axis=0).add_prefix("x_")
+    rows = []
+    for label, parts in [
+        ("entry value only", [value]),
+        ("+ age", [value, ages]),
+        ("+ age x value", [value, ages, interaction]),
+        ("+ route", [value, ages, interaction, routes]),
+    ]:
+        x = np.column_stack([np.ones(len(sample)), *[p.to_numpy() for p in parts]])
+        _, _, r2 = cluster_ols(y, x, sample["ID"].to_numpy())
+        rows.append({"model": label, "r2": r2, "n": len(sample)})
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------- missed time and proneness
+
+
+def missed_time(players: pd.DataFrame, best: pd.DataFrame) -> pd.DataFrame:
+    """Playing time of MLB-level players (time_share, 1 = a full season for the level) by proneness tier and age group,
+    and the effect of the tiers at equal age and value (regression, share points)."""
+    mlb = players[(players["primary_level"] == 1) & players["time_share"].notna()].merge(
+        best, on=["season", "ID"], how="left"
+    )
+    mlb = mlb[mlb["Age"].between(20, 40)].copy()
+    mlb["group"] = pd.cut(mlb["Age"], [19, 25, 30, 41], labels=["20-25", "26-30", "31+"])
+    rows = []
+    for group in ("20-25", "26-30", "31+"):
+        part = mlb[mlb["group"] == group]
+        base = part[part["Prone3_cat"] == "Normal"]["time_share"].mean()
+        for tier in ("Durable", "Normal", "Fragile"):
+            tier_rows = part[part["Prone3_cat"] == tier]
+            rows.append(
+                {
+                    "group": group, "tier": tier, "n": len(tier_rows), "time_share": tier_rows["time_share"].mean(),
+                    "relative_to_normal": tier_rows["time_share"].mean() / base,
+                    "under_70": float((tier_rows["time_share"] < 0.7).mean()),
+                }  # fmt: skip
+            )
+    return pd.DataFrame(rows)
+
+
+def missed_time_effects(players: pd.DataFrame, best: pd.DataFrame) -> pd.DataFrame:
+    """Effect of proneness on the playing time of MLB-level players at equal age and value, with the number as well."""
+    mlb = players[(players["primary_level"] == 1) & players["time_share"].notna()].merge(
+        best, on=["season", "ID"], how="left"
+    )
+    mlb = mlb[mlb["Age"].between(20, 40) & mlb["best_value"].notna()]
+    x = pd.DataFrame(index=mlb.index)
+    x["const"] = 1.0
+    x["age"] = mlb["Age"] - mlb["Age"].mean()
+    x["age_sq"] = x["age"] ** 2
+    x["best_value"] = mlb["best_value"] / 10.0
+    x["Durable"] = (mlb["Prone3_cat"] == "Durable").astype(float)
+    x["Fragile"] = (mlb["Prone3_cat"] == "Fragile").astype(float)
+    out = {}
+    for name, columns in {"tiers": ["Durable", "Fragile"], "number (per 50)": ["Prone"]}.items():
+        design_ = x[["const", "age", "age_sq", "best_value"]].copy()
+        if name == "tiers":
+            design_[columns] = x[columns]
+        else:
+            design_["Prone"] = (mlb["Prone"] - 100.0) / 50.0
+        beta, se, _ = cluster_ols(
+            mlb["time_share"].to_numpy(dtype=float), design_.to_numpy(dtype=float), mlb["ID"].to_numpy()
+        )
+        for term, b, e in zip(design_.columns, beta, se):
+            if term in columns:
+                out[f"{term}" if name == "tiers" else "Prone (per 50 points)"] = {
+                    "effect": b,
+                    "se": e,
+                    "t": b / e,
+                    "n": len(mlb),
+                }
+    return pd.DataFrame(out).T
+
+
 # ---------------------------------------------------------------- report
 
 
@@ -378,7 +628,7 @@ def numbers_vs_tiers(effects: pd.DataFrame) -> list[str]:
     return lines
 
 
-def build_report(save, seasons, effects, by_route, by_trait, surv, aging, baseline, ratings) -> str:
+def build_report(save, seasons, effects, by_route, by_trait, surv, aging, baseline, ratings, entry) -> str:
     out = [
         f"# Player development diagnostics: {save} ({ratings})",
         "",
@@ -451,7 +701,122 @@ def build_report(save, seasons, effects, by_route, by_trait, surv, aging, baseli
         ],
         "",
     ]
+    out += entry_report(entry)
     return "\n".join(out)
+
+
+def md_row(*cells) -> str:
+    return "| " + " | ".join(str(c) for c in cells) + " |"
+
+
+def entry_report(entry: dict) -> list[str]:
+    def pct(x):
+        return "-" if pd.isna(x) else f"{x:.0%}"
+
+    lines = [
+        "## 4 Missed time and proneness (for the injury-risk column)",
+        "",
+        "Playing time of MLB-level players (`time_share`: 1 is a full season for the level; benching and call-ups are in it",
+        "too, so only the difference between the tiers says something about injuries). By proneness tier and age group:",
+        "",
+        "| Age | Tier | Player-seasons | Mean time share | Relative to normal | Under 70 % of a season |",
+        "|---|---|---:|---:|---:|---:|",
+    ]
+    for _, r in entry["missed"].iterrows():
+        lines.append(
+            md_row(
+                r["group"],
+                r["tier"],
+                int(r["n"]),
+                f"{r['time_share']:.2f}",
+                f"{r['relative_to_normal']:.2f}",
+                pct(r["under_70"]),
+            )
+        )
+    lines += [
+        "",
+        "Effect of proneness on the time share at equal age and value (regression, clustered by player):",
+        "",
+        "| Term | Effect on time share | t | Player-seasons |",
+        "|---|---:|---:|---:|",
+    ]
+    for name, r in entry["missed_effects"].iterrows():
+        lines.append(md_row(name, f"{r['effect']:+.3f}", f"{r['t']:+.1f}", int(r["n"])))
+    lines += [
+        "",
+        "## 5 Entry routes: high school draft, college draft, international signing",
+        "",
+        "Entrants are players first seen after the table starts. Value is the best rating-based slot value; the entry level is",
+        "its percentile among all players of that season. 'Top 50' means top 50 at any slot, `h` seasons after entry (a player",
+        "who is gone counts as not top 50).",
+        "",
+        "| Route | Entrants | Median age | Median entry level | Top 50 after 3 | Top 50 after 5 | Top 10 after 5 |",
+        "|---|---:|---:|---:|---:|---:|---:|",
+    ]
+    for _, r in entry["summary"].iterrows():
+        cells = [r["route"], int(r["n"]), f"{r['entry_age']:.0f}", f"{r['entry_pct']:.0f}"]
+        lines.append(md_row(*cells, pct(r["top50_h3"]), pct(r["top50_h5"]), pct(r["top10_h5"])))
+    lines += [
+        "",
+        "### What a prospect must reach at entry",
+        "",
+        "Chance of becoming a top-50 player (any slot) by entry level (percentile of the rating-based value among all players",
+        "that season):",
+        "",
+        "| Route | Entry level | Entrants | Top 50 after 3 | Top 50 after 5 | Top 10 after 5 |",
+        "|---|---|---:|---:|---:|---:|",
+    ]
+    for _, r in entry["by_level"].iterrows():
+        lines.append(
+            md_row(r["route"], r["level"], int(r["n"]), pct(r["top50_h3"]), pct(r["top50_h5"]), pct(r["top10_h5"]))
+        )
+    lines += [
+        "",
+        "Same, by the entry value itself (best slot value in runs per season, league-relative; comparable between leagues of",
+        "one version, unlike a percentile of one league's pool):",
+        "",
+        "| Route | Entry value | Entrants | Top 50 after 5 | Top 10 after 5 |",
+        "|---|---|---:|---:|---:|",
+    ]
+    for _, r in entry["by_value"].iterrows():
+        lines.append(md_row(r["route"], r["band"], int(r["n"]), pct(r["top50_h5"]), pct(r["top10_h5"])))
+    lines += [
+        "",
+        "### Is there time to develop? Top 50 at a given age",
+        "",
+        "Entrants of each route and entry level who are top 50 at the age shown (gone counts as no), and the share still in",
+        "the league:",
+        "",
+        "| Age | Route | Entry level | Entrants | Still in the league | Top 50 | Mean value of those present |",
+        "|---:|---|---|---:|---:|---:|---:|",
+    ]
+    for _, r in entry["at_age"].iterrows():
+        cells = [r["age"], r["route"], r["level"], int(r["n"]), pct(r["present"]), pct(r["top50"])]
+        lines.append(md_row(*cells, f"{r['value_if_present']:+.1f}"))
+    lines += [
+        "",
+        "### Route effects at equal entry value and age",
+        "",
+        "Linear probability model for being top 50 five seasons after entry (share points; routes against international; age",
+        "at entry and entry value controlled; clustered by player):",
+        "",
+        "| Term | Effect | t |",
+        "|---|---:|---:|",
+    ]
+    for name, r in entry["route_effects"].iterrows():
+        lines.append(md_row(name, f"{r['effect']:+.4f}", f"{r['t']:+.1f}"))
+    lines += [
+        "",
+        "### Does the age of a prospect matter?",
+        "",
+        "Explained variance (R²) of the best value three seasons later, for prospects still ranked:",
+        "",
+        "| Model | R² | Players |",
+        "|---|---:|---:|",
+    ]
+    for _, r in entry["age_matters"].iterrows():
+        lines.append(md_row(r["model"], f"{r['r2']:.3f}", int(r["n"])))
+    return lines + [""]
 
 
 def main(argv=None) -> int:
@@ -481,7 +846,21 @@ def main(argv=None) -> int:
     effects.to_csv(csv_dir / f"{args.save}-development-effects.csv", index=False)
     aging.to_csv(csv_dir / f"{args.save}-value-aging.csv", index=False)
     baseline.to_csv(csv_dir / f"{args.save}-baseline.csv", index=False)
-    report = build_report(args.save, seasons, effects, by_route, by_trait, surv, aging, baseline, ratings)
+    best = best_by_player_season(values)
+    new = entrants(players, best)
+    entry = {
+        "missed": missed_time(players, best),
+        "missed_effects": missed_time_effects(players, best),
+        "summary": route_summary(new),
+        "by_level": route_by_level(new),
+        "by_value": route_by_value(new),
+        "at_age": pd.concat([top50_at_age(players, best, new, a) for a in TARGET_AGES], ignore_index=True),
+        "route_effects": route_effects(new),
+        "age_matters": age_matters(new),
+    }
+    for name in ("summary", "by_level", "by_value", "at_age", "missed"):
+        entry[name].to_csv(csv_dir / f"{args.save}-entry-{name}.csv", index=False)
+    report = build_report(args.save, seasons, effects, by_route, by_trait, surv, aging, baseline, ratings, entry)
     out = Path(args.out) if args.out else Path("docs") / f"outlook-diagnostics-{args.save}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report)
