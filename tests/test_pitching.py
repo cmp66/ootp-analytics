@@ -152,3 +152,106 @@ def test_pitcher_with_runs_but_no_outs_is_charged_and_the_league_still_balances(
     assert row["WAA"] == pytest.approx(-3 / 10)
     assert np.isnan(row["WAA200"])
     assert out["WAA"].sum() == pytest.approx(0, abs=1e-9)
+
+
+def test_fip_runs_sum_to_zero_per_bucket_and_follow_the_formula():
+    out, _ = run_pitching(make_pitching())
+    for bucket, group in out.groupby("PBaseline"):
+        assert group["FIPRuns"].sum() == pytest.approx(0, abs=1e-9), bucket
+        assert group["FIPRunsAdj"].sum() == pytest.approx(0, abs=1e-9), bucket
+    numerator = 13 * out["HR"] + 3 * (out["BB"] + out["HP"] - out["IBB"]) - 2 * out["K"]
+    assert out["FIPNumer"].to_numpy() == pytest.approx(numerator.to_numpy())
+    for bucket, group in out.groupby("PBaseline"):
+        rate = (13 * group["HR"] + 3 * (group["BB"] + group["HP"] - group["IBB"]) - 2 * group["K"]).sum()
+        rate /= group["IPClean"].sum()
+        expected = (rate * group["IPClean"] - group["FIPNumer"]) / 9
+        assert group["FIPRuns"].to_numpy() == pytest.approx(expected.to_numpy())
+    assert out["FIPWAA"].to_numpy() == pytest.approx((out["FIPRuns"] / 10).to_numpy())
+    assert out["FIPRuns200"].to_numpy() == pytest.approx((out["FIPRuns"] * 200 / out["IPClean"]).to_numpy())
+
+
+def test_pitcher_who_strikes_out_more_has_more_fip_runs():
+    df = make_pitching()
+    base, _ = run_pitching(df)
+    better = df.copy()
+    better.loc[3, "K"] += 25
+    other, _ = run_pitching(better)
+    pid = df.loc[3, "ID"]
+    assert other.loc[pid, "FIPRuns"] > base.loc[pid, "FIPRuns"] + 4  # 25 K x 2 / 9 = 5.6 runs, less the league shift
+    more_homers = df.copy()
+    more_homers.loc[3, "HR"] += 5
+    assert run_pitching(more_homers)[0].loc[pid, "FIPRuns"] < base.loc[pid, "FIPRuns"] - 6
+
+
+def test_fip_runs_with_a_pitcher_without_outs():
+    df = make_pitching()
+    df.loc[0, ["IP", "R", "K", "AB"]] = [0.0, 3, 0, 3]
+    out, _ = run_pitching(df)
+    row = out.loc[df.loc[0, "ID"]]
+    assert np.isfinite(row["FIPRuns"])
+    assert np.isnan(row["FIPRuns200"])
+    for _, group in out.groupby("PBaseline"):
+        assert group["FIPRuns"].sum() == pytest.approx(0, abs=1e-9)
+
+
+def test_fip_runs_adj_equals_fip_runs_without_park_factors_and_credits_hitter_parks():
+    df = make_pitching()
+    out, lg = run_pitching(df)
+    assert out["FIPRunsAdj"].to_numpy() == pytest.approx(out["FIPRuns"].to_numpy())
+    pid = df.loc[5, "ID"]
+    parks = pd.DataFrame({"RUNS": 1.0}, index=pd.Index(df["ID"], name="ID"))
+    parks.loc[pid, "RUNS"] = 1.2
+    ratings = make_ratings(df["ID"])
+    adjusted = pitching.calculate_player_pitching_stats(df, lg, ratings, "Test", None, parks)
+    assert adjusted.loc[pid, "FIPRunsAdj"] > out.loc[pid, "FIPRuns"]  # a hitter park expects more runs
+    for _, group in adjusted.groupby("PBaseline"):
+        assert group["FIPRunsAdj"].sum() == pytest.approx(0, abs=1e-9)
+
+
+def test_babip_runs_sum_to_zero_and_follow_the_formula():
+    df = make_pitching()
+    out, lg = run_pitching(df)
+    assert out["BABIPRuns"].sum() == pytest.approx(0, abs=1e-9)
+    hits = df["SINGLE"] + df["DOUBLE"] + df["TRIPLE"]
+    bip = df["AB"] - df["K"] - df["HR"] + df["SF"]
+    assert out["BIP"].to_numpy() == pytest.approx(bip.to_numpy())
+    assert out["HitsBIP"].to_numpy() == pytest.approx(hits.to_numpy())
+    c = lg["Value"]
+    value = (
+        df["SINGLE"].sum() * (c["run_value_1B"] + c["RUNS_MINUS"])
+        + df["DOUBLE"].sum() * (c["run_value_2B"] + c["RUNS_MINUS"])
+        + df["TRIPLE"].sum() * (c["run_value_3B"] + c["RUNS_MINUS"])
+    ) / hits.sum()
+    expected = (hits.sum() / bip.sum() - out["pBABIP"]) * out["BIP"] * value
+    assert out["BABIPRuns"].to_numpy() == pytest.approx(expected.to_numpy())
+    assert 0.6 < value < 1.0  # a hit is worth about 0.8 runs more than an out
+    assert out["BABIPRuns200"].to_numpy() == pytest.approx((out["BABIPRuns"] * 200 / out["IPClean"]).to_numpy())
+
+
+def test_babip_runs_react_to_hits_on_balls_in_play_not_to_home_runs():
+    df = make_pitching()
+    base, _ = run_pitching(df)
+    pid = df.loc[7, "ID"]
+    luckier = df.copy()
+    luckier.loc[7, ["SINGLE", "HA"]] = [df.loc[7, "SINGLE"] - 10, df.loc[7, "HA"] - 10]
+    assert run_pitching(luckier)[0].loc[pid, "BABIPRuns"] > base.loc[pid, "BABIPRuns"] + 6
+    swap = df.copy()
+    swap.loc[7, ["HR", "SINGLE"]] = [df.loc[7, "HR"] + 5, df.loc[7, "SINGLE"] - 5]  # same hits, 5 now leave the park
+    unlucky = run_pitching(swap)[0].loc[pid]
+    assert unlucky["BIP"] == base.loc[pid, "BIP"] - 5
+
+
+def test_pitcher_with_no_balls_in_play_has_zero_babip_runs():
+    df = make_pitching()
+    df.loc[2, ["AB", "K", "HR", "SF", "SINGLE", "DOUBLE", "TRIPLE", "HA"]] = [4, 4, 0, 0, 0, 0, 0, 0]
+    out, _ = run_pitching(df)
+    assert out.loc[df.loc[2, "ID"], "BIP"] == 0
+    assert out.loc[df.loc[2, "ID"], "BABIPRuns"] == 0
+    assert out["BABIPRuns"].sum() == pytest.approx(0, abs=1e-9)
+
+
+def test_waa_is_split_into_fip_babip_and_other_runs():
+    out, _ = run_pitching(make_pitching())
+    assert (out["FIPRuns"] + out["BABIPRuns"] + out["OtherRuns"]).to_numpy() == pytest.approx(
+        (out["WAA"] * 10).to_numpy()
+    )

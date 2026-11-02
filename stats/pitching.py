@@ -6,6 +6,9 @@ from util.innings import ip_to_innings
 from stats import woba
 
 RUNS_PER_WIN = 10
+# FIP weights (home runs, walks and hit batters, strikeouts); runs = numerator / 9. The weights derived from each
+# league's linear weights stay within about 10 % of these in every Model-Sim season and TGS (plans/13).
+FIP_HR, FIP_BB, FIP_K = 13, 3, -2
 PITCHER_ROLES = ["SP", "RP", "Mix"]
 
 # Usage buckets by share of appearances that were starts (GS / G), ordered from reliever to starter.
@@ -99,6 +102,60 @@ def add_park_adjusted_waa(df_player_stats: DataFrame, lg_ra9: Series, df_park_fa
     df_player_stats["WAAAdj"] = (expected_runs * scale - df_player_stats["R"]) / RUNS_PER_WIN
 
 
+def add_fip_runs(df_player_stats: DataFrame, lg_ra9: Series, factor: Series) -> None:
+    """Add FIPNumer, FIPRuns, FIPRuns200, FIPWAA and FIPRunsAdj (in place).
+
+    FIP only counts what the pitcher controls (home runs, walks and hit batters, strikeouts), so the value repeats far
+    better than runs allowed. FIPRuns is the runs better than his usage bucket's league rate (sums to 0 per bucket).
+    FIPRunsAdj compares with the bucket's league runs scaled by the park run factor, like WAAAdj."""
+    ip = df_player_stats["IPClean"]
+    numerator = (
+        FIP_HR * df_player_stats["HR"]
+        + FIP_BB * (df_player_stats["BB"] + df_player_stats["HP"] - df_player_stats["IBB"])
+        + FIP_K * df_player_stats["K"]
+    )
+    bucket = df_player_stats["PBaseline"]
+    lg_rate = numerator.groupby(bucket).transform("sum") / ip.groupby(bucket).transform("sum")
+    df_player_stats["FIPNumer"] = numerator
+    df_player_stats["FIPRuns"] = (lg_rate * ip - numerator) / 9
+    df_player_stats["FIPRuns200"] = (df_player_stats["FIPRuns"] * 200 / ip).where(ip > 0)
+    df_player_stats["FIPWAA"] = df_player_stats["FIPRuns"] / RUNS_PER_WIN
+
+    # runs allowed implied by the FIP components, with a bucket constant so they add up to the bucket's actual runs
+    fip_allowed = numerator / 9 + (
+        (df_player_stats["R"].groupby(bucket).transform("sum") - numerator.groupby(bucket).transform("sum") / 9)
+        / ip.groupby(bucket).transform("sum")
+        * ip
+    )
+    expected = lg_ra9 * factor * ip / 9
+    scale = fip_allowed.groupby(bucket).transform("sum") / expected.groupby(bucket).transform("sum")
+    df_player_stats["FIPRunsAdj"] = expected * scale - fip_allowed
+
+
+def add_babip_runs(df_player_stats: DataFrame, lg: Series) -> None:
+    """Add BIP, HitsBIP, BABIPRuns and BABIPRuns200 (in place).
+
+    BABIPRuns is the runs from hits on balls in play compared with the league BABIP of the season (sums to 0 per
+    season). It is mostly luck and fielders (about 90 % of the variance of pitcher BABIP is binomial noise), so it is meant as a
+    target weighted by BIP, not as a ranking stat. A hit is worth the league mix of singles, doubles and triples
+    above an out."""
+    hits = df_player_stats["SINGLE"] + df_player_stats["DOUBLE"] + df_player_stats["TRIPLE"]
+    bip = df_player_stats["AB"] - df_player_stats["K"] - df_player_stats["HR"] + df_player_stats["SF"]
+    lg_babip = hits.sum() / bip.sum()
+    hit_value = (
+        sum(
+            df_player_stats[column].sum() * (lg[f"run_value_{base}"] + lg["RUNS_MINUS"])
+            for column, base in [("SINGLE", "1B"), ("DOUBLE", "2B"), ("TRIPLE", "3B")]
+        )
+        / hits.sum()
+    )
+    ip = df_player_stats["IPClean"]
+    df_player_stats["BIP"] = bip
+    df_player_stats["HitsBIP"] = hits
+    df_player_stats["BABIPRuns"] = (lg_babip * bip - hits) * hit_value
+    df_player_stats["BABIPRuns200"] = (df_player_stats["BABIPRuns"] * 200 / ip).where(ip > 0)
+
+
 def calculate_pitching_attribute_averages(
     df_player_pitching_stats: DataFrame,
     df_player_ratings: DataFrame,
@@ -165,6 +222,12 @@ def calculate_player_pitching_stats(
     )
 
     add_park_adjusted_waa(df_player_stats, lg_ra9, df_park_factors)
+    add_fip_runs(df_player_stats, lg_ra9, df_player_stats["ParkRuns"])
+    add_babip_runs(df_player_stats, lg)
+    # runs left once the FIP components and the BABIP luck are taken out: sequencing, unearned runs, defense, running
+    df_player_stats["OtherRuns"] = (
+        df_player_stats["WAA"] * RUNS_PER_WIN - df_player_stats["FIPRuns"] - df_player_stats["BABIPRuns"]
+    )
 
     columns_to_remove = [x for x in df_player_ratings.columns if x not in ["ID", "POS", "Name"]]
     df_player_stats = df_player_stats.drop(columns=columns_to_remove)

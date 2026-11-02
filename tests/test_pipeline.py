@@ -20,6 +20,7 @@ OUTPUT_NAMES = [
     "woba-calcs",
     "fielding-totals",
     "fielding-attributes",
+    "fielding-tier-rates",
     "fielding",
     "pitching-totals",
     "pitching",
@@ -60,3 +61,24 @@ def test_in_memory_player_data_matches_the_two_step_flow(files_root, league, sea
 
     pd.testing.assert_frame_equal(in_memory, two_step)
     assert result is not None
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("league, season", SEASONS)
+def test_ability_columns_are_built_from_both_sources(files_root, league, season):
+    result = pipeline.process_season(league, season)
+    pitching, fielding = result.pitching, result.fielding
+    for _, group in pitching.groupby("PBaseline"):
+        assert group["FIPRuns"].sum() == pytest.approx(0, abs=1e-6)
+        assert group["FIPRunsAdj"].sum() == pytest.approx(0, abs=1e-6)
+    assert pitching["BABIPRuns"].sum() == pytest.approx(0, abs=1e-6)
+    assert (pitching["FIPRuns"] + pitching["BABIPRuns"] + pitching["OtherRuns"]).to_numpy() == pytest.approx(
+        (pitching["WAA"] * 10).to_numpy()
+    )
+    assert pitching["BIP"].ge(0).all()
+    catchers = fielding[fielding["POS"] == 2]
+    assert catchers["FldRunsSeason"].notna().all()
+    # errors are reported apart from the fielding total
+    assert (fielding["FldRunsAdj"] + fielding["ErrRunsAdj"]).to_numpy() == pytest.approx(
+        fielding["runsPAdj"].to_numpy()
+    )

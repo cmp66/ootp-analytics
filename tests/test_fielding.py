@@ -270,3 +270,70 @@ def test_run_totals_of_the_make_rate_set_use_tier_plays_and_chance_errors():
     # the volume set keeps the old error term
     old = out["PlayMadeAANow"] * value + out["ARMAANow"] * value + out["FRMAANow"] - out["EAANow"] * value
     assert out["runsPNow"].to_numpy() == pytest.approx(old.to_numpy())
+
+
+def test_fielding_runs_are_plays_framing_and_arm_without_errors():
+    stats, ratings = make_fielding()
+    _, _, out, _ = run_fielding(stats, ratings)
+    value = out["POS"].map(fielding.get_out_run_value)
+    season = out["wPMAASeason"] * value + out["ARMAASeason"] * value + out["FRMAASeason"]
+    assert out["FldRunsSeason"].to_numpy() == pytest.approx(season.to_numpy())
+    adj = out["wPMAAAdj"] * value + out["ARMAAAdj"] * value + out["FRMAAAdj"]
+    assert out["FldRunsAdj"].to_numpy() == pytest.approx(adj.to_numpy())
+    assert out["ErrRunsSeason"].to_numpy() == pytest.approx((-out["EAAChanceSeason"] * value).to_numpy())
+    assert out["ErrRunsAdj"].to_numpy() == pytest.approx((-out["EAAChanceAdj"] * value).to_numpy())
+    # with the error charge the total is the old make-rate run value
+    assert (out["FldRunsAdj"] + out["ErrRunsAdj"]).to_numpy() == pytest.approx(out["runsPAdj"].to_numpy())
+
+
+def test_errors_change_the_error_runs_and_not_the_fielding_runs():
+    stats, ratings = make_fielding()
+    _, _, base, _ = run_fielding(stats, ratings)
+    _, _, other, _ = run_fielding(stats.assign(E=stats["E"] * 3 + 4), ratings)
+    assert other["FldRunsSeason"].to_numpy() == pytest.approx(base["FldRunsSeason"].to_numpy())
+    assert other["FldRunsAdj"].to_numpy() == pytest.approx(base["FldRunsAdj"].to_numpy())
+    assert not np.allclose(other["ErrRunsSeason"], base["ErrRunsSeason"])
+
+
+def test_catcher_framing_is_in_the_fielding_runs_and_the_old_target_ignores_it():
+    stats, ratings = make_fielding()
+    _, _, base, _ = run_fielding(stats, ratings)
+    catcher = stats.index[stats["POS"] == 2][0]
+    framed = stats.copy()
+    framed.loc[catcher, "FRM"] += 0.02 * framed.loc[catcher, "IP"]
+    _, _, other, _ = run_fielding(framed, ratings)
+    pid = stats.loc[catcher, "ID"]
+    assert other.loc[pid, "FldRunsSeason"] > base.loc[pid, "FldRunsSeason"] + 5
+    assert other.loc[pid, "FldRunsAdj"] > base.loc[pid, "FldRunsAdj"] + 5
+    assert other["runsPAdjSeason"].to_numpy() == pytest.approx(base["runsPAdjSeason"].to_numpy())
+    # other positions do not move
+    not_catchers = base["POS"] != 2
+    assert other.loc[not_catchers, "FldRunsSeason"].to_numpy() == pytest.approx(
+        base.loc[not_catchers, "FldRunsSeason"].to_numpy()
+    )
+
+
+def test_outfield_arm_counts_in_the_fielding_runs_and_infield_arm_does_not():
+    stats, ratings = make_fielding()
+    _, _, base, _ = run_fielding(stats, ratings)
+    outfielder = stats.index[stats["POS"] == 8][0]
+    infielder = stats.index[stats["POS"] == 4][0]
+    stronger = stats.copy()
+    stronger.loc[[outfielder, infielder], "ARM"] += 8
+    _, _, other, _ = run_fielding(stronger, ratings)
+    of_id, if_id = stats.loc[outfielder, "ID"], stats.loc[infielder, "ID"]
+    assert other.loc[of_id, "FldRunsAdj"] > base.loc[of_id, "FldRunsAdj"] + 2
+    assert other.loc[if_id, "FldRunsAdj"] == pytest.approx(base.loc[if_id, "FldRunsAdj"])
+
+
+def test_fielding_runs_season_uses_the_catcher_season_length():
+    stats, ratings = make_fielding()
+    _, _, out, _ = run_fielding(stats, ratings)
+    value = out["POS"].map(fielding.get_out_run_value)
+    for pos, length in [(2, 1100), (4, 1200)]:
+        rows = out["POS"] == pos
+        scaled = out.loc[rows, "FldRunsAdj"] / out.loc[rows, "IPClean"] * length
+        assert out.loc[rows, "FldRunsSeason"].to_numpy() == pytest.approx(scaled.to_numpy(), abs=1e-6), (
+            pos,
+            value[rows].iloc[0],
+        )
