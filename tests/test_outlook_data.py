@@ -206,6 +206,9 @@ def test_build_tables_on_the_fixture_seasons(built, tmp_path):
     players, values, gates = built["players"], built["values"], built["gates"]
     assert (tmp_path / "outlook.toml").exists() and set(gates) == set(outlook.GATE_KEYS)
     assert not values.duplicated(["season", "ID", "slot"]).any() and not players.duplicated(["season", "ID"]).any()
+    every = built["slot_values"]
+    assert len(every[every["qualified"]]) == len(values) and len(every) > len(values)
+    assert not every.duplicated(["season", "ID", "slot"]).any()
     # ranks are 1..pool for each season and slot, and the tiers hold the cutoffs of the league's team count
     for (season, slot), group in values.groupby(["season", "slot"]):
         assert sorted(group["rank"]) == list(range(1, len(group) + 1))

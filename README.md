@@ -71,6 +71,8 @@ python scripts/predict_values.py TGS --models-from Model-Sim           # models 
 
 `python scripts/review_outlook.py <save>` (stage 2 of plan 16, about a minute) writes `docs/outlook-diagnostics-<save>.md`: for one game version, how every rating develops with age and what work ethic, intelligence, proneness and missed playing time change (separate low and high tiers; leadership, loyalty and finances as placebos), who stays in the league, the aging of value, the baseline the outlook models must beat, the playing time lost to proneness, and what high school, college and international entrants must reach at entry. The csv tables go to `plans/data/outlook-review/`.
 
+`python scripts/train_outlook_models.py <save>` (stage 3 of plan 16, about 25 minutes per game version) trains the outlook models of that version: quantiles of where a player's value is going (floor, median, ceiling), the chance of being a top 10 / top 50 player at a position, of staying in the league and of being available, for 1, 2, 3 and 5 seasons ahead. Artifacts go to `files/models/<save>/<ratings>/outlook/`; the held-out evaluation to `docs/outlook-model-evaluation-<save>.md`.
+
 ## Documentation
 
 - `docs/derived-ratings.md`: how the derived ratings are made (contact `CON` is half `BABIP` and half `AVK`; movement `MOV` is about 80 % home runs allowed and 20 % `PBABIP`), with the fitted weights per save. Regenerate with `PYTHONPATH=. python scripts/derived_ratings.py`.

@@ -5,6 +5,8 @@ Two tables per save are written to files/<save>/outlook/:
 - players.csv.gz: one row per player and season: identity, traits (WE, INT, leadership), the four prone fields, the
   entry route and season, level, playing time at every level, the gate ratings, and whether he is still in the league 1,
   2, 3 and 5 seasons later (`stay_h<n>`, `observed_h<n>`).
+- slot_values.csv.gz: the value at every slot for every player and season, with the flag `qualified` (the targets of the
+  outlook models need the value of a player who no longer passes a gate).
 - values.csv.gz: one row per player, season and slot (C, 1B, ..., RF, DH, SP, RP) that he qualifies for: the
   league-relative value of his ratings at that slot, his rank among the qualified players of the league and the tier
   (top 10, top 50, rest; ranks are for a 30-team league and scale with the number of teams).
@@ -473,13 +475,14 @@ def build_tables(save: str, seasons, models_from: str | None = None, remeasure: 
         gates = gates_from_samples(samples)
         write_gates(config.ratings, gates, f"measured on {save} {seasons[0]}-{seasons[-1]}")
         log(f"measured gates for {config.ratings} -> {OUTLOOK_CONFIG}")
-    ranked = []
+    ranked, every = [], []
     for season in seasons:
         state, values = states[season], raw_values[season]
         keep = []
         for slot, group in values.groupby("slot"):
-            ok = qualifies(state, slot, gates)
-            keep.append(group[group["ID"].map(ok).fillna(False).astype(bool)])
+            ok = group["ID"].map(qualifies(state, slot, gates)).fillna(False).astype(bool)
+            keep.append(group[ok.to_numpy()])
+            every.append(group.assign(season=season, qualified=ok.to_numpy()))
         qualified = pd.concat(keep, ignore_index=True)
         ranked.append(rank_slots(qualified, teams[season]).assign(season=season))
     all_states = pd.concat(states.values())
@@ -499,7 +502,12 @@ def build_tables(save: str, seasons, models_from: str | None = None, remeasure: 
         players["left_truncated"], np.nan, players["season"] - players["entry_season"]
     )
     players["teams"] = players["season"].map(teams)
-    return {"players": players, "values": pd.concat(ranked, ignore_index=True), "gates": gates}
+    return {
+        "players": players,
+        "values": pd.concat(ranked, ignore_index=True),
+        "slot_values": pd.concat(every, ignore_index=True),
+        "gates": gates,
+    }
 
 
 def _load_artifacts(models_from: str, ratings: str) -> dict:
@@ -525,7 +533,7 @@ def outlook_dir(save: str, create: bool = False) -> Path:
 def write_tables(save: str, tables: dict) -> list[Path]:
     folder = outlook_dir(save, create=True)
     written = []
-    for name in ("players", "values"):
+    for name in ("players", "values", "slot_values"):
         path = folder / f"{name}.csv.gz"
         tables[name].round(4).to_csv(path, index=False)
         written.append(path)
@@ -537,4 +545,7 @@ def read_tables(save: str) -> dict:
     missing = [n for n in ("players", "values") if not (folder / f"{n}.csv.gz").exists()]
     if missing:
         raise FileNotFoundError(f"{folder} has no {missing}; run scripts/build_outlook_tables.py {save}")
-    return {n: pd.read_csv(folder / f"{n}.csv.gz", low_memory=False) for n in ("players", "values")}
+    tables = {n: pd.read_csv(folder / f"{n}.csv.gz", low_memory=False) for n in ("players", "values")}
+    extra = folder / "slot_values.csv.gz"  # every slot value, gated or not (the targets of the outlook models)
+    tables["slot_values"] = pd.read_csv(extra, low_memory=False) if extra.exists() else None
+    return tables
