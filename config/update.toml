@@ -1,0 +1,15 @@
+# Saves refreshed by scripts/update_all.py (the one-button update after new ratings files).
+# Each table is a save of config/saves.toml. Keys:
+#   models_from: save whose trained models score this save (same ratings set); default: the save itself.
+#   org:         your organization (team abbreviation in an export), for the lists that compare with your roster
+#                (trade_targets, my_depth, fa_for_my_roster). Without it those lists are skipped.
+#   steps:       optional list of steps to run (default: all). See `python scripts/update_all.py --steps`.
+# Add a save here when you start another human league.
+
+[TGS]
+models_from = "Model-Sim"
+# org = "ABC"
+
+[TGS26]
+models_from = "Model-Sim-26-Std"
+# org = "ABC"

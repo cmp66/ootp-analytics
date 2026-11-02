@@ -10,7 +10,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from model import data, domains, evaluate
+from model import data, domains, evaluate, relative
 from model.artifact import Artifact
 from model.metrics import summarize
 from model.train import fit_table, holdout_last_seasons, make_model
@@ -204,3 +204,16 @@ def score(artifacts: dict[str, Artifact], ratings: pd.DataFrame) -> pd.DataFrame
         if "pitching_fip" in out:
             out["pitching_runs"] = out["pitching_fip"] + out["pitching_babip_runs"]
     return out
+
+
+def score_season(save: str, season: int, artifacts: dict[str, Artifact]) -> tuple[pd.DataFrame, dict[str, float]]:
+    """Raw and league-relative (`_rel`) predicted values of every player in a season's player-data, indexed by ID.
+
+    Also returns the league reference subtracted for each `_rel` column (model/relative.py)."""
+    players = data.read_output(save, season, "player-data").drop_duplicates("ID").set_index("ID")
+    columns = required_rating_columns(artifacts)
+    missing = [c for c in columns if c not in players.columns]
+    if missing:
+        raise KeyError(f"{save} {season}: ratings missing for these models: {missing}")
+    scored = score(artifacts, players[columns].apply(pd.to_numeric, errors="coerce"))
+    return relative.add_relative(scored, relative.season_weights(save, season))

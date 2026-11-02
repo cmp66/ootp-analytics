@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd  # noqa: E402
 
-from model import artifact, data, registry, relative  # noqa: E402
+from model import artifact, data, registry  # noqa: E402
 from util import paths  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
@@ -47,13 +47,7 @@ def load_artifacts(models_from: str, ratings: str) -> dict:
 def predict_season(save: str, season: int, artifacts: dict) -> pd.DataFrame:
     """Predicted values with a few identifying columns, one row per player in the season's player-data."""
     players = data.read_output(save, season, "player-data").drop_duplicates("ID").set_index("ID")
-    columns = registry.required_rating_columns(artifacts)
-    missing = [c for c in columns if c not in players.columns]
-    if missing:
-        raise KeyError(f"{save} {season}: ratings missing for these models: {missing}")
-    ratings = players[columns].apply(pd.to_numeric, errors="coerce")
-    scored = registry.score(artifacts, ratings)
-    scored, shifts = relative.add_relative(scored, relative.season_weights(save, season))
+    scored, shifts = registry.score_season(save, season, artifacts)
     info = players[[c for c in INFO_COLUMNS if c in players.columns]]
     result = info.join(scored).reset_index()
     result.attrs["league_reference"] = shifts

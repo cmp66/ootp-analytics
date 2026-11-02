@@ -5,6 +5,7 @@ from util.innings import dump_ip_to_outs, outs_to_ip
 from util.config import get_save
 import logging
 import os
+from model import formats
 from model import (
     convert_personalilty_trait,
     convert_height_to_cm,
@@ -138,6 +139,12 @@ def import_ratings(league: str, season: int, ratings_type: str, basedir: str) ->
     df_player_ratings = df_player_ratings.rename(columns=EXPORT_RATINGS_RENAMES)
     df_player_ratings = df_player_ratings.drop(columns=["EXP"], errors="ignore")
     df_player_ratings = df_player_ratings.set_index("ID")
+
+    # keep the categories the export shows (L / N / H, and the five proneness levels): the 40 / 100 / 160 codes below merge
+    # Iron Man with Durable and Wrecked with Fragile and are not on the scale of the dump's 1-200 numbers (model/formats.py)
+    for trait in ["LEA", "LOY", "AD", "FIN", "WE", "INT"]:
+        df_player_ratings[f"{trait} cat"] = df_player_ratings[trait].apply(formats.trait_label)
+    df_player_ratings["Prone cat"] = df_player_ratings["Prone"].apply(formats.prone_label)
 
     df_player_ratings["LEA"] = df_player_ratings["LEA"].apply(convert_personalilty_trait)
     df_player_ratings["LOY"] = df_player_ratings["LOY"].apply(convert_personalilty_trait)

@@ -1,0 +1,67 @@
+# Lists of the outlook viewer (plan 16 stage 5; the viewer of plan 15 reads the same file).
+# Run one with: PYTHONPATH=. python scripts/outlook_lists.py <save> --list <name> [--org ABBR] [--horizon 3] [--slot SS]
+#
+# metric: p_top10 (chance of being a top-10 player at the slot), p_11_50 (top 50 but not top 10), p_top50, rank_score (0.25 floor +
+#         0.5 median + 0.25 ceiling of the value), value, floor, ceiling, season_value (after availability), p_start / p_roster
+#         (chance he beats the player the organization would have to replace to start / to be a backup; need --org).
+# pool:   all, mlb, org (my organization), others (trade targets), free_agents, iafa (international amateurs), draft (the draft class).
+#         In an export: draft = SctCat "Amateur" (the draft class, present in the exports taken before the draft), iafa = SctCat
+#         "International" free agents up to age 19 (viewer/queries.py IAFA_MAX_AGE), free_agents = the rest of Lev "FA".
+#         A dump has no draft and no iafa pool.
+# include_depth = false hides the players below the 25th percentile of the league (roster filler).
+
+[defaults]
+horizon = 3
+top = 50
+
+[lists.very_good]
+title = "Very good players: best chance to be a top-10 player at the position"
+metric = "p_top10"
+include_depth = false
+
+[lists.good]
+title = "Good players: best chance to be 11th to 50th at the position"
+metric = "p_11_50"
+include_depth = false
+
+[lists.ranking]
+title = "Ordered ranking of projected value (floor / median / ceiling blend)"
+metric = "rank_score"
+by_player = true
+
+[lists.draft]
+title = "Draft class, by projected value"
+metric = "rank_score"
+pool = "draft"
+by_player = true
+
+[lists.iafa]
+title = "International amateurs (IAFA), by projected value"
+metric = "rank_score"
+pool = "iafa"
+by_player = true
+
+[lists.free_agents]
+title = "Free agents, by projected value"
+metric = "rank_score"
+pool = "free_agents"
+age_min = 21
+by_player = true
+
+[lists.trade_targets]
+title = "Trade targets: players in other organizations who would start for my team"
+metric = "p_start"
+pool = "others"
+include_depth = false
+
+[lists.my_depth]
+title = "My organization: chance each player beats my current roster"
+metric = "p_roster"
+pool = "org"
+include_depth = false
+
+[lists.fa_for_my_roster]
+title = "Free agents who would start for my team"
+metric = "p_start"
+pool = "free_agents"
+age_min = 21
