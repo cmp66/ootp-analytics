@@ -2,6 +2,7 @@ from pandas import DataFrame, Series
 import pandas as pd
 from util import paths
 from stats import parks, woba
+from util.frames import add_constant_columns, numeric_columns
 
 
 def calculate_batting_attribute_averages(
@@ -11,7 +12,7 @@ def calculate_batting_attribute_averages(
 ) -> DataFrame:
 
     df_player_stats_temp = df_player_batting_stats.copy()
-    df_player_stats_temp = df_player_stats_temp.merge(df_player_ratings, on="ID")
+    df_player_stats_temp = df_player_stats_temp.merge(numeric_columns(df_player_ratings), on="ID")
     # weight only by the PA of players that have ratings
     lg_pa = df_player_stats_temp["PA"].sum()
 
@@ -118,6 +119,7 @@ def calculate_player_batting_stats(
     skip_handedness = df_player_stats_right.empty
     lg = df_lg_stat["Value"]
 
+    df_player_ratings = numeric_columns(df_player_ratings)
     df_player_stats_total = df_player_stats_total.merge(df_player_ratings, on="ID")
 
     if not skip_handedness:
@@ -167,7 +169,7 @@ def calculate_player_batting_stats(
 
     def finish(df: DataFrame) -> DataFrame:
         df = df.drop(columns=columns_to_remove)
-        df = df.assign(**lg_columns)
+        df = add_constant_columns(df, lg_columns)
         return df.set_index("ID")
 
     df_player_stats_total = finish(df_total)

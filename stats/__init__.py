@@ -1,5 +1,6 @@
 import pandas as pd
 from util import paths
+from util.frames import add_constant_columns
 
 
 def add_league_attribute_averages(league: str, season: int, df_player_data: pd.DataFrame | None = None) -> pd.DataFrame:
@@ -11,7 +12,7 @@ def add_league_attribute_averages(league: str, season: int, df_player_data: pd.D
     if df_player_data is None:
         df_player_data = pd.read_csv(paths.output_file(league, season, "player-data"))
     else:
-        df_player_data = df_player_data.reset_index()
+        df_player_data = df_player_data.copy().reset_index()
 
     df_woba = pd.read_csv(paths.output_file(league, season, "woba-calcs"))
     df_woba = df_woba.set_index("Stat")
@@ -73,6 +74,6 @@ def add_league_attribute_averages(league: str, season: int, df_player_data: pd.D
     ]:
         league_columns[name] = df_fielding.loc[position, column]
 
-    df_player_data = df_player_data.assign(**league_columns)
+    df_player_data = add_constant_columns(df_player_data, league_columns)
     df_player_data.to_csv(paths.output_file(league, season, "player-data"), index=False)
     return df_player_data
