@@ -1,0 +1,93 @@
+# Settings of the outlook tables (plans/16-development-models.md), per ratings set. Written by
+# scripts/build_outlook_tables.py and edited by hand where needed.
+# Slot tables: minimum ratings to be ranked at a slot, the 1st percentile of the top-50 MLB starters of the slot
+# floored to a multiple of 5. A player qualifies when all key ratings reach the minimum, or (positions) the
+# potential rating reaches `pot`.
+# [<ratings>.traits]: upper bounds of the dump's 1-200 numbers for each category, estimated by matching the shares
+# of the in-game export (model/formats.py); the last category has no bound.
+
+[Standard27]
+measured = "measured on Model-Sim 2045-2086"
+[Standard27.C]
+"C FRM" = 50
+"C ABI" = 45
+pot = 45
+[Standard27.1B]
+"IF RNG" = 25
+pot = 30
+[Standard27.2B]
+"IF RNG" = 45
+"IF ARM" = 35
+pot = 45
+[Standard27.3B]
+"IF RNG" = 40
+"IF ARM" = 50
+pot = 45
+[Standard27.SS]
+"IF RNG" = 50
+"IF ARM" = 40
+pot = 40
+[Standard27.LF]
+"OF RNG" = 40
+pot = 40
+[Standard27.CF]
+"OF RNG" = 55
+pot = 40
+[Standard27.RF]
+"OF RNG" = 40
+"OF ARM" = 35
+pot = 35
+[Standard27.SP]
+"STM" = 35
+"PIT" = 3
+[Standard27.traits]
+measured = "fitted on Model-Sim 2045-2086 by matching export shares"
+WE = [33.0, 132.0]
+INT = [58.0, 131.0]
+LEA = [60.0, 136.0]
+LOY = [61.0, 135.0]
+FIN = [61.0, 136.0]
+Prone = [30.0, 87.0]
+
+[Standard26]
+measured = "measured on Model-Sim-26-Std 2037-2099"
+[Standard26.C]
+"C FRM" = 50
+"C ABI" = 50
+pot = 45
+[Standard26.1B]
+"IF RNG" = 25
+pot = 30
+[Standard26.2B]
+"IF RNG" = 50
+"IF ARM" = 35
+pot = 45
+[Standard26.3B]
+"IF RNG" = 40
+"IF ARM" = 45
+pot = 40
+[Standard26.SS]
+"IF RNG" = 45
+"IF ARM" = 35
+pot = 40
+[Standard26.LF]
+"OF RNG" = 50
+pot = 55
+[Standard26.CF]
+"OF RNG" = 45
+pot = 25
+[Standard26.RF]
+"OF RNG" = 45
+"OF ARM" = 40
+pot = 40
+[Standard26.SP]
+"STM" = 35
+"PIT" = 3
+[Standard26.traits]
+measured = "fitted on Model-Sim-26-Std 2037-2099 by matching export shares"
+WE = [59.0, 141.0]
+INT = [59.0, 140.0]
+LEA = [57.0, 140.0]
+LOY = [59.0, 137.0]
+FIN = [61.0, 140.0]
+Prone = [34.0, 120.0]
