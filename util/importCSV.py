@@ -70,6 +70,8 @@ def classify_export_files(filedir) -> dict[str, list[pd.DataFrame]]:
 def combine_export_tables(frames: list[pd.DataFrame], keys: list[str]) -> pd.DataFrame:
     """Stack the files of one table type (e.g. one fielding file per position) and check the keys are unique."""
     df = pd.concat(frames, ignore_index=True).drop_duplicates()
+    if "ID" in keys and "ID" not in df.columns and "Team Name" in df.columns:
+        keys = ["Team Name" if key == "ID" else key for key in keys]  # OOTP 26 team tables have no ID column
     duplicated = df.duplicated(keys)
     if duplicated.any():
         raise ValueError(

@@ -4,6 +4,7 @@ Usage:
     python scripts/evaluate_models.py Model-Sim                           # every model on the seasons it was trained on
     python scripts/evaluate_models.py Model-Sim --start 2081 --stop 2086  # seasons the models never saw (train with --stop 2080)
     python scripts/evaluate_models.py Model-Sim --streams batting --calibration
+    python scripts/evaluate_models.py TGS26 --models-from Model-Sim-26-Std   # another save's outcomes, same ratings set
 
 Prints, for each artifact, the scores stored at training time (player-grouped cross-validation and hold-out, honest)
 and the scores on the seasons asked for (in-sample when those seasons were trained on, marked "in-sample"). Stacked
@@ -31,10 +32,15 @@ def spec_of(loaded) -> registry.Spec:
 
 def evaluate_one(loaded, save: str, seasons: list[int], show_calibration: bool) -> list[str]:
     spec = spec_of(loaded)
-    table = registry.build_table(spec, save, seasons)
+    try:
+        table = registry.build_table(spec, save, seasons)
+    except KeyError, FileNotFoundError:
+        if spec.kind != "split":
+            raise
+        return [f"{loaded.name}: skipped, {save} has no vs-right / vs-left stats for these seasons"]
     prediction = loaded.predict(table.frame[loaded.features])
     scores = summarize(table.y, prediction, table.w)
-    in_sample = bool(set(seasons) & set(loaded.seasons))
+    in_sample = loaded.save == save and bool(set(seasons) & set(loaded.seasons))
     stored = loaded.metrics
     lines = [
         f"{loaded.name} ({loaded.family}) trained on {loaded.seasons[0]}-{loaded.seasons[-1]}, {stored.get('rows', '?')} rows"
@@ -74,6 +80,7 @@ def main(argv=None) -> int:
     parser.add_argument("--stop", type=int, help="last season to score (default: the latest)")
     parser.add_argument("--streams", nargs="+", choices=list(domains.REVIEWED_FEATURES), help="default: all")
     parser.add_argument("--calibration", action="store_true")
+    parser.add_argument("--models-from", help="save whose models to score (default: the same save; same ratings set)")
     args = parser.parse_args(argv)
     try:
         save = get_save(args.save)
@@ -81,11 +88,16 @@ def main(argv=None) -> int:
         seasons = select_seasons(
             available, args.start if args.start is not None else available[0], args.stop or available[-1]
         )
-        folder = artifact.models_dir(args.save, save.ratings)
+        models_from = args.models_from or args.save
+        if get_save(models_from).ratings != save.ratings:
+            raise ValueError(
+                f"{models_from} models are for ratings {get_save(models_from).ratings!r}, {args.save} uses {save.ratings!r}"
+            )
+        folder = artifact.models_dir(models_from, save.ratings)
         names = sorted(p.stem for p in folder.glob("*.joblib")) if folder.exists() else []
         if not names:
-            raise FileNotFoundError(f"no trained models in {folder}; run scripts/train_models.py {args.save}")
-        artifacts = [artifact.load_artifact(args.save, save.ratings, name) for name in names]
+            raise FileNotFoundError(f"no trained models in {folder}; run scripts/train_models.py {models_from}")
+        artifacts = [artifact.load_artifact(models_from, save.ratings, name) for name in names]
     except (KeyError, ValueError, FileNotFoundError, IndexError) as error:
         print(f"error: {error.args[0] if isinstance(error, KeyError) else error}", file=sys.stderr)
         return 2
