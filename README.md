@@ -44,3 +44,20 @@ Fielding: `FldRunsSeason` / `FldRunsAdj` (runs: tier-adjusted plays, catcher fra
 ## Processing a save
 
 `python scripts/process_seasons.py <save>` reads the raw files of a save (a folder under `files/` with a table in `config/saves.toml`, which sets the source, ratings set and ballpark file) and writes the processed csv files to `files/<save>/<season>/output/`. By default it processes the latest season only; `--season N` does one season, `--start N` runs from N through the latest, `--start N --stop M` runs the range, and `--list` shows the seasons that have data. A failing season is reported and the rest still run (exit status 1). This replaces `dataImport.ipynb`.
+
+## Models
+
+The value models predict, from a player's ratings, his batting, baserunning, pitching and fielding value (runs per 600 PA, per 200 IP or per season). They are trained, evaluated and applied from scripts; the notebooks and the `Hitting/Pitching/Fielding/BSRModel` classes are the old code and stay until `DevModels` and `reports/PredictionMaker.py` are ported.
+
+```
+python scripts/train_models.py Model-Sim --start 2046 --stop 2086      # train every model of a save
+python scripts/evaluate_models.py Model-Sim --calibration              # scores stored at training, scores on seasons
+python scripts/predict_values.py Model-Sim --season 2086               # predicted values of one season to a csv
+python scripts/predict_values.py TGS --models-from Model-Sim           # models trained on one save score another
+```
+
+- **Training data** is the processed output of a save (`scripts/process_seasons.py`); the ratings set in `config/saves.toml` names the model folder `files/models/<save>/<ratings>/`, one `.joblib` file per model (weights, scaler, feature names, seasons, scores, platoon mix).
+- **Models:** batting, pitching FIP part and pitching BABIP part each have a stacked platoon model (`<stream>-split`: value against right- and left-handed opponents, blended with the league's platoon mix of the player's hand) and a plain total model as a fallback; baserunning; one fielding model per position (C, 1B to 3B, SS, LF, CF, RF). The attribute lists and the model family per stream are in `model/domains.py` (`REVIEWED_FEATURES`, `CHOSEN_FAMILY`); every listed rating exists in the dump and in the in-game export, so models trained on a dump save can score an export save.
+- **Evaluation** is player-grouped: no player is on both sides of a split, the network stops on validation players taken from the training set only, and `--start/--stop` of `evaluate_models.py` can score seasons the models never saw (train with `--stop 2080`, evaluate 2081 to 2086).
+- **Hardware:** the models are small; ridge and boosting run on the CPU and the networks train on the CPU by default (`--device cuda` or `OOTP_DEVICE=cuda` uses a GPU where available; the Intel NPU cannot train PyTorch models and is not visible from WSL). Artifacts are pickles: only load files you trained.
+- **Output** of `predict_values.py`: `batting`, `batting_vs_right`, `batting_vs_left` (runs per 600 PA), `baserunning`, `pitching_fip*` and `pitching_runs` (runs per 200 IP), `pitching_babip` (BABIP above league), `fielding_<position>` (runs per season if he played there), and the `_plain` fallbacks.

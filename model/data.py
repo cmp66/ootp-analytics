@@ -133,16 +133,49 @@ def _side_columns(ratings: pd.DataFrame, pairs: dict, side: str) -> pd.DataFrame
     return pd.DataFrame({name: ratings[columns[index]] for name, columns in pairs.items()}, index=ratings.index)
 
 
+def batting_side_features(ratings: pd.DataFrame, side: str, shared=()) -> pd.DataFrame:
+    """Features of the stacked batting model for one pitcher side, from ratings indexed by player ID.
+
+    The training tables and the scoring code both call this, so the two cannot drift apart."""
+    out = _side_columns(ratings, domains.BATTING_SIDE_PAIRS, side)
+    out["side_left"] = float(side == domains.LEFT)
+    out["bats_left"] = (ratings["B"] == 2).astype(float)
+    out["bats_switch"] = (ratings["B"] == 3).astype(float)
+    for extra in shared:
+        out[extra] = ratings[extra]
+    return out
+
+
+def batting_split_rating_columns(shared=()) -> list[str]:
+    return [c for pair in domains.BATTING_SIDE_PAIRS.values() for c in pair] + ["B", *shared]
+
+
+def pitching_side_features(ratings: pd.DataFrame, side: str, shared=()) -> pd.DataFrame:
+    """Features of the stacked pitching model for one batter side, from ratings indexed by player ID."""
+    out = _side_columns(ratings, domains.PITCHING_SIDE_PAIRS, side)
+    out["side_left"] = float(side == domains.LEFT)
+    out["throws_left"] = (ratings["T"] == 2).astype(float)
+    for extra in shared:
+        out[extra] = ratings[extra]
+    return out
+
+
+def pitching_split_rating_columns(shared=()) -> list[str]:
+    return [c for pair in domains.PITCHING_SIDE_PAIRS.values() for c in pair] + ["T", *shared]
+
+
+BATTING_SPLIT_FEATURES = [*domains.BATTING_SIDE_PAIRS, "side_left", "bats_left", "bats_switch"]
+PITCHING_SPLIT_FEATURES = [*domains.PITCHING_SIDE_PAIRS, "side_left", "throws_left"]
+
+
 def batting_split_table(save: str, seasons, shared: list[str] = (), min_pa: int = MIN_SIDE_PA) -> TrainingTable:
     """Stacked platoon rows: one per player, season and pitcher side (vs right / vs left).
 
     Features: the batter's ratings against that side (BA, GAP, POW, EYE, K), side_left, bats_left, bats_switch and any
     `shared` ratings. Target: wRAA against that side per 600 PA; weight: PA against that side."""
-    pairs = domains.BATTING_SIDE_PAIRS
-    rating_columns = [c for pair in pairs.values() for c in pair] + ["B", *shared]
     frames = []
     for season in _seasons(seasons):
-        ratings = read_ratings(save, season, rating_columns)
+        ratings = read_ratings(save, season, batting_split_rating_columns(shared))
         for side, kind, column in [
             (domains.RIGHT, "right-hitting", "wRAARight"),
             (domains.LEFT, "left-hitting", "wRAALeft"),
@@ -153,20 +186,12 @@ def batting_split_table(save: str, seasons, shared: list[str] = (), min_pa: int 
                 {
                     "ID": split["ID"],
                     "season": season,
-                    "side_left": float(side == domains.LEFT),
                     "target": split[column] / split["PA"] * 600,
                     "weight": split["PA"].astype(float),
                 }
             )
-            stacked = frame.join(_side_columns(ratings, pairs, side), on="ID")
-            bats = ratings["B"].reindex(frame["ID"]).to_numpy()
-            stacked["bats_left"] = (bats == 2).astype(float)
-            stacked["bats_switch"] = (bats == 3).astype(float)
-            for extra in shared:
-                stacked[extra] = ratings[extra].reindex(frame["ID"]).to_numpy()
-            frames.append(stacked)
-    features = [*pairs, "side_left", "bats_left", "bats_switch", *shared]
-    return _table(f"{save}-{domains.BATTING}-split", frames, features)
+            frames.append(frame.join(batting_side_features(ratings, side, shared), on="ID"))
+    return _table(f"{save}-{domains.BATTING}-split", frames, [*BATTING_SPLIT_FEATURES, *shared])
 
 
 # ---------------------------------------------------------------- pitching
@@ -224,11 +249,9 @@ def pitching_split_table(save: str, seasons, part: str = "fip", shared: list[str
     any `shared` ratings."""
     if part not in ("fip", "babip"):
         raise ValueError("part must be 'fip' or 'babip'")
-    pairs = domains.PITCHING_SIDE_PAIRS
-    rating_columns = [c for pair in pairs.values() for c in pair] + ["T", *shared]
     frames = []
     for season in _seasons(seasons):
-        ratings = read_ratings(save, season, rating_columns)
+        ratings = read_ratings(save, season, pitching_split_rating_columns(shared))
         for side, kind in [(domains.RIGHT, "right-pitching"), (domains.LEFT, "left-pitching")]:
             split = read_output(save, season, kind)
             if part == "fip":
@@ -238,22 +261,9 @@ def pitching_split_table(save: str, seasons, part: str = "fip", shared: list[str
                 league = split["HitsBIP"].sum() / split["BIP"].sum()
                 split = split[split["BIP"] >= MIN_SIDE_BIP]
                 target, weight = split["HitsBIP"] / split["BIP"] - league, split["BIP"].astype(float)
-            frame = pd.DataFrame(
-                {
-                    "ID": split["ID"],
-                    "season": season,
-                    "side_left": float(side == domains.LEFT),
-                    "target": target,
-                    "weight": weight,
-                }
-            )
-            stacked = frame.join(_side_columns(ratings, pairs, side), on="ID")
-            stacked["throws_left"] = (ratings["T"].reindex(frame["ID"]).to_numpy() == 2).astype(float)
-            for extra in shared:
-                stacked[extra] = ratings[extra].reindex(frame["ID"]).to_numpy()
-            frames.append(stacked)
-    features = [*pairs, "side_left", "throws_left", *shared]
-    return _table(f"{save}-pitching-{part}-split", frames, features)
+            frame = pd.DataFrame({"ID": split["ID"], "season": season, "target": target, "weight": weight})
+            frames.append(frame.join(pitching_side_features(ratings, side, shared), on="ID"))
+    return _table(f"{save}-pitching-{part}-split", frames, [*PITCHING_SPLIT_FEATURES, *shared])
 
 
 # ---------------------------------------------------------------- fielding
