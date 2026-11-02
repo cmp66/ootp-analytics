@@ -56,6 +56,40 @@ def _by_position(func, pos: Series) -> Series:
     return pos.map({p: func(p) for p in pos.unique()})
 
 
+BIZ_TIERS = ["R", "L", "E", "U", "Z"]  # difficulty tiers of the chances; I (impossible) is never made and left out
+MIN_TIER_ATTEMPTS = 50  # fewer league chances than this at a position and the all-position tier rate is used
+
+
+def calculate_tier_rates(df_player_stats: DataFrame) -> DataFrame:
+    """League chances, plays made and make rate per position and difficulty tier.
+
+    The tiers are about the ball (routine 95% made ... remote 8%), so a fielder is judged against the
+    league inside each tier and not on his overall make rate, which also carries his tier mix (park, luck).
+    A tier with fewer than MIN_TIER_ATTEMPTS league chances at a position (pitcher and catcher tiers U, Z)
+    is too noisy for its own rate and uses the rate of all positions together."""
+    rates = DataFrame(index=Index(positions, name="POS"))
+    by_position = df_player_stats.groupby("POS")
+    for tier in BIZ_TIERS:
+        attempts = by_position[f"BIZ-{tier}"].sum().reindex(positions).fillna(0)
+        made = by_position[f"BIZ-{tier}m"].sum().reindex(positions).fillna(0)
+        pooled = made.sum() / attempts.sum() if attempts.sum() > 0 else 0.0
+        rates[f"Att{tier}"] = attempts
+        rates[f"Made{tier}"] = made
+        rates[f"Rate{tier}"] = (made / attempts.where(attempts > 0)).where(attempts >= MIN_TIER_ATTEMPTS, pooled)
+    return rates
+
+
+def calculate_expected_plays(df_player_stats: DataFrame, df_tier_rates: DataFrame) -> Series:
+    """Plays an average fielder at the same position makes on the same chances, tier by tier."""
+    pos = df_player_stats["POS"]
+    expected = Series(0.0, index=df_player_stats.index)
+    for tier in BIZ_TIERS:
+        # a tier nobody attempted at the position has no rate; the player has no chances there either
+        rate = pos.map(df_tier_rates[f"Rate{tier}"]).fillna(0.0)
+        expected += df_player_stats[f"BIZ-{tier}"] * rate
+    return expected
+
+
 def calculate_league_totals(
     df_player_stats: DataFrame,
 ) -> tuple[DataFrame, DataFrame]:
@@ -172,7 +206,7 @@ def calculate_league_attribute_averages(df_player_stats: DataFrame) -> DataFrame
 
 def calculate_player_fielding_stats(
     df_player_stats: DataFrame, df_lg_stat: DataFrame, df_player_ratings: DataFrame
-) -> tuple[DataFrame, DataFrame, DataFrame]:
+) -> tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
 
     # DH and any other non-fielding rows have no league baseline
     df_player_stats = df_player_stats[df_player_stats["POS"].isin(positions)].copy()
@@ -209,6 +243,7 @@ def calculate_player_fielding_stats(
     df_player_stats["PlaysMadeSeason"] = df_player_stats["PlaysMade"] / ip * season_adj
 
     df_lg_batting_stat, df_positional_totals = calculate_league_totals(df_player_stats)
+    df_tier_rates = calculate_tier_rates(df_player_stats)
 
     def lg(column: str) -> Series:
         return pos.map(df_positional_totals[column])
@@ -242,26 +277,40 @@ def calculate_player_fielding_stats(
     df_player_stats["PlaysASeason"] = df_player_stats["PlaysAttempted"] / ip * season_adj
     df_player_stats["PlayAAASeason"] = df_player_stats["PlaysASeason"] - lg("PlayAttemptedPerSeason")
     df_player_stats["PlayPercent"] = df_player_stats["PlaysMade"] / df_player_stats["PlaysAttempted"]
-    df_player_stats["PlayPercentAA"] = df_player_stats["PlayPercent"] - lg("PlayPercent")
 
-    df_player_stats["wPMSeason"] = lg("PlayAttemptedPerSeason") * df_player_stats["PlayPercent"]
+    # Tier adjusted make rate: his plays against what the league makes on the same chances tier by tier.
+    # Staff, park and luck change which tiers a fielder sees, not how often a tier is made.
+    df_player_stats["PlaysExpected"] = calculate_expected_plays(df_player_stats, df_tier_rates)
+    df_player_stats["PlaysAboveExpected"] = df_player_stats["PlaysMade"] - df_player_stats["PlaysExpected"]
+    df_player_stats["PlayPercentExp"] = df_player_stats["PlaysExpected"] / df_player_stats["PlaysAttempted"]
+    df_player_stats["PlayPercentAA"] = (df_player_stats["PlayPercent"] - df_player_stats["PlayPercentExp"]) * 100
+    # the league make rate plus his difference from the expectation for his chances
+    tier_play_percent = lg("PlayPercent") / 100 + df_player_stats["PlayPercent"] - df_player_stats["PlayPercentExp"]
+    # errors are charged per chance, so a staff that allows more balls in play does not create errors
+    errors_per_chance = df_player_stats["E"] / df_player_stats["PlaysAttempted"]
+    df_player_stats["EAAChanceSeason"] = lg("PlayAttemptedPerSeason") * errors_per_chance - lg("ErrorPerSeason")
+
+    df_player_stats["wPMSeason"] = lg("PlayAttemptedPerSeason") * tier_play_percent
     df_player_stats["wPMAASeason"] = df_player_stats["wPMSeason"] - lg("PlayPerSeason")
     df_player_stats["wRunsPSeason"] = (
         df_player_stats["wPMAASeason"] * out_run_value
-        - df_player_stats["EAASeason"] * out_run_value
+        - df_player_stats["EAAChanceSeason"] * out_run_value
         + df_player_stats["ARMAASeason"] * out_run_value
         + df_player_stats["FRMAASeason"]
     )
     df_player_stats["AdjustedPANow"] = lg("PlayAttemptedPerSeason") / fielding_adj * ip
-    df_player_stats["wPMAdj"] = df_player_stats["AdjustedPANow"] * df_player_stats["PlayPercent"]
+    df_player_stats["wPMAdj"] = df_player_stats["AdjustedPANow"] * tier_play_percent
     df_player_stats["wPMAAAdj"] = df_player_stats["wPMAdj"] - (lg("PlayPerSeason") / fielding_adj * ip)
     df_player_stats["ARMAAAdj"] = df_player_stats["ARM"] - (lg("ARM") / fielding_adj * ip)
     df_player_stats["FRMAAAdj"] = df_player_stats["FRM"] - (lg("FRM") * ip)
     df_player_stats["EAAAdj"] = df_player_stats["E"] - lg("ErrorPerSeason") / season_adj * ip
+    df_player_stats["EAAChanceAdj"] = (
+        df_player_stats["AdjustedPANow"] * errors_per_chance - lg("ErrorPerSeason") / season_adj * ip
+    )
     df_player_stats["DPAAdj"] = df_player_stats["DP"] - lg("DP") / fielding_adj * ip
     df_player_stats["runsPAdj"] = (
         df_player_stats["wPMAAAdj"] * out_run_value
-        - df_player_stats["EAAAdj"] * out_run_value
+        - df_player_stats["EAAChanceAdj"] * out_run_value
         + df_player_stats["ARMAAAdj"] * out_run_value
         + df_player_stats["FRMAAAdj"]
     )
@@ -308,6 +357,7 @@ def calculate_player_fielding_stats(
         df_positional_totals,
         df_fielding_attribute_averages,
         df_player_stats.set_index("ID"),
+        df_tier_rates,
     )
 
 
@@ -322,6 +372,7 @@ def process_fielding_data(
         df_league_fielding_totals,
         df_league_fielding_attributes,
         df_player_fielding_stats,
+        df_tier_rates,
     ) = calculate_player_fielding_stats(df_player_fielding_stats, df_lg_batting_stat, df_player_ratings)
     df_player_fielding_stats["season"] = season
     df_player_fielding_stats["league"] = league
@@ -329,6 +380,7 @@ def process_fielding_data(
     df_league_fielding_totals = df_league_fielding_totals.round(2).assign(FRM=df_league_fielding_totals["FRM"].round(6))
     df_league_fielding_totals.to_csv(paths.output_file(league, season, "fielding-totals"))
     df_league_fielding_attributes.to_csv(paths.output_file(league, season, "fielding-attributes"))
+    df_tier_rates.round(6).to_csv(paths.output_file(league, season, "fielding-tier-rates"))
     df_player_fielding_stats.to_csv(paths.output_file(league, season, "fielding"))
 
     return df_player_fielding_stats
