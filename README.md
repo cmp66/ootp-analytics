@@ -61,3 +61,8 @@ python scripts/predict_values.py TGS --models-from Model-Sim           # models 
 - **Evaluation** is player-grouped: no player is on both sides of a split, the network stops on validation players taken from the training set only, and `--start/--stop` of `evaluate_models.py` can score seasons the models never saw (train with `--stop 2080`, evaluate 2081 to 2086).
 - **Hardware:** the models are small; ridge and boosting run on the CPU and the networks train on the CPU by default (`--device cuda` or `OOTP_DEVICE=cuda` uses a GPU where available; the Intel NPU cannot train PyTorch models and is not visible from WSL). Artifacts are pickles: only load files you trained.
 - **Output** of `predict_values.py`: `batting`, `batting_vs_right`, `batting_vs_left` (runs per 600 PA), `baserunning`, `pitching_fip*` and `pitching_runs` (runs per 200 IP), `pitching_babip` (BABIP above league), `fielding_<position>` (runs per season if he played there), and the `_plain` fallbacks.
+
+## Documentation
+
+- `docs/derived-ratings.md`: how the derived ratings are made (contact `CON` is half `BABIP` and half `AVK`; movement `MOV` is about 80 % home runs allowed and 20 % `PBABIP`), with the fitted weights per save. Regenerate with `PYTHONPATH=. python scripts/derived_ratings.py`.
+- `docs/model-attribute-ranking.md`: which ratings contribute most to each model's value, with the effect of +10 points and +1 standard deviation in runs. Regenerate after retraining with `PYTHONPATH=. python scripts/rating_importance.py`.
