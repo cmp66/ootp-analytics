@@ -317,6 +317,21 @@ def calculate_player_fielding_stats(
 
     df_player_stats["runsPAdjSeason"] = df_player_stats["wPMAAAdj"] / ip * fielding_adj
 
+    # Fielding value in runs for the model targets: tier adjusted plays, catcher framing and outfield arm.
+    # Errors are noisy (year to year 0.04 to 0.30) so they are reported on their own and not added in.
+    df_player_stats["FldRunsAdj"] = (
+        df_player_stats["wPMAAAdj"] * out_run_value
+        + df_player_stats["ARMAAAdj"] * out_run_value
+        + df_player_stats["FRMAAAdj"]
+    )
+    df_player_stats["FldRunsSeason"] = (
+        df_player_stats["wPMAASeason"] * out_run_value
+        + df_player_stats["ARMAASeason"] * out_run_value
+        + df_player_stats["FRMAASeason"]
+    )
+    df_player_stats["ErrRunsAdj"] = -df_player_stats["EAAChanceAdj"] * out_run_value
+    df_player_stats["ErrRunsSeason"] = -df_player_stats["EAAChanceSeason"] * out_run_value
+
     df_fielding_attribute_averages = calculate_league_attribute_averages(df_player_stats)
 
     def lg_attr(column: str) -> Series:
