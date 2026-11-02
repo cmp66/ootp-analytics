@@ -40,6 +40,7 @@ IDENTITY_COLUMNS = [
     "free_agent",
     "organization_id",
     "Draft",
+    "SctCat",
 ]
 IAFA_MAX_AGE = 19  # SctCat "International" also holds foreign professionals; the IAFA prospects are the young ones
 SLOT_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH", "SP", "RP"]
