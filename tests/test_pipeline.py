@@ -82,3 +82,24 @@ def test_ability_columns_are_built_from_both_sources(files_root, league, season)
     assert (fielding["FldRunsAdj"] + fielding["ErrRunsAdj"]).to_numpy() == pytest.approx(
         fielding["runsPAdj"].to_numpy()
     )
+
+
+@pytest.mark.integration
+def test_dump_saves_write_pitcher_split_files_that_add_up_to_the_total(files_root):
+    result = pipeline.process_season("Model-Sim", 2045)
+    for name in ("right-pitching", "left-pitching"):
+        assert paths.output_file("Model-Sim", 2045, name).exists()
+    right, left, total = result.pitching_right, result.pitching_left, result.pitching
+    for column in ["IPClean", "BF", "R", "K", "BB", "HR", "AB"]:
+        assert right[column].sum() + left[column].sum() == pytest.approx(total[column].sum()), column
+    for side in (right, left):
+        for _, group in side.groupby("PBaseline"):
+            assert group["FIPRuns"].sum() == pytest.approx(0, abs=1e-6)
+        assert side["BABIPRuns"].sum() == pytest.approx(0, abs=1e-6)
+
+
+@pytest.mark.integration
+def test_export_saves_have_no_pitcher_split_files(files_root):
+    result = pipeline.process_season("TGS", 2046)
+    assert result.pitching_right.empty and result.pitching_left.empty
+    assert not paths.output_file("TGS", 2046, "right-pitching").exists()

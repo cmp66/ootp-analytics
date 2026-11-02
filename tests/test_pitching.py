@@ -255,3 +255,96 @@ def test_waa_is_split_into_fip_babip_and_other_runs():
     assert (out["FIPRuns"] + out["BABIPRuns"] + out["OtherRuns"]).to_numpy() == pytest.approx(
         (out["WAA"] * 10).to_numpy()
     )
+
+
+COUNT_COLUMNS = [
+    "K",
+    "BF",
+    "BB",
+    "R",
+    "ER",
+    "SF",
+    "SH",
+    "HR",
+    "IBB",
+    "DP",
+    "HA",
+    "AB",
+    "SINGLE",
+    "DOUBLE",
+    "TRIPLE",
+    "HP",
+]
+
+
+def split_in_two(df, share_right=0.7):
+    """Right / left batter splits that add up to the total rows (IP is split in outs)."""
+    right, left = df.copy(), df.copy()
+    for column in COUNT_COLUMNS:
+        right[column] = (df[column] * share_right).round().astype(int)
+        left[column] = df[column] - right[column]
+    outs = (df["IP"] // 1 * 3 + (df["IP"] % 1) * 10).round().astype(int)
+    right_outs = (outs * share_right).round().astype(int)
+    for frame, o in [(right, right_outs), (left, outs - right_outs)]:
+        frame["IP"] = o // 3 + (o % 3) / 10
+    return right, left
+
+
+def test_pitching_split_values_sum_to_zero_per_side_and_bucket():
+    df = make_pitching()
+    total, lg = run_pitching(df)
+    right, left = split_in_two(df)
+    for side in (right, left):
+        out = pitching.calculate_pitching_split(side, total, lg["Value"])
+        for _, group in out.groupby("PBaseline"):
+            assert group["FIPRuns"].sum() == pytest.approx(0, abs=1e-9)
+        assert out["BABIPRuns"].sum() == pytest.approx(0, abs=1e-9)
+        assert out["pBABIP"].dropna().between(0, 1).all()
+
+
+def test_pitching_split_numerators_add_up_to_the_total():
+    df = make_pitching()
+    total, lg = run_pitching(df)
+    right, left = split_in_two(df)
+    out_right = pitching.calculate_pitching_split(right, total, lg["Value"])
+    out_left = pitching.calculate_pitching_split(left, total, lg["Value"])
+    assert (out_right["FIPNumer"] + out_left["FIPNumer"]).to_numpy() == pytest.approx(total["FIPNumer"].to_numpy())
+    assert (out_right["BIP"] + out_left["BIP"]).to_numpy() == pytest.approx(total["BIP"].to_numpy())
+    assert (out_right["HitsBIP"] + out_left["HitsBIP"]).to_numpy() == pytest.approx(total["HitsBIP"].to_numpy())
+
+
+def test_pitching_split_uses_the_league_rate_of_its_own_side():
+    df = make_pitching()
+    total, lg = run_pitching(df)
+    right, left = split_in_two(df)
+    # a side that strikes out far more batters has a higher league rate, so the same strikeouts are worth less
+    right["K"] = right["K"] * 2
+    out = pitching.calculate_pitching_split(right, total, lg["Value"])
+    plain = pitching.calculate_pitching_split(split_in_two(df)[0], total, lg["Value"])
+    pid = df.loc[4, "ID"]
+    bucket = total.loc[pid, "PBaseline"]
+    peers = out[out["PBaseline"] == bucket]
+    rate = peers["FIPNumer"].sum() / peers["IPClean"].sum()
+    assert out.loc[pid, "FIPRuns"] == pytest.approx((rate * out.loc[pid, "IPClean"] - out.loc[pid, "FIPNumer"]) / 9)
+    assert out.loc[pid, "FIPNumer"] < plain.loc[pid, "FIPNumer"]
+
+
+def test_pitchers_without_a_total_row_are_left_out_of_the_split():
+    df = make_pitching()
+    total, lg = run_pitching(df)
+    right, _ = split_in_two(df)
+    extra = right.iloc[[0]].copy()
+    extra["ID"] = 999999
+    out = pitching.calculate_pitching_split(pd.concat([right, extra], ignore_index=True), total, lg["Value"])
+    assert 999999 not in out.index
+    assert len(out) == len(right)
+
+
+def test_export_saves_without_pitcher_splits_write_nothing(tmp_path, monkeypatch):
+    from util import paths
+
+    monkeypatch.setattr(paths, "FILES_ROOT", tmp_path)
+    total, lg = run_pitching(make_pitching())
+    right, left = pitching.process_pitching_splits(pd.DataFrame(), pd.DataFrame(), total, "T", 1, lg)
+    assert right.empty and left.empty
+    assert not any(tmp_path.rglob("*pitching*"))
