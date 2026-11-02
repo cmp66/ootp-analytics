@@ -202,7 +202,7 @@ def test_fielding_has_every_position_and_no_missing_runs(season):
         list(woba.calc_league_data(batting.calculate_league_batting_totals(bat, season["source"])).items()),
         columns=["Stat", "Value"],
     ).set_index("Stat")
-    totals, _, out = fielding.calculate_player_fielding_stats(fld, lg, ratings)
+    totals, _, out, _ = fielding.calculate_player_fielding_stats(fld, lg, ratings)
     assert set(range(1, 10)) <= set(out["POS"])
     assert out["runsPAdj"].notna().all()
     # innings at a position, summed over players, are about the number of team games times 9

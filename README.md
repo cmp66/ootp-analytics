@@ -30,3 +30,9 @@ To update, edit `requirements.in` (shared) or `requirements-<hw>.in` and recompi
 - Team names in the csv are matched to the save's teams: dump saves use "city nickname" automatically; export saves need a `[<save>.team_names]` table (team abbreviation to csv name); any exception goes in the same table. Teams without a park are logged and treated as neutral.
 - Batters: hits, doubles, triples and home runs are divided by the park factor (by batting side), then `wOBAAdj` and `wRAAAdj` are computed against the league mean of the adjusted wOBA, so league `wRAAAdj` sums to 0. New columns `ParkAVG`, `ParkHR`, `ParkD`, `ParkT`, `wOBAAdj`, `wRAAAdj`. `OFFAdj = BSR + wRAAAdj`.
 - Pitchers: expected runs use the run factor `PF`; new columns `ParkRuns`, `ExpRA9Adj`; `WAAAdj` still sums to 0 in every usage bucket.
+
+## Fielding
+
+The make-rate fielding columns (`wPM*`, `wRunsPSeason`, `runsPAdj`, `runsPAdjSeason`, `PlayPercentAA`) judge a fielder against the league **inside each BIZ difficulty tier** (R, L, E, U, Z; "I", impossible, is ignored). `PlaysExpected` is what an average fielder at his position makes on his chances, `PlaysAboveExpected` is the difference and `PlayPercentExp` the expected make rate; the league tier rates are written to `<save>-<season>-fielding-tier-rates.csv`. This removes the effect of the staff and park on which kinds of balls a fielder sees (pitcher and batter BABIP ratings were checked and have no measurable effect). Errors in these columns are charged per chance.
+
+The volume columns (`PlayMadeAA*`, `PlayAAASeason`, `runsPSeason`, `runsPNow`, `EAASeason`) count plays per inning, so they also depend on how many balls in play the staff allows (mostly its strikeout rate). `scripts/validate_fielding_ability.py` and `scripts/fielding_attribute_report.py` check how well the values isolate the fielder.
