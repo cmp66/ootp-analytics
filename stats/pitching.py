@@ -103,12 +103,12 @@ def add_park_adjusted_waa(df_player_stats: DataFrame, lg_ra9: Series, df_park_fa
     df_player_stats["WAAAdj"] = (expected_runs * scale - df_player_stats["R"]) / RUNS_PER_WIN
 
 
-def add_fip_runs(df_player_stats: DataFrame, lg_ra9: Series, factor: Series) -> None:
-    """Add FIPNumer, FIPRuns, FIPRuns200, FIPWAA and FIPRunsAdj (in place).
+def add_fip_components(df_player_stats: DataFrame) -> Series:
+    """Add FIPNumer, FIPRuns, FIPRuns200 and FIPWAA (in place) and return the FIP numerator.
 
     FIP only counts what the pitcher controls (home runs, walks and hit batters, strikeouts), so the value repeats far
-    better than runs allowed. FIPRuns is the runs better than his usage bucket's league rate (sums to 0 per bucket).
-    FIPRunsAdj compares with the bucket's league runs scaled by the park run factor, like WAAAdj."""
+    better than runs allowed. FIPRuns is the runs better than the league rate of his usage bucket (PBaseline) in the
+    rows given, so it sums to 0 per bucket."""
     ip = df_player_stats["IPClean"]
     numerator = (
         FIP_HR * df_player_stats["HR"]
@@ -121,6 +121,16 @@ def add_fip_runs(df_player_stats: DataFrame, lg_ra9: Series, factor: Series) -> 
     df_player_stats["FIPRuns"] = (lg_rate * ip - numerator) / 9
     df_player_stats["FIPRuns200"] = (df_player_stats["FIPRuns"] * 200 / ip).where(ip > 0)
     df_player_stats["FIPWAA"] = df_player_stats["FIPRuns"] / RUNS_PER_WIN
+    return numerator
+
+
+def add_fip_runs(df_player_stats: DataFrame, lg_ra9: Series, factor: Series) -> None:
+    """Add the FIP columns and FIPRunsAdj (in place).
+
+    FIPRunsAdj compares with the bucket's league runs scaled by the park run factor, like WAAAdj."""
+    numerator = add_fip_components(df_player_stats)
+    ip = df_player_stats["IPClean"]
+    bucket = df_player_stats["PBaseline"]
 
     # runs allowed implied by the FIP components, with a bucket constant so they add up to the bucket's actual runs
     fip_allowed = numerator / 9 + (
@@ -260,6 +270,47 @@ def calculate_league_pitching_totals(
         "SB": df_player_pitching_stats["SB"].sum(),
         "CS": df_player_pitching_stats["CS"].sum(),
     }
+
+
+SPLIT_COLUMNS = ["PRole", "PUsage", "PBaseline"]
+
+
+def calculate_pitching_split(df_split: DataFrame, df_total: DataFrame, lg: Series) -> DataFrame:
+    """FIPRuns / BABIPRuns columns for a vs-right or vs-left batters split of the pitchers.
+
+    df_total is the processed total pitching frame (indexed by ID); it supplies each pitcher's usage bucket. The
+    baselines are the league rates of this side (and usage bucket), so the values sum to 0 within the split; the
+    platoon difference between sides is left for the model to learn from the side and the pitcher's throwing hand.
+    Pitchers without a total row (no ratings) are left out."""
+    df = df_split.merge(df_total[SPLIT_COLUMNS], left_on="ID", right_index=True)
+    df["IPClean"] = ip_to_innings(df["IP"])
+    add_fip_components(df)
+    add_babip_runs(df, lg)
+    df["pBABIP"] = (df["HitsBIP"] / df["BIP"]).where(df["BIP"] > 0)
+    return df.set_index("ID")
+
+
+def process_pitching_splits(
+    df_right: DataFrame,
+    df_left: DataFrame,
+    df_total: DataFrame,
+    league: str,
+    season: int,
+    df_lg_batting_stat: DataFrame,
+) -> tuple[DataFrame, DataFrame]:
+    """Write <league>-<season>-right-pitching.csv and -left-pitching.csv (pitchers against right- / left-handed
+    batters). Export saves have no pitcher splits, so empty inputs give empty frames and no files."""
+    if df_right.empty or df_left.empty:
+        return DataFrame(), DataFrame()
+    lg = df_lg_batting_stat["Value"]
+    results = []
+    for df_split, name in [(df_right, "right-pitching"), (df_left, "left-pitching")]:
+        df = calculate_pitching_split(df_split, df_total, lg)
+        df["season"] = season
+        df["league"] = league
+        df.to_csv(paths.output_file(league, season, name))
+        results.append(df)
+    return results[0], results[1]
 
 
 def process_pitching_data(

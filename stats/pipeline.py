@@ -15,6 +15,8 @@ class SeasonResult:
     batting_right: pd.DataFrame
     batting_left: pd.DataFrame
     pitching: pd.DataFrame
+    pitching_right: pd.DataFrame
+    pitching_left: pd.DataFrame
     fielding: pd.DataFrame
     league_batting: pd.DataFrame
     player_data: pd.DataFrame
@@ -30,8 +32,8 @@ def process_season(league: str, season: int, source: str | None = None, ratings:
         df_batting_right,
         df_batting_left,
         df_pitching,
-        _,
-        _,
+        df_pitching_right,
+        df_pitching_left,
         df_fielding,
         *_,
     ) = importCSV.import_files(league, season, source, ratings, write_player_data=False)
@@ -52,6 +54,9 @@ def process_season(league: str, season: int, source: str | None = None, ratings:
     df_pitching = pitching.process_pitching_data(
         df_pitching, df_ratings, league, season, df_lg_batting, park_factors.pitching if park_factors else None
     )
+    df_pitching_right, df_pitching_left = pitching.process_pitching_splits(
+        df_pitching_right, df_pitching_left, df_pitching, league, season, df_lg_batting
+    )
     df_player_data = stats.add_league_attribute_averages(league, season, df_ratings)
 
     return SeasonResult(
@@ -60,6 +65,8 @@ def process_season(league: str, season: int, source: str | None = None, ratings:
         batting_right=df_batting_right,
         batting_left=df_batting_left,
         pitching=df_pitching,
+        pitching_right=df_pitching_right,
+        pitching_left=df_pitching_left,
         fielding=df_fielding,
         league_batting=df_lg_batting,
         player_data=df_player_data,
