@@ -57,12 +57,12 @@ STATE_COLUMNS = [
     "Age", "LPOS", "role", "ORG", "league_id", "free_agent", "retired", "last_team_id", "B", "T", "HT", "WT",
     "WE", "INT", "LEA", "LOY", "FIN", "Prone", "prone_leg", "prone_back", "prone_arm", "experience", "college",
     "acquired", "draft_year", "draft_round", "draft_overall_pick", "picked_in_draft", "draft_eligible",
-    "injury_is_injured", "injury_left", "injury_career_ending",
+    "injury_is_injured", "injury_left", "injury_career_ending", "Lev", "SctCat",
 ]  # fmt: skip
 POSITION_RATINGS = list(POSITIONS.values())
 POTENTIAL_RATINGS = [f"{name} Pot" for name in POSITIONS.values()]
 GATE_RATINGS = sorted({key for keys in GATE_KEYS.values() for key in keys})
-TEXT_COLUMNS = {"LPOS", "role", "B", "T", *(f"{t} cat" for t in (*formats.TRAITS, formats.PRONE))}
+TEXT_COLUMNS = {"LPOS", "role", "B", "T", "Lev", "SctCat", *(f"{t} cat" for t in (*formats.TRAITS, formats.PRONE))}
 
 
 # ---------------------------------------------------------------- small pure helpers
@@ -127,7 +127,8 @@ def season_state(save: str, season: int) -> pd.DataFrame:
     categories = [f"{t} cat" for t in (*formats.TRAITS, formats.PRONE)]
     wanted = [*STATE_COLUMNS, *POSITION_RATINGS, *POTENTIAL_RATINGS, *GATE_RATINGS, *categories]
     state = players[[c for c in dict.fromkeys(wanted) if c in players.columns]].copy()
-    numeric = [c for c in state.columns if c not in TEXT_COLUMNS]
+    text = TEXT_COLUMNS | ({"ORG"} if get_save(save).source == "export" else set())  # an export names the team
+    numeric = [c for c in state.columns if c not in text]
     state[numeric] = state[numeric].apply(pd.to_numeric, errors="coerce")
     state.insert(0, "season", season)
     state["level"] = state["league_id"].map(league_levels(save, season)) if "league_id" in state else np.nan
@@ -391,13 +392,34 @@ def with_trait_categories(frame: pd.DataFrame, bounds: dict) -> pd.DataFrame:
 # ---------------------------------------------------------------- ranks and tiers
 
 
-def rank_slots(values: pd.DataFrame, teams: int) -> pd.DataFrame:
-    """Rank (1 = best), pool size, percentile and tier of every row among the rows of its slot (one season)."""
+def in_organization(state: pd.DataFrame) -> pd.Series:
+    """Whether each player belongs to an organization (indexed like `state`). A dump only holds such players (plus a few free
+    agents); an export also lists free agents (ORG 'FA') and amateurs, who are not part of the pool the models were trained on.
+    """
+    org = state["ORG"].astype(str).str.strip() if "ORG" in state else pd.Series("1", index=state.index)
+    return ~org.isin(["FA", "0", "0.0", "", "nan", "-"])
+
+
+def rank_slots(values: pd.DataFrame, teams: int, reference_ids=None) -> pd.DataFrame:
+    """Rank (1 = best), pool size, percentile and tier of every row among the rows of its slot (one season).
+
+    With `reference_ids` (the players of the organizations) ranks, pool and percentile are measured against those players only,
+    and every other row is placed on that scale as if it were inserted: the pool is the one the models were trained on.
+    """
     cutoffs = tier_cutoffs(teams)
     out = values.copy()
-    grouped = out.groupby("slot")["value"]
-    out["rank"] = grouped.rank(ascending=False, method="first").astype(int)
-    out["pool"] = grouped.transform("size")
+    if reference_ids is None:
+        grouped = out.groupby("slot")["value"]
+        out["rank"] = grouped.rank(ascending=False, method="first").astype(int)
+        out["pool"] = grouped.transform("size")
+    else:
+        core = out["ID"].isin(set(reference_ids))
+        out["rank"], out["pool"] = 0, 0
+        for slot, group in out.groupby("slot"):
+            reference = np.sort(group.loc[core.loc[group.index], "value"].to_numpy())
+            above = len(reference) - np.searchsorted(reference, group["value"].to_numpy(), side="right")
+            out.loc[group.index, "rank"] = above + 1
+            out.loc[group.index, "pool"] = max(len(reference), 1)
     out["pct"] = 1 - (out["rank"] - 1) / out["pool"]
     out["tier"] = np.where(
         out["rank"] <= cutoffs["top10"], "top10", np.where(out["rank"] <= cutoffs["top50"], "top50", "rest")

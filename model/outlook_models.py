@@ -164,15 +164,19 @@ def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None 
 
 
 class ProbabilityModel:
-    """A classifier whose `predict` returns the probability of the positive class (so it fits the artifact interface)."""
+    """A classifier (or a bag of them, averaged) whose `predict` returns the probability of the positive class, so that it fits
+    the artifact interface."""
 
-    def __init__(self, estimator: HistGradientBoostingClassifier):
-        self.estimator = estimator
+    def __init__(self, estimators):
+        self.estimators = list(estimators) if isinstance(estimators, (list, tuple)) else [estimators]
 
     def predict(self, X) -> np.ndarray:
-        probabilities = self.estimator.predict_proba(X)
-        classes = list(self.estimator.classes_)
-        return probabilities[:, classes.index(1)] if 1 in classes else np.zeros(len(X))
+        total = np.zeros(len(X))
+        for estimator in self.estimators:
+            classes = list(estimator.classes_)
+            if 1 in classes:
+                total += estimator.predict_proba(X)[:, classes.index(1)]
+        return total / len(self.estimators)
 
 
 def boosting_params(rows: int) -> dict:
@@ -200,6 +204,37 @@ def fit_quantile(X: pd.DataFrame, y: np.ndarray, quantile: float, categorical=No
 def fit_classifier(X: pd.DataFrame, y: np.ndarray, categorical=None) -> ProbabilityModel:
     model = HistGradientBoostingClassifier(categorical_features=categorical, **boosting_params(len(X)))
     return ProbabilityModel(model.fit(X, y.astype(int)))
+
+
+TIER_BAGS = 4
+TIER_BAG_SHARE = 0.8  # share of the players in each bag
+
+
+def tier_params(rows: int, seed: int) -> dict:
+    """Strong regularization for the rare-event tier classifiers: with a few dozen positives in a region a small leaf
+    memorizes them (the chance of the same prospect varied from 0.002 to 0.17 between subsamples): big leaves, few of
+    them, a heavy penalty."""
+    params = boosting_params(rows)
+    params.update(
+        max_leaf_nodes=8, min_samples_leaf=600 if rows > 50_000 else 40, l2_regularization=10.0, random_state=seed
+    )
+    return params
+
+
+def fit_tier_classifier(
+    frame: pd.DataFrame, features, target: str, max_rows: int, bags: int = TIER_BAGS
+) -> ProbabilityModel:
+    """Average of `bags` strongly regularized classifiers, each on another random 80 % of the players (whole players)."""
+    members = []
+    categorical = categorical_mask(features)
+    ids = frame["ID"].unique()
+    for seed in range(bags):
+        rng = np.random.default_rng(seed)
+        chosen = set(rng.choice(ids, size=max(1, int(len(ids) * TIER_BAG_SHARE)), replace=False))
+        sample = subsample_players(frame[frame["ID"].isin(chosen)], max_rows, seed)
+        model = HistGradientBoostingClassifier(categorical_features=categorical, **tier_params(len(sample), seed))
+        members.append(model.fit(sample[features], sample[target].to_numpy().astype(int)))
+    return ProbabilityModel(members)
 
 
 def subsample_players(frame: pd.DataFrame, max_rows: int, seed: int = 0) -> pd.DataFrame:
@@ -492,16 +527,15 @@ def train_tier_models(run: Run, family: str, table: pd.DataFrame, horizon: int, 
         metrics: dict = {}
         calibration = None
         if run.evaluate:
-            train = subsample_players(labelled[labelled["season"].isin(train_seasons)], run.max_rows)
+            train = labelled[labelled["season"].isin(train_seasons)]
             test = labelled[labelled["season"].isin(test_seasons)]
-            model = fit_classifier(train[features], train[column].to_numpy(), categorical_mask(features))
+            model = fit_tier_classifier(train, features, column, run.max_rows)
             probability = model.predict(test[features])
             metrics = classifier_metrics(test, column, probability, train)
             y = test[column].to_numpy(dtype=float)
             metrics["calibration_check"] = probability_calibration_check(test, y, probability)
             calibration = fit_probability_calibration(y, probability)
-        final = subsample_players(labelled, run.max_rows)
-        model = fit_classifier(final[features], final[column].to_numpy(), categorical_mask(features))
+        model = fit_tier_classifier(labelled, features, column, run.max_rows)
         notes = {
             "kind": tier,
             "family": family,

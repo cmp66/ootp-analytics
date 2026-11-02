@@ -1,6 +1,6 @@
 # Outlook model evaluation: Model-Sim-26-Std (Standard26)
 
-Generated 2026-11-02 by `scripts/train_outlook_models.py` from seasons 2037-2099 of the long CPU league (trained in 9 minutes). Each game version has its own models.
+Generated 2026-11-02 by `scripts/train_outlook_models.py` from seasons 2037-2099 of the long CPU league (trained in 13 minutes). Each game version has its own models.
 
 Hold-out: the test rows are the latest six seasons with an observed future; training uses rows at least five seasons earlier (for horizon 1 the training seasons end 2087, the test seasons are 2093-2098; the dates move with the horizon). The final models are retrained on all observed rows.
 
@@ -45,22 +45,22 @@ baseline is the observed rate by slot and decile of today's percentile. Brier sk
 
 | Family | h | Tier | Test rows | Base rate | Mean prediction | AUC | AUC baseline | Brier skill | Log-loss skill |
 |---|---:|---|---:|---:|---:|---:|---:|---:|---:|
-| hitters | 1 | top50 | 114759 | 2.477% | 2.379% | 0.997 | 0.969 | +66% | +64% |
-| hitters | 1 | top10 | 114759 | 0.514% | 0.435% | 0.999 | 0.962 | +64% | +67% |
-| hitters | 2 | top50 | 114391 | 2.446% | 2.320% | 0.993 | 0.949 | +54% | +56% |
-| hitters | 2 | top10 | 114391 | 0.511% | 0.377% | 0.997 | 0.955 | +49% | +54% |
-| hitters | 3 | top50 | 114184 | 2.378% | 2.144% | 0.989 | 0.915 | +49% | +53% |
-| hitters | 3 | top10 | 114184 | 0.501% | 0.344% | 0.996 | 0.929 | +39% | +50% |
-| hitters | 5 | top50 | 113821 | 2.106% | 1.747% | 0.983 | 0.837 | +37% | +49% |
-| hitters | 5 | top10 | 113821 | 0.448% | 0.229% | 0.989 | 0.851 | +15% | +31% |
-| pitchers | 1 | top50 | 30214 | 2.079% | 2.010% | 0.997 | 0.963 | +66% | +63% |
-| pitchers | 1 | top10 | 30214 | 0.424% | 0.385% | 0.999 | 0.956 | +64% | +72% |
-| pitchers | 2 | top50 | 30210 | 2.046% | 1.874% | 0.994 | 0.958 | +53% | +52% |
-| pitchers | 2 | top10 | 30210 | 0.414% | 0.325% | 0.998 | 0.956 | +55% | +63% |
-| pitchers | 3 | top50 | 30261 | 1.993% | 1.765% | 0.992 | 0.943 | +48% | +51% |
-| pitchers | 3 | top10 | 30261 | 0.397% | 0.271% | 0.997 | 0.951 | +46% | +57% |
-| pitchers | 5 | top50 | 29985 | 1.784% | 1.542% | 0.988 | 0.898 | +40% | +50% |
-| pitchers | 5 | top10 | 29985 | 0.347% | 0.211% | 0.995 | 0.907 | +31% | +49% |
+| hitters | 1 | top50 | 114759 | 2.477% | 2.399% | 0.997 | 0.969 | +67% | +65% |
+| hitters | 1 | top10 | 114759 | 0.514% | 0.471% | 0.999 | 0.963 | +67% | +72% |
+| hitters | 2 | top50 | 114391 | 2.446% | 2.343% | 0.994 | 0.949 | +56% | +58% |
+| hitters | 2 | top10 | 114391 | 0.511% | 0.421% | 0.998 | 0.956 | +54% | +64% |
+| hitters | 3 | top50 | 114184 | 2.378% | 2.264% | 0.990 | 0.916 | +50% | +55% |
+| hitters | 3 | top10 | 114184 | 0.501% | 0.390% | 0.997 | 0.930 | +45% | +60% |
+| hitters | 5 | top50 | 113821 | 2.106% | 1.910% | 0.985 | 0.838 | +42% | +52% |
+| hitters | 5 | top10 | 113821 | 0.448% | 0.285% | 0.994 | 0.850 | +30% | +53% |
+| pitchers | 1 | top50 | 30214 | 2.079% | 2.017% | 0.997 | 0.963 | +67% | +65% |
+| pitchers | 1 | top10 | 30214 | 0.424% | 0.382% | 0.999 | 0.956 | +67% | +74% |
+| pitchers | 2 | top50 | 30210 | 2.046% | 1.944% | 0.995 | 0.958 | +55% | +54% |
+| pitchers | 2 | top10 | 30210 | 0.414% | 0.352% | 0.998 | 0.956 | +57% | +66% |
+| pitchers | 3 | top50 | 30261 | 1.993% | 1.806% | 0.993 | 0.943 | +49% | +53% |
+| pitchers | 3 | top10 | 30261 | 0.397% | 0.320% | 0.998 | 0.951 | +48% | +61% |
+| pitchers | 5 | top50 | 29985 | 1.784% | 1.575% | 0.989 | 0.898 | +43% | +53% |
+| pitchers | 5 | top10 | 29985 | 0.347% | 0.264% | 0.996 | 0.907 | +37% | +58% |
 
 The chances are a little low in absolute terms in the latest seasons (the share of future top players rises over time),
 so the stored classifiers carry an isotonic calibration fitted on the test rows. Check: fitted on the first half of the
@@ -68,22 +68,22 @@ test seasons, scored on the second half:
 
 | Family | h | Tier | Observed rate | Mean raw | Mean calibrated | Brier raw | Brier calibrated |
 |---|---:|---|---:|---:|---:|---:|---:|
-| hitters | 1 | top50 | 2.475% | 2.358% | 2.434% | 0.00619 | 0.00622 |
-| hitters | 1 | top10 | 0.512% | 0.427% | 0.503% | 0.00182 | 0.00178 |
-| hitters | 2 | top50 | 2.425% | 2.245% | 2.345% | 0.00859 | 0.00855 |
-| hitters | 2 | top10 | 0.501% | 0.349% | 0.476% | 0.00263 | 0.00250 |
-| hitters | 3 | top50 | 2.351% | 2.105% | 2.323% | 0.01039 | 0.01029 |
-| hitters | 3 | top10 | 0.497% | 0.335% | 0.484% | 0.00311 | 0.00301 |
-| hitters | 5 | top50 | 2.066% | 1.722% | 2.092% | 0.01197 | 0.01178 |
-| hitters | 5 | top10 | 0.469% | 0.224% | 0.457% | 0.00400 | 0.00372 |
-| pitchers | 1 | top50 | 2.131% | 2.015% | 2.033% | 0.00588 | 0.00594 |
-| pitchers | 1 | top10 | 0.440% | 0.398% | 0.418% | 0.00145 | 0.00143 |
-| pitchers | 2 | top50 | 2.074% | 1.869% | 2.000% | 0.00773 | 0.00783 |
-| pitchers | 2 | top10 | 0.428% | 0.311% | 0.368% | 0.00190 | 0.00182 |
-| pitchers | 3 | top50 | 2.004% | 1.738% | 1.914% | 0.00853 | 0.00882 |
-| pitchers | 3 | top10 | 0.417% | 0.265% | 0.349% | 0.00231 | 0.00216 |
-| pitchers | 5 | top50 | 1.686% | 1.456% | 1.674% | 0.00863 | 0.00878 |
-| pitchers | 5 | top10 | 0.329% | 0.211% | 0.340% | 0.00246 | 0.00242 |
+| hitters | 1 | top50 | 2.475% | 2.374% | 2.433% | 0.00597 | 0.00596 |
+| hitters | 1 | top10 | 0.512% | 0.458% | 0.485% | 0.00165 | 0.00166 |
+| hitters | 2 | top50 | 2.425% | 2.275% | 2.350% | 0.00815 | 0.00814 |
+| hitters | 2 | top10 | 0.501% | 0.400% | 0.473% | 0.00244 | 0.00247 |
+| hitters | 3 | top50 | 2.351% | 2.226% | 2.327% | 0.00988 | 0.00989 |
+| hitters | 3 | top10 | 0.497% | 0.389% | 0.503% | 0.00269 | 0.00266 |
+| hitters | 5 | top50 | 2.066% | 1.904% | 2.106% | 0.01109 | 0.01109 |
+| hitters | 5 | top10 | 0.469% | 0.310% | 0.469% | 0.00325 | 0.00314 |
+| pitchers | 1 | top50 | 2.131% | 2.023% | 2.054% | 0.00571 | 0.00580 |
+| pitchers | 1 | top10 | 0.440% | 0.386% | 0.431% | 0.00137 | 0.00143 |
+| pitchers | 2 | top50 | 2.074% | 1.934% | 1.999% | 0.00753 | 0.00757 |
+| pitchers | 2 | top10 | 0.428% | 0.346% | 0.381% | 0.00167 | 0.00170 |
+| pitchers | 3 | top50 | 2.004% | 1.780% | 1.920% | 0.00841 | 0.00849 |
+| pitchers | 3 | top10 | 0.417% | 0.308% | 0.345% | 0.00218 | 0.00224 |
+| pitchers | 5 | top50 | 1.686% | 1.505% | 1.710% | 0.00846 | 0.00841 |
+| pitchers | 5 | top10 | 0.329% | 0.253% | 0.348% | 0.00224 | 0.00228 |
 
 Calibration of the top-50 chance at horizon 3 (rows sorted by prediction, ten equal groups):
 
@@ -92,15 +92,15 @@ hitters:
 | Group | Predicted | Observed |
 |---:|---:|---:|
 | 1 | 0.0000 | 0.0000 |
-| 2 | 0.0000 | 0.0000 |
-| 3 | 0.0000 | 0.0000 |
-| 4 | 0.0000 | 0.0001 |
-| 5 | 0.0001 | 0.0000 |
-| 6 | 0.0001 | 0.0002 |
-| 7 | 0.0002 | 0.0002 |
-| 8 | 0.0006 | 0.0005 |
-| 9 | 0.0026 | 0.0039 |
-| 10 | 0.2107 | 0.2329 |
+| 2 | 0.0001 | 0.0000 |
+| 3 | 0.0001 | 0.0000 |
+| 4 | 0.0001 | 0.0000 |
+| 5 | 0.0002 | 0.0000 |
+| 6 | 0.0004 | 0.0001 |
+| 7 | 0.0007 | 0.0003 |
+| 8 | 0.0015 | 0.0006 |
+| 9 | 0.0053 | 0.0028 |
+| 10 | 0.2180 | 0.2339 |
 
 pitchers:
 
@@ -111,11 +111,11 @@ pitchers:
 | 3 | 0.0000 | 0.0000 |
 | 4 | 0.0000 | 0.0000 |
 | 5 | 0.0000 | 0.0000 |
-| 6 | 0.0000 | 0.0000 |
-| 7 | 0.0000 | 0.0000 |
-| 8 | 0.0001 | 0.0000 |
-| 9 | 0.0008 | 0.0010 |
-| 10 | 0.1755 | 0.1983 |
+| 6 | 0.0001 | 0.0000 |
+| 7 | 0.0001 | 0.0000 |
+| 8 | 0.0003 | 0.0000 |
+| 9 | 0.0015 | 0.0007 |
+| 10 | 0.1784 | 0.1986 |
 
 ## Staying in the league and availability
 

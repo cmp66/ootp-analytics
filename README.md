@@ -75,6 +75,8 @@ python scripts/predict_values.py TGS --models-from Model-Sim           # models 
 
 `python scripts/predict_outlook.py <save> [--models-from <save>]` (stage 4 of plan 16, about 15 seconds) scores every player of a season with the outlook models of the same game version and writes `<save>-<season>-outlook-slots.csv` and `-outlook-players.csv` next to the other outputs: the floor, median and ceiling of the value and the chance of being a top 10 / top 50 player at each position 1, 2, 3 and 5 seasons ahead, the chance of staying in the league, availability, the injury risk and cost, and a depth flag. It works on dump and export saves (for example `TGS26 --models-from Model-Sim-26-Std`). Columns: `docs/outlook-columns.md`.
 
+`python scripts/outlook_lists.py <save> --list very_good --slot SS [--org ABBR]` (stage 5 of plan 16) prints the lists of `config/viewer.toml` from the outlook files: the very good players (chance of being a top-10 player at a position), the good ones (11th to 50th), the ordered ranking, the draft class, the IAFA prospects, free agents, trade targets, and how each player compares with your organization's roster (`p_start`, `p_roster`). The queries are pure functions in `viewer/queries.py`, which the viewer of plan 15 will call.
+
 ## Documentation
 
 - `docs/derived-ratings.md`: how the derived ratings are made (contact `CON` is half `BABIP` and half `AVK`; movement `MOV` is about 80 % home runs allowed and 20 % `PBABIP`), with the fitted weights per save. Regenerate with `PYTHONPATH=. python scripts/derived_ratings.py`.

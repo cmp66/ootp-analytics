@@ -118,7 +118,11 @@ def season_inputs(save: str, season: int, models_from: str | None = None) -> dic
         ok = group["ID"].map(outlook_data.qualifies(state, slot, gates)).fillna(False).astype(bool)
         kept.append(group[ok.to_numpy()])
     qualified = pd.concat(kept, ignore_index=True)
-    ranked = outlook_data.rank_slots(qualified, outlook_data.team_count(save, season)).assign(season=season)
+    members = state.index[
+        outlook_data.in_organization(state)
+    ]  # free agents and amateurs are placed on the organizations' scale
+    reference = members if config.source == "export" else None
+    ranked = outlook_data.rank_slots(qualified, outlook_data.team_count(save, season), reference).assign(season=season)
     bounds = outlook_data.load_trait_bounds(config.ratings) if config.source == "dump" else {}
     if config.source == "dump" and bounds is None:
         raise FileNotFoundError(f"no trait cut points for {config.ratings}; run scripts/build_outlook_tables.py")
@@ -162,6 +166,45 @@ def normalize_to_league(
             else:
                 high = middle
         out[mask] = np.minimum(values * high, 1.0)
+    return out
+
+
+QUANTILE_LEVELS = np.array([0.1, 0.25, 0.5, 0.75, 0.9])
+TIER_BLEND = (
+    0.5  # weight of the classifier in the tier chance; the rest comes from the value distribution and the thresholds
+)
+
+
+def exceed_probability(quantiles: np.ndarray, thresholds: np.ndarray) -> np.ndarray:
+    """Chance that a value is above a threshold, from its quantiles at 10, 25, 50, 75 and 90 % (rows): linear between them and
+    along the end segments outside them. A threshold of -inf is always exceeded, +inf never."""
+    q = np.sort(np.asarray(quantiles, dtype=float), axis=1)
+    t = np.asarray(thresholds, dtype=float)
+    levels = QUANTILE_LEVELS
+    cdf = np.full(len(q), np.nan)
+    width = np.maximum(np.diff(q, axis=1), 1e-9)
+    for k in range(4):
+        mask = (t >= q[:, k]) & (t < q[:, k + 1])
+        cdf[mask] = levels[k] + (t[mask] - q[mask, k]) / width[mask, k] * (levels[k + 1] - levels[k])
+    low = t < q[:, 0]
+    slope = (levels[1] - levels[0]) / width[:, 0]
+    cdf[low] = np.clip(levels[0] - (q[low, 0] - t[low]) * slope[low], 0.0, levels[0])
+    high = t >= q[:, 4]
+    slope_high = (levels[4] - levels[3]) / width[:, 3]
+    cdf[high] = np.clip(levels[4] + (t[high] - q[high, 4]) * slope_high[high], levels[4], 1.0)
+    cdf[np.isneginf(t)] = 0.0
+    cdf[np.isposinf(t)] = 1.0
+    return 1.0 - cdf
+
+
+def tier_thresholds(ranked: pd.DataFrame, teams: int) -> dict:
+    """The value now of the player at rank 10 / 50 (scaled by the number of teams) of every slot of the league being scored."""
+    cutoffs = outlook_data.tier_cutoffs(teams)
+    out = {tier: {} for tier in ("top10", "top50")}
+    for slot, group in ranked.groupby("slot"):
+        values = np.sort(group["value"].to_numpy())[::-1]
+        for tier in out:
+            out[tier][slot] = float(values[min(cutoffs[tier], len(values)) - 1]) if len(values) else np.inf
     return out
 
 
@@ -231,6 +274,7 @@ def score_slots(
 ) -> pd.DataFrame:
     """Floor / median / ceiling, tier chances and season value for every ranked slot of every player."""
     ranked, season = inputs["ranked"], inputs["season"]
+    thresholds = tier_thresholds(ranked, inputs["teams"])
     outputs = []
     for family, slots in FAMILIES.items():
         rows = ranked[ranked["slot"].isin(slots)][["ID", "season", "slot", "value", "pct", "rank", "tier"]]
@@ -256,8 +300,16 @@ def score_slots(
             )  # a narrowed band never crosses the median
             result[f"ceiling_h{h}"] = np.maximum(now + high, result[f"value_h{h}"])
             names = frame["slot_name"]
-            result[f"p_top10_h{h}"] = models.probability("top10", family, h, X, names, inputs["teams"])
-            result[f"p_top50_h{h}"] = models.probability("top50", family, h, X, names, inputs["teams"])
+            quantile_matrix = np.sort(
+                np.column_stack([now + low, now + q[0.25], now + q[0.5], now + q[0.75], now + high]), axis=1
+            )
+            stay = per_player.reindex(frame["ID"])[f"p_stay_h{h}"].to_numpy()
+            for tier in ("top10", "top50"):
+                from_classifier = models.probability(tier, family, h, X, names, inputs["teams"])
+                limit = names.map(thresholds[tier]).to_numpy(dtype=float)
+                from_values = stay * exceed_probability(quantile_matrix, limit)
+                result[f"p_{tier}_h{h}"] = TIER_BLEND * from_classifier + (1 - TIER_BLEND) * from_values
+            result[f"p_top10_h{h}"] = np.minimum(result[f"p_top10_h{h}"], result[f"p_top50_h{h}"])
             w_floor, w_median, w_ceiling = RANK_WEIGHTS
             result[f"rank_score_h{h}"] = (
                 w_floor * result[f"floor_h{h}"] + w_median * result[f"value_h{h}"] + w_ceiling * result[f"ceiling_h{h}"]
