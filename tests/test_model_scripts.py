@@ -60,6 +60,10 @@ def test_models_of_one_save_score_another(root, capsys):
     result = pd.read_csv(paths.output_file("TGS", 2046, "predicted-values"))
     assert result["baserunning"].notna().sum() > 100
     assert "(Model-Sim) ->" in capsys.readouterr().out
+    assert evaluate_models.main(["TGS", "--models-from", "Model-Sim"]) == 0
+    assert "unseen" in capsys.readouterr().out
+    assert evaluate_models.main(["TGS", "--models-from", "Dugout"]) == 2  # other ratings set
+    assert "models are for ratings" in capsys.readouterr().err
 
 
 def test_bad_requests_are_clear_errors(tmp_path, monkeypatch, capsys):

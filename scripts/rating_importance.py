@@ -7,6 +7,7 @@ rating on the predicted value is measured as the mean change of the prediction w
 by one standard deviation of the rating, over the held-out rows.
 
 Usage: PYTHONPATH=. python scripts/rating_importance.py [save] [--folds 5] [--repeats 3] [--out docs/model-attribute-ranking.md]
+       [--observations file.md]   (hand-written section; the built-in one describes the Model-Sim run)
 """
 
 import argparse
@@ -153,6 +154,7 @@ def main() -> int:
     parser.add_argument("--folds", type=int, default=5)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--out", default="docs/model-attribute-ranking.md")
+    parser.add_argument("--observations", help="markdown file with the hand-written observations of this save")
     args = parser.parse_args()
     ratings_set = get_save(args.save).ratings
     folder = artifact.models_dir(args.save, ratings_set)
@@ -240,8 +242,8 @@ def main() -> int:
         "  ratings against the pitcher (batter) of the row, vs right and vs left combined in one attribute.",
         "- `CON` and `MOV` are derived ratings (see `docs/derived-ratings.md`) and are not in the models; contact is half",
         "  BABIP and half AVK, movement mostly home runs allowed.",
-        "- The ranking is for the Standard27 rating scale of this save; a save with a different scale needs its own models and",
-        "  its own ranking. Ratings that are not listed for a stream had no measurable value in the attribute review",
+        f"- The ranking is for the {ratings_set} rating scale of this save; a save with a different scale needs its own",
+        "  models and its own ranking. Ratings that are not listed for a stream had no measurable value in the attribute review",
         "  (`plans/14-models.md`).",
         "",
         "## Summary: the 20 biggest effects of one standard deviation of a rating on seasonal value",
@@ -255,7 +257,13 @@ def main() -> int:
     head.append("")
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text("\n".join(head + OBSERVATIONS + sections))
+    if args.observations:
+        observations = Path(args.observations).read_text().rstrip("\n").split("\n") + [""]
+    elif args.save == "Model-Sim":
+        observations = OBSERVATIONS
+    else:
+        observations = []
+    out.write_text("\n".join(head + observations + sections))
     print(f"wrote {out}")
     return 0
 

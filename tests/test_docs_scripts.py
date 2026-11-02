@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 
 from model import artifact, registry
-from scripts import derived_ratings, rating_importance
+from scripts import compare_versions, derived_ratings, rating_importance
 from tests.test_model_registry import multi_season_root
 
 
@@ -52,3 +52,24 @@ def test_importance_ranks_the_ratings_of_a_trained_model(tmp_path, monkeypatch):
     assert ranking["share"].sum() == pytest.approx(1.0)
     assert (ranking["sd"] > 0).all()
     assert isinstance(loaded, artifact.Artifact)
+
+
+def impact_table(effects):
+    frame = pd.DataFrame({"feature": list(effects), "effect_step": list(effects.values())})
+    return frame.assign(effect_sd=frame["effect_step"] * 0.5, share=[0.6, 0.4][: len(effects)])
+
+
+def test_version_comparison_merges_by_rating_and_signs_changes_new_minus_old():
+    old = impact_table({"POW": 10.0, "K": 6.0})
+    new = impact_table({"POW": 8.0, "EYE": 3.0})
+    merged = compare_versions.merge_impacts(old, new).set_index("feature")
+    assert merged.loc["POW", "step_change"] == -2.0 and merged.loc["POW", "sd_change"] == -1.0
+    assert merged.loc["K", "step_change"] == -6.0  # a rating only the old model has drops to zero
+    assert merged.loc["EYE", "step_change"] == 3.0  # and one only the new model has appears
+    assert compare_versions.ratio(8.0, 10.0) == "-20%" and compare_versions.ratio(1.0, 0.0) == "-"
+
+
+def test_seed_noise_is_the_absolute_difference_of_the_sd_effects():
+    first, second = impact_table({"POW": 10.0, "K": 6.0}), impact_table({"POW": 9.0, "K": 6.5})
+    noise = compare_versions.seed_noise(first, second).set_index("feature")["sd_noise"]
+    assert noise.to_dict() == {"POW": 0.5, "K": 0.25}

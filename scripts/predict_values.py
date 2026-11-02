@@ -9,6 +9,10 @@ Output (default files/<save>/<season>/output/<save>-<season>-predicted-values.cs
 batting_vs_right / _vs_left / batting (runs per 600 PA), baserunning (runs per 600 PA), pitching_fip_* (runs per 200 IP),
 pitching_babip_* (BABIP above the league), pitching_babip_runs and pitching_runs (runs per 200 IP), fielding_<position>
 (runs per season if he played there) and the `_plain` fallbacks. The ratings set of the models must match the save's.
+
+Each value column also gets a `<column>_rel` twin: the raw value minus the playing-time weighted mean of that column over
+the players of the scored league and season (see model/relative.py). The raw columns are the models' values against the
+league they were trained on; the _rel columns are values against the league being scored.
 """
 
 import argparse
@@ -19,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd  # noqa: E402
 
-from model import artifact, data, registry  # noqa: E402
+from model import artifact, data, registry, relative  # noqa: E402
 from util import paths  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
@@ -49,8 +53,11 @@ def predict_season(save: str, season: int, artifacts: dict) -> pd.DataFrame:
         raise KeyError(f"{save} {season}: ratings missing for these models: {missing}")
     ratings = players[columns].apply(pd.to_numeric, errors="coerce")
     scored = registry.score(artifacts, ratings)
+    scored, shifts = relative.add_relative(scored, relative.season_weights(save, season))
     info = players[[c for c in INFO_COLUMNS if c in players.columns]]
-    return info.join(scored).reset_index()
+    result = info.join(scored).reset_index()
+    result.attrs["league_reference"] = shifts
+    return result
 
 
 def main(argv=None) -> int:
@@ -79,6 +86,10 @@ def main(argv=None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     result.to_csv(out, index=False)
     print(f"{len(result)} players, {len(artifacts)} models ({models_from}) -> {out}")
+    shifts = result.attrs.get("league_reference", {})
+    print(
+        "league reference (subtracted for the _rel columns): " + ", ".join(f"{k} {v:+.2f}" for k, v in shifts.items())
+    )
     return 0
 
 
