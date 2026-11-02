@@ -87,3 +87,59 @@ BASELINE_FEATURES = {
         2: ["C ABI", "C ARM", "C FRM", "lgCBlock", "lgCArm", "lgCFrm"],
     },
 }
+
+
+# Attribute lists after the stage 3 review (scripts/review_attributes.py, plans/14-models.md). Player-grouped
+# cross-validation on Model-Sim 2046-2086: a rating is kept when dropping it (or its skill, for the vs-right / vs-left
+# pairs) costs weighted R^2, and added when it gains at least 0.002 and 3 standard errors. League constants, derived
+# ratings (MOV, CON), body size, speed (outside baserunning) and age add nothing to the current-value models.
+# Every listed rating also exists in the in-game export (TGS), so the models can score those saves; the batting
+# hit-by-pitch rating (+0.002 R^2) is left out because the export does not have it.
+REVIEWED_FEATURES = {
+    BATTING: [
+        "BA vR",
+        "BA vL",
+        "GAP vR",
+        "GAP vL",
+        "POW vR",
+        "POW vL",
+        "EYE vR",
+        "EYE vL",
+        "K vR",
+        "K vL",
+    ],
+    BASERUNNING: ["SPE", "STE", "RUN"],
+    PITCHING_FIP: [
+        "STU vR",
+        "STU vL",
+        "CON.1 vR",
+        "CON.1 vL",
+        "PBABIP vR",
+        "PBABIP vL",
+        "HRR vR",
+        "HRR vL",
+        "STM",
+        "PIT",
+    ],
+    PITCHING_BABIP: ["PBABIP vR", "PBABIP vL"],
+    FIELDING: {
+        2: ["C FRM", "C ABI"],
+        3: ["IF RNG", "HT"],
+        4: ["IF RNG", "IF ARM", "IF ERR"],
+        5: ["IF RNG", "IF ARM", "IF ERR"],
+        6: ["IF RNG", "IF ARM", "IF ERR"],
+        7: ["OF RNG", "OF ARM"],
+        8: ["OF RNG", "OF ARM"],
+        9: ["OF RNG", "OF ARM"],
+    },
+}
+
+# Model family per stream: the simplest family within 0.003 cross-validated weighted R^2 of the best one
+# (scripts/compare_models.py, Model-Sim 2046-2086, reviewed attribute lists).
+CHOSEN_FAMILY = {
+    BATTING: "ridge",
+    BASERUNNING: "boosting",
+    PITCHING_FIP: "boosting",
+    PITCHING_BABIP: "ridge",
+    FIELDING: {2: "boosting", 3: "mlp", 4: "mlp", 5: "boosting", 6: "mlp", 7: "boosting", 8: "mlp", 9: "boosting"},
+}

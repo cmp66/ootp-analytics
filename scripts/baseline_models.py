@@ -22,8 +22,6 @@ from model import data, domains
 from model.metrics import summarize
 from model.train import MLPConfig, MLPModel, cross_validate, holdout_last_seasons
 
-logging.getLogger("model.data").setLevel(logging.ERROR)
-
 
 def tables_for(save: str, seasons: range, wanted: list[str]):
     base = domains.BASELINE_FEATURES
@@ -50,6 +48,7 @@ def old_protocol(table, seed: int = 0) -> dict:
 
 
 def main() -> None:
+    logging.getLogger("model.data").setLevel(logging.ERROR)  # the tables report dropped rows; not needed here
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("save", nargs="?", default="Model-Sim")
     parser.add_argument("--start", type=int, default=2046)
