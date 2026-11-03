@@ -176,8 +176,8 @@ def main() -> None:
         return
     st.caption(
         f"**{org}** {save} {season}: the focus is the development of the better players while they can still improve. A "
-        f"prospect has a ceiling in the top {1 - rules.prospect:.0%} of the league's minor leaguers (top {1 - rules.top_prospect:.0%}: top "
-        "prospect); Win = seasons of development left. Key ratings are compared with the players of each level in all "
+        f"prospect has a ceiling in the top {1 - rules.prospect:.0%} of the league's minor leaguers (top "
+        f"{1 - rules.top_prospect:.0%}: top prospect); Win = seasons of development left. Key ratings are compared with the players of each level in all "
         f"organizations (percentile; green from {rules.green:.0%}). Up = dominates the level and has a chance at the next one "
         "(a prospect with development left needs one green rating less) or is old for the level; Down = weak for the level; "
         "Must move = over the age or pro-years limit. A move is only listed to a level whose limits he meets (Blocked tells "
