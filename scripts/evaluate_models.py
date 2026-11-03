@@ -19,7 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
-from model import artifact, domains, evaluate, registry  # noqa: E402
+from model import artifact, domains, evaluate, registry, scales  # noqa: E402
 from model.metrics import calibration, summarize  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons, select_seasons  # noqa: E402
@@ -93,11 +93,13 @@ def main(argv=None) -> int:
             raise ValueError(
                 f"{models_from} models are for ratings {get_save(models_from).ratings!r}, {args.save} uses {save.ratings!r}"
             )
-        folder = artifact.models_dir(models_from, save.ratings)
+        folder = artifact.models_dir(models_from, scales.model_set(save.ratings, save.scales))
         names = sorted(p.stem for p in folder.glob("*.joblib")) if folder.exists() else []
         if not names:
             raise FileNotFoundError(f"no trained models in {folder}; run scripts/train_models.py {models_from}")
-        artifacts = [artifact.load_artifact(models_from, save.ratings, name) for name in names]
+        artifacts = [
+            artifact.load_artifact(models_from, scales.model_set(save.ratings, save.scales), name) for name in names
+        ]
     except (KeyError, ValueError, FileNotFoundError, IndexError) as error:
         print(f"error: {error.args[0] if isinstance(error, KeyError) else error}", file=sys.stderr)
         return 2

@@ -5,6 +5,9 @@
 #   ballparks (optional): ballpark ratings csv in files/<save>/; without it the Adj stats equal the plain ones.
 #            files/<save>/<season>/ballpark_ratings.csv overrides it for that season.
 #   home_share (optional, default 0.5): share of a player's PA / BF played in his own park.
+#   scales (optional): the rating scale profile of a league whose ratings are not all 20-80 (names the league whose mix of scales the
+#            models were trained on: `train_models.py <training save> --scales <league>`); the models are looked up in
+#            files/models/<save>/<ratings>@<scales>/. Without it the league is scored with the 20-80 models.
 #   [<save>.levels."<level>"] (optional): limits of a minor league level, keyed by the level of the ratings column Lev (AAA, AA, A+,
 #            A-, R+, R, INT = the international complex, WL). max_age: the oldest age allowed; max_pro_years: the most years of
 #            professional experience allowed (ratings column PROY). 0 = no limit. The depth chart marks the players who exceed
@@ -35,6 +38,18 @@ ballparks = "ballpark_ratings.csv"
 [TGS26]
 source = "export"
 ratings = "Standard26"
+ballparks = "ballpark_ratings.csv"
+
+[Dugout26]
+source = "export"
+ratings = "Standard26"
+scales = "Dugout26"  # models trained on the mix of 20-80 and 1-10 ratings of this league (scripts/train_models.py --scales)
+ballparks = "ballpark_ratings.csv"
+
+[PBL27]
+source = "export"
+ratings = "Standard27"
+scales = "PBL27"
 ballparks = "ballpark_ratings.csv"
 
 [TGS.levels."AAA"]
@@ -99,6 +114,58 @@ max_pro_years = 0
 
 [TGS26.levels."WL"]
 max_age = 19
+max_pro_years = 0
+
+[Dugout26.levels."AAA"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."AA"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."A"]
+max_age = 28
+max_pro_years = 0
+
+[Dugout26.levels."S A"]
+max_age = 25
+max_pro_years = 0
+
+[Dugout26.levels."R"]
+max_age = 23
+max_pro_years = 0
+
+[Dugout26.levels."INT"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."AAA"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."AA"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."A"]
+max_age = 25
+max_pro_years = 0
+
+[PBL27.levels."S A"]
+max_age = 23
+max_pro_years = 0
+
+[PBL27.levels."A-"]
+max_age = 24
+max_pro_years = 0
+
+[PBL27.levels."R"]
+max_age = 23
+max_pro_years = 0
+
+[PBL27.levels."INT"]
+max_age = 0
 max_pro_years = 0
 
 [TGS.team_names]
@@ -169,3 +236,76 @@ ratings = "Standard27"
 [Dugout]
 source = "export"
 ratings = "Standard"
+
+[Dugout26.team_names]  # team code of the ratings -> Team Name of ballpark_ratings.csv
+ABQ = "Albuquerque Blues"
+ANA = "Anaheim Angels"
+ARI = "Arizona Diamondbacks"
+ATL = "Atlanta Braves"
+BAL = "Baltimore Orioles"
+BOS = "Boston Red Sox"
+CHC = "Chicago Cubs"
+CHW = "Chicago White Sox"
+CIN = "Cincinnati Reds"
+CLE = "Cleveland Guardians"
+COL = "Colorado Rockies"
+DET = "Detroit Tigers"
+HOU = "Houston Astros"
+KC = "Kansas City Royals"
+LAD = "Los Angeles Dodgers"
+MIA = "Miami Marlins"
+MIL = "Milwaukee Brewers"
+MIN = "Minnesota Twins"
+MON = "Montreal Expos"
+NSH = "Nashville Stars"
+NYM = "New York Mets"
+NYY = "New York Yankees"
+OAK = "Oakland Athletics"
+OTT = "Ottawa Mounties"
+PHI = "Philadelphia Phillies"
+PIT = "Pittsburgh Pirates"
+SA = "San Antonio Scorpions"
+SD = "San Diego Padres"
+SEA = "Seattle Mariners"
+SF = "San Francisco Giants"
+STL = "St. Louis Cardinals"
+TBA = "Tampa Bay Devil Rays"
+TEX = "Texas Rangers"
+TOR = "Toronto Blue Jays"
+VAN = "Vancouver Evergreens"
+WAS = "Washington Nationals"
+
+[PBL27.team_names]  # team code of the ratings -> Team Name of ballpark_ratings.csv
+ARI = "Arizona Diamondbacks"
+ATL = "Atlanta Braves"
+BAL = "Baltimore Orioles"
+BOS = "Boston Red Sox"
+CAR = "Carolina Warhounds"
+CHA = "Chicago White Sox"
+CHN = "Chicago Cubs"
+CIN = "Cincinnati Reds"
+CLE = "Cleveland Indians"
+COL = "Colorado Rockies"
+DET = "Detroit Tigers"
+HOU = "Houston Astros"
+KCA = "Kansas City Royals"
+LAA = "Los Angeles Angels"
+LAN = "Los Angeles Dodgers"
+MIA = "Miami Marlins"
+MIL = "Milwaukee Brewers"
+MIN = "Minnesota Twins"
+MON = "Montreal Expos"
+NYA = "New York Yankees"
+NYN = "New York Mets"
+OAK = "Oakland Athletics"
+PHI = "Philadelphia Phillies"
+PIT = "Pittsburgh Pirates"
+SDN = "San Diego Padres"
+SEA = "Seattle Mariners"
+SFN = "San Francisco Giants"
+SLN = "St. Louis Cardinals"
+TBA = "Tampa Bay Rays"
+TEX = "Texas Rangers"
+TOR = "Toronto Blue Jays"
+WAS = "Washington Nationals"
+

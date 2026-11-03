@@ -14,3 +14,13 @@ org = "CLE"  # Cleveland
 [TGS26]
 models_from = "Model-Sim-26-Std"
 # org = "ABC"
+
+# Dugout26 (batting and pitching 20-80; speed, stamina and fielding 1-10) and PBL27 (everything 1-10) are scored with models trained
+# on ratings turned to their mix of scales (the `scales` key of config/saves.toml; scripts/train_models.py --scales).
+[Dugout26]
+models_from = "Model-Sim-26-Std"
+org = "CIN"  # Cincinnati
+
+[PBL27]
+models_from = "Model-Sim"
+org = "TOR"  # Toronto

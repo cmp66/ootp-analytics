@@ -18,13 +18,13 @@ that is scored (model/relative.py).
 import numpy as np
 import pandas as pd
 
-from model import artifact, formats, outlook_data, outlook_models, registry
+from model import artifact, formats, outlook_data, outlook_models, registry, scales
 from model.outlook_models import (
     AVAIL_FEATURES,
     CAREER,
     FAMILIES,
     HORIZONS,
-    OUTLOOK_HORIZONS,
+    KNOWN_HORIZONS,
     PLAYER_FEATURES,
     VALUE_QUANTILES,
     feature_names,
@@ -113,8 +113,11 @@ def season_inputs(save: str, season: int, models_from: str | None = None) -> dic
     """State, ranked slot values and the player table of one season, from its player-data alone."""
     config = get_save(save)
     models_from = models_from or save
-    plan14 = outlook_data._load_artifacts(models_from, config.ratings)
+    plan14 = outlook_data._load_artifacts(models_from, scales.model_set(config.ratings, config.scales))
     state = outlook_data.season_state(save, season)
+    if config.scales:  # the position minimums and the outlook models know the 20-80 scale: give them the expected value
+        conversion = scales.Conversion.load(scales.version_of(config.ratings))
+        state = conversion.expect_frame(state, scales.profile_columns(save, season, conversion))
     scored, _ = registry.score_season(save, season, plan14)
     values = outlook_data.slot_values(state, scored)
     gates = outlook_data.load_gates(config.ratings)
@@ -279,7 +282,7 @@ def score_players(
 
 
 def score_slots(
-    models: OutlookModels, inputs: dict, ptable: pd.DataFrame, players: pd.DataFrame, horizons=OUTLOOK_HORIZONS
+    models: OutlookModels, inputs: dict, ptable: pd.DataFrame, players: pd.DataFrame, horizons=KNOWN_HORIZONS
 ) -> pd.DataFrame:
     """Floor / median / ceiling, tier chances and season value for every ranked slot of every player.
 
@@ -360,7 +363,7 @@ def outlook_for_season(
     """(slots, players): the outlook columns of every player of a season, for the horizons the model set has."""
     config = get_save(save)
     models = OutlookModels(models_from or save, config.ratings)
-    horizons = tuple(h for h in (horizons or OUTLOOK_HORIZONS) if h in models.horizons())
+    horizons = tuple(h for h in (horizons or KNOWN_HORIZONS) if h in models.horizons())
     if not horizons:
         raise FileNotFoundError(
             f"no outlook value models in {models.save}; run scripts/train_outlook_models.py {models.save}"

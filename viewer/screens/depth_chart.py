@@ -17,7 +17,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 from scripts.update_all import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
-from viewer import depth, overview, queries  # noqa: E402
+from viewer import depth, league, overview, queries  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 BOX_TITLES = {
@@ -87,7 +87,11 @@ def load(save: str, season: int):
 
 def main() -> None:
     config = load_update_config()
-    save = next(iter(config))
+    st.html(STYLE)
+    league_column, first, show, ranked, *links = st.columns(
+        [0.9, 1.2, 1.4, 1.6, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center"
+    )
+    save = league.choose_save(config, league_column, key="league-depth")
     seasons = available_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
@@ -98,10 +102,8 @@ def main() -> None:
     except FileNotFoundError:
         st.error(f"{save} {season} has no outlook files yet: run `python scripts/update_all.py {save}`.")
         return
-    st.html(STYLE)
     orgs = overview.organizations(frame)
     mine = config[save].get("org")
-    first, show, ranked, *links = st.columns([1.2, 1.4, 1.6, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center")
     org = first.selectbox(
         "Organization", orgs, index=orgs.index(mine) if mine in orgs else 0, label_visibility="collapsed"
     )

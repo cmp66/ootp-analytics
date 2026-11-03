@@ -93,7 +93,9 @@ def test_the_entry_point_opens_the_overview_for_my_org():
     app = AppTest.from_file(ENTRY, default_timeout=120).run()
     assert not app.exception
     org = load_update_config()[next(iter(load_update_config()))]["org"]
-    assert app.selectbox[0].value == org
+    assert (
+        app.selectbox[0].value == next(iter(load_update_config())) and app.selectbox[1].value == org
+    )  # league, then org
 
 
 def test_the_long_tables_hold_the_whole_organization_and_carry_the_ids_for_the_ratings_card():
@@ -112,7 +114,7 @@ def test_the_long_tables_hold_the_whole_organization_and_carry_the_ids_for_the_r
 def test_the_overview_lists_every_table_and_survives_a_rerun():
     app = AppTest.from_file(ENTRY, default_timeout=120).run()
     assert not app.exception and len(app.dataframe) == 12  # three long tables and nine positions
-    app.selectbox[0].select(app.selectbox[0].options[1]).run()
+    app.selectbox[1].select(app.selectbox[1].options[1]).run()
     assert not app.exception
 
 
@@ -156,6 +158,24 @@ def test_rating_colors_and_bar_widths_follow_the_scale():
     assert player_card.color(40) == player_card.color(45) != player_card.color(50) != player_card.color(70)
     assert 'style="width:3.0%' in player_card.rating_row("x", 20) and "width:96.0%" in player_card.rating_row("x", 80)
     assert "/" in player_card.rating_row("x", 50, 60) and 'class="pot"' in player_card.rating_row("x", 50, 60)
+
+
+def test_ratings_on_the_1_10_scale_get_the_bar_and_color_of_the_20_80_value_they_stand_for():
+    from viewer import player_card
+
+    assert player_card.as_20_80(1) == 20 and player_card.as_20_80(10) == 80 and player_card.as_20_80(0) == 0
+    assert player_card.as_20_80(55) == 55 and player_card.as_20_80(5.5) == 50
+    assert 'style="width:3.0%' in player_card.rating_row("x", 1) and "width:96.0%" in player_card.rating_row("x", 10)
+    assert player_card.color(1) == player_card.color(20) and player_card.color(10) == player_card.color(80)
+    assert player_card.color(5) == player_card.color(player_card.as_20_80(5))
+    row = pd.Series({"POW": 8, "POW P": 10, "OVR": 6, "C": 0, "C Pot": 5, "SS": 7, "SS Pot": 9})
+    page = player_card.card_html(row, "SS")
+    assert ">8</span>" in page and ">10</span>" in page  # the numbers are shown as they are in the file
+    catcher = pd.Series(
+        {"C": 0, "C Pot": 5}
+    )  # a potential of 5 on 1-10 is about 47 on 20-80: he can play there; 2 is about 27
+    assert "Defensive ratings" in player_card.card_html(catcher, "C")
+    assert "Defensive ratings" not in player_card.card_html(pd.Series({"C": 0, "C Pot": 2}), "C")
 
 
 def test_each_screen_links_to_the_other():
@@ -241,7 +261,9 @@ def test_the_pool_pages_draw_twelve_tables_without_an_organization_selector_for_
     app = AppTest.from_file(str(SCREENS / f"{page}.py"), default_timeout=120).run()
     assert not app.exception
     assert len(app.dataframe) == 12
-    assert len(app.selectbox) == (1 if page == "minors_overview" else 0)
+    assert len(app.selectbox) == (
+        2 if page == "minors_overview" else 1
+    )  # the league, and the organization on the minors page
 
 
 def test_all_organizations_lists_every_organization_with_an_org_column():
@@ -260,8 +282,8 @@ def test_all_organizations_lists_every_organization_with_an_org_column():
 
 def test_free_agents_can_be_chosen_in_the_organization_dropdown():
     app = AppTest.from_file(str(SCREENS / "org_overview.py"), default_timeout=120).run()
-    assert "Free agents" in app.selectbox[0].options
-    app.selectbox[0].select("Free agents").run()
+    assert "Free agents" in app.selectbox[1].options
+    app.selectbox[1].select("Free agents").run()
     assert not app.exception and len(app.dataframe) == 12
     assert "Org" not in app.dataframe[0].value.columns and len(app.dataframe[0].value) > 20
 
@@ -349,9 +371,9 @@ def test_depth_chart_page_draws_a_box_per_position_and_follows_the_choices():
     page = " ".join(str(e.value) for e in app.get("html"))
     for title in ("Left Field", "Shortstop", "Catcher", "Starting Rotation", "Bullpen"):
         assert title in page
-    app.selectbox[1].select("Minor leagues").run()
+    app.selectbox[2].select("Minor leagues").run()
     assert not app.exception
-    app.selectbox[2].select("Floor (10 years)").run()
+    app.selectbox[3].select("Floor (10 years)").run()
     assert not app.exception
 
 
@@ -392,7 +414,31 @@ def test_depth_chart_shows_one_level_at_a_time_and_flags_players_over_its_limits
 def test_depth_chart_page_offers_the_levels_of_the_organization():
     app = AppTest.from_file(DEPTH, default_timeout=120).run()
     assert not app.exception
-    shown = app.selectbox[1].options
+    shown = app.selectbox[2].options
     assert any("International Complex" in option for option in shown) and len(shown) > 3
-    app.selectbox[1].select("AAA").run()
+    app.selectbox[2].select("AAA").run()
     assert not app.exception
+
+
+def other_leagues_with_files():
+    config = load_update_config()
+    first = next(iter(config))
+    found = []
+    for name in list(config)[1:]:
+        seasons = available_seasons(name)
+        if seasons and paths.output_file(name, seasons[-1], "outlook-slots").exists():
+            found.append(name)
+    return first, found
+
+
+@pytest.mark.parametrize("page", ["org_overview", "depth_chart", "explorer"])
+def test_the_league_selector_lists_every_save_and_switches_the_page_to_another_league(page):
+    first, others = other_leagues_with_files()
+    app = AppTest.from_file(str(SCREENS / f"{page}.py"), default_timeout=120).run()
+    league_box = (app.sidebar.selectbox if page == "explorer" else app.selectbox)[0]
+    assert list(league_box.options) == list(load_update_config())
+    if not others:
+        pytest.skip("only one league has outlook files")
+    league_box.select(others[0]).run()
+    assert not app.exception
+    assert (app.sidebar.selectbox if page == "explorer" else app.selectbox)[0].value == others[0]

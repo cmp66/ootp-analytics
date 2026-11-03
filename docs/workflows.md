@@ -80,6 +80,15 @@ If a step fails, the summary at the end of the run names it and the exit status 
 2. Add the save to `config/update.toml` with `models_from` set to the training league of the same game version, and `org = "<your team abbreviation>"`. The first save of that file is the one the viewer opens.
 3. Put the files in `files/<save>/<season>/` and run workflow 1.
 
+### 2b. The new league has ratings that are not all on the 20-80 scale
+
+1. Add the league as in workflow 2 and process it: `process_seasons.py <league>`, then `detect_rating_scales.py <league>` shows which columns are 1-10.
+2. Train the models for its mix of scales on the training league of the same game version: `train_models.py Model-Sim --scales <league>` (OOTP27) or `train_models.py Model-Sim-26-Std --scales <league>` (OOTP26). Minutes, not hours. The models go to `files/models/<save>/<ratings>@<league>/`; `sync_models.py push` stores them.
+3. Set `scales = "<league>"` for the league in `config/saves.toml` and `models_from` in `config/update.toml` as usual, then run workflow 1. The outlook models stay the 20-80 ones: the league's 1-10 ratings are given to them as the 20-80 value expected for each.
+4. A game version needs its conversion table in `config/rating-scales/` once (`build_scale_tables.py` from two dumps of one league taken at the same moment, one per scale). Both OOTP26 and OOTP27 have one.
+
+TGS and TGS26 are all 20-80 and keep using the 20-80 models.
+
 ### 3. I want to refresh the models
 
 Two kinds. The **value models** turn ratings into runs. The **outlook models** project those values forward and depend on the value models, so retrain them after the value models change.

@@ -56,7 +56,7 @@ Scores every player with the outlook models and writes `<save>-<season>-outlook-
 ```
 predict_outlook.py TGS --models-from Model-Sim [--season 2046] [--depth-percentile 0.3]
 ```
-Horizons 1, 2, 3, 5, 7, 10 seasons ahead and the career view (`_h99`). Columns: [outlook-columns.md](outlook-columns.md). About 15 s.
+Horizons 1, 5, 7, 10 seasons ahead (the models of 2 and 3 were dropped; older output files may still have them) and the career view (`_h99`). Columns: [outlook-columns.md](outlook-columns.md). About 15 s.
 
 ## Training
 
@@ -66,6 +66,8 @@ Trains the value models of a save into `files/models/<save>/<ratings>/` (one `.j
 train_models.py Model-Sim --start 2046 --stop 2086
 train_models.py Model-Sim --streams batting baserunning --no-cv
 ```
+For a league whose ratings are not all 20-80 add `--scales <league>`: the training ratings are turned into the mix of scales that league shows (its 1-10 columns, converted with `config/rating-scales/<version>.csv`) and the models go to `files/models/<save>/<ratings>@<league>/`. The league names that set in the `scales` key of `config/saves.toml`. Takes minutes.
+
 Options: `--streams` (batting, baserunning, pitching-fip, pitching-babip, fielding), `--no-plain` (skip the total fallbacks), `--no-cv` (skip the honest scores; faster), `--device cpu|cuda|xpu` (or `OOTP_DEVICE`), `--seed`. Needs processed output for the seasons.
 
 ### build_outlook_tables.py
@@ -82,7 +84,7 @@ train_outlook_models.py Model-Sim
 train_outlook_models.py Model-Sim --horizons 99 --out docs/outlook-model-evaluation-Model-Sim-career.md
 train_outlook_models.py Model-Sim --families hitters --no-eval
 ```
-Options: `--families {hitters,pitchers}`, `--horizons` (default 1 2 3 5 7 10 99; 99 = career view), `--max-rows`, `--no-eval`, `--out`. Needs the tables of `build_outlook_tables.py`.
+Options: `--families {hitters,pitchers}`, `--horizons` (default 1 5 7 10 99; 99 = career view), `--max-rows`, `--no-eval`, `--out`. Needs the tables of `build_outlook_tables.py`.
 
 ### sync_models.py
 Stores the trained models in the S3 bucket `ootp-models` and fetches them on another machine. Uses `boto3` and the credentials of `aws configure` (the AWS CLI itself is not needed; `OOTP_MODELS_BUCKET` or `--bucket` changes the bucket).
@@ -111,6 +113,15 @@ Prints the scores stored at training (honest) and the scores on the seasons aske
 
 ### check_format_parity.py
 `check_format_parity.py [--out docs/export-dump-parity.md]` compares dump and export saves of the same ratings set: columns the models read, trait conversions, level, draft route. Run after changing the import or `model/formats.py`.
+
+### build_scale_tables.py
+`build_scale_tables.py [--root files/Ratings-Analysis] [--versions OOTP26 OOTP27]` builds `config/rating-scales/<version>.csv` from two dumps of one league taken at the same moment, one with 20-80 ratings (`<root>/<version>/20-80/`) and one with 1-10 (`<root>/<version>/1-10/`): how often each 20-80 value is each 1-10 value, per rating column. The tables are in git; rerun only for a new game version.
+
+### compare_scale_approaches.py
+`compare_scale_approaches.py <training save> [--like <league>] [--streams ...] [--family ridge]` compares, for every model, the 20-80 reference with (A) a model retrained on ratings turned to 1-10 and (B) the 20-80 model applied to 1-10 ratings converted back, on the last seasons as test. Writes `docs/rating-scale-comparison-<save>[-<league>].md`. A (retraining) was better; that is why `train_models.py --scales` exists.
+
+### detect_rating_scales.py
+`detect_rating_scales.py <save> [--season N] [--all]` shows, for each rating the value models read, the scale of the league (20-80 or 1-10), the range, the number of different values and the step between them; `--all` covers every numeric column. Use it on a league whose ratings are not all 20-80 to see which columns are which (reads the processed player-data; `model/scales.py`).
 
 ### rating_importance.py, compare_versions.py, derived_ratings.py
 Documentation generators for `docs/`:

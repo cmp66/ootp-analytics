@@ -1,5 +1,5 @@
 # Lists of the outlook viewer (plan 16 stage 5; the viewer of plan 15 reads the same file).
-# Run one with: PYTHONPATH=. python scripts/outlook_lists.py <save> --list <name> [--org ABBR] [--horizon 3] [--slot SS]
+# Run one with: PYTHONPATH=. python scripts/outlook_lists.py <save> --list <name> [--org ABBR] [--horizon 5] [--slot SS]
 #
 # metric: p_top10 (chance of being a top-10 player at the slot), p_11_50 (top 50 but not top 10), p_top50, rank_score (0.25 floor +
 #         0.5 median + 0.25 ceiling of the value), value, floor, ceiling, season_value (after availability), p_start / p_roster
@@ -11,7 +11,7 @@
 # include_depth = false hides the players below the 25th percentile of the league (roster filler).
 
 [defaults]
-horizon = 3
+horizon = 5
 top = 50
 
 [lists.very_good]

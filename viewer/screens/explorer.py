@@ -15,7 +15,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from scripts.update_all import load_update_config  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
-from viewer import queries, report  # noqa: E402
+from viewer import league, queries, report  # noqa: E402
 
 METRICS = {
     "p_top10": "Chance of top 10",
@@ -78,7 +78,7 @@ def main() -> None:
     except StreamlitPageNotFoundError:  # run on its own, without the navigation of viewer/app.py
         pass
     st.sidebar.title("Player lists")
-    save = st.sidebar.selectbox("Save", list(config))
+    save = league.choose_save(config, st.sidebar, key="league-explorer")
     seasons = available_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
@@ -93,9 +93,10 @@ def main() -> None:
     name = st.sidebar.selectbox("List", list(specs), format_func=lambda n: specs[n].title)
     spec = specs[name]
     horizons = queries.available_horizons(frame)
-    horizon = st.sidebar.selectbox(
-        "Seasons ahead", horizons, index=horizons.index(defaults.get("horizon", 3)), format_func=HORIZON_LABELS.get
-    )
+    first = (
+        horizons.index(defaults["horizon"]) if defaults.get("horizon") in horizons else 0
+    )  # the default may be a dropped one
+    horizon = st.sidebar.selectbox("Seasons ahead", horizons, index=first, format_func=HORIZON_LABELS.get)
     metric = st.sidebar.selectbox(
         "Sort by", list(METRICS), index=list(METRICS).index(spec.metric), format_func=METRICS.get
     )

@@ -6,6 +6,7 @@ volume the target is based on), and the player id / season for the splits. Rows 
 dropped and counted in the log; nothing is replaced by 0."""
 
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -55,6 +56,21 @@ def read_output(save: str, season: int, kind: str) -> pd.DataFrame:
     return pd.read_csv(path, low_memory=False)
 
 
+RATINGS_VIEW = None  # see ratings_view
+
+
+@contextmanager
+def ratings_view(transform):
+    """Within the block every table is built from `transform(ratings, season)` instead of the ratings as they are, for example the
+    ratings turned into another scale (model/scales.py). The ratings of a season come with the ID as index."""
+    global RATINGS_VIEW
+    previous, RATINGS_VIEW = RATINGS_VIEW, transform
+    try:
+        yield
+    finally:
+        RATINGS_VIEW = previous
+
+
 def read_ratings(save: str, season: int, columns: list[str]) -> pd.DataFrame:
     """The player-data ratings as numbers, one row per ID; '-' (not applicable) becomes NaN."""
     ratings = read_output(save, season, "player-data")
@@ -62,8 +78,8 @@ def read_ratings(save: str, season: int, columns: list[str]) -> pd.DataFrame:
     if missing:
         raise KeyError(f"{save} {season}: ratings columns not in player-data: {missing}")
     wanted = ["ID", *[c for c in dict.fromkeys(columns) if c != "ID"]]
-    out = ratings[wanted].apply(pd.to_numeric, errors="coerce")
-    return out.drop_duplicates("ID").set_index("ID")
+    out = ratings[wanted].apply(pd.to_numeric, errors="coerce").drop_duplicates("ID").set_index("ID")
+    return out if RATINGS_VIEW is None else RATINGS_VIEW(out, season)
 
 
 def _seasons(seasons) -> list[int]:

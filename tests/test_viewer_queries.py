@@ -107,7 +107,7 @@ def test_fit_table_chances_follow_the_distribution_and_the_stay_chance():
 
 def test_configured_lists_run_on_the_frame():
     defaults, specs = queries.load_list_specs()
-    assert defaults["horizon"] == 3 and {"very_good", "good", "ranking", "draft", "iafa", "trade_targets"} <= set(specs)
+    assert defaults["horizon"] == 5 and {"very_good", "good", "ranking", "draft", "iafa", "trade_targets"} <= set(specs)
     frame = make_frame()
     trade = queries.run_list(frame, specs["trade_targets"], 3, org="MYS", top=5)
     assert set(trade["ID"]) <= {3, 4} and trade["ID"].iloc[0] == 4  # not mine, not depth; he would start for my team
