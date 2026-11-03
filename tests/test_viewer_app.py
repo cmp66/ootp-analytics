@@ -160,6 +160,24 @@ def test_rating_colors_and_bar_widths_follow_the_scale():
     assert "/" in player_card.rating_row("x", 50, 60) and 'class="pot"' in player_card.rating_row("x", 50, 60)
 
 
+def test_ratings_on_the_1_10_scale_get_the_bar_and_color_of_the_20_80_value_they_stand_for():
+    from viewer import player_card
+
+    assert player_card.as_20_80(1) == 20 and player_card.as_20_80(10) == 80 and player_card.as_20_80(0) == 0
+    assert player_card.as_20_80(55) == 55 and player_card.as_20_80(5.5) == 50
+    assert 'style="width:3.0%' in player_card.rating_row("x", 1) and "width:96.0%" in player_card.rating_row("x", 10)
+    assert player_card.color(1) == player_card.color(20) and player_card.color(10) == player_card.color(80)
+    assert player_card.color(5) == player_card.color(player_card.as_20_80(5))
+    row = pd.Series({"POW": 8, "POW P": 10, "OVR": 6, "C": 0, "C Pot": 5, "SS": 7, "SS Pot": 9})
+    page = player_card.card_html(row, "SS")
+    assert ">8</span>" in page and ">10</span>" in page  # the numbers are shown as they are in the file
+    catcher = pd.Series(
+        {"C": 0, "C Pot": 5}
+    )  # a potential of 5 on 1-10 is about 47 on 20-80: he can play there; 2 is about 27
+    assert "Defensive ratings" in player_card.card_html(catcher, "C")
+    assert "Defensive ratings" not in player_card.card_html(pd.Series({"C": 0, "C Pot": 2}), "C")
+
+
 def test_each_screen_links_to_the_other():
     app = AppTest.from_file(ENTRY, default_timeout=120).run()
     assert not app.exception

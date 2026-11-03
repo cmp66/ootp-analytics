@@ -1,6 +1,8 @@
 """Player ratings page in the style of the game's player pages (plan 15): a pure function from a row of player-data to html.
 
-Ratings are on the 20-80 scale of the export. A bar shows the current rating, a lighter bar behind it the potential.
+Ratings are on the 20-80 scale of the export, or on the 1-10 scale in leagues that show them that way (a value from 1 to 10 is a
+1-10 rating: no 20-80 rating is below 20); the number is shown as it is in the file, the color and the bar use the 20-80 value it
+stands for. A bar shows the current rating, a lighter bar behind it the potential.
 Hitters: basic batting ratings, running, summary, position and defensive ratings. Pitchers: basic pitching ratings, pitches.
 Both: personality and injury proneness.
 """
@@ -74,8 +76,14 @@ TRAITS = [("WE cat", "Work Ethic"), ("INT cat", "Intelligence"), ("LEA cat", "Le
           ("AD cat", "Adaptability"), ("FIN cat", "Greed")]  # fmt: skip
 
 
+def as_20_80(value: float) -> float:
+    """The 20-80 value a rating stands for: 1-10 ratings are spread evenly over 20 to 80; 0 (none) and 20-80 ratings stay."""
+    return 20 + (value - 1) / 9 * 60 if 0 < value <= 10 else value
+
+
 def color(value: float) -> str:
     """Rating color: red, orange, amber, green, teal, blue from low to high."""
+    value = as_20_80(value)
     if value <= 30:
         return "#e8553d"
     if value <= 35:
@@ -96,7 +104,7 @@ def _number(row: pd.Series, column: str | None):
 
 
 def _width(value: int) -> float:
-    return max(3.0, min(100.0, (value - 20) / 60 * 96))
+    return max(3.0, min(100.0, (as_20_80(value) - 20) / 60 * 96))
 
 
 def rating_row(label: str, now, pot=None, indent: bool = False) -> str:
@@ -177,7 +185,7 @@ def _hitter_right(row: pd.Series) -> str:
     played = []
     for code, label in POSITIONS:
         now, pot = _number(row, code), _number(row, f"{code} Pot")
-        if (now or 0) > 0 or (pot or 0) >= POTENTIAL_SHOWN:
+        if (now or 0) > 0 or as_20_80(pot or 0) >= POTENTIAL_SHOWN:
             played.append(code)
             out.append(rating_row(label, now or None, pot if pot and pot != now else None))
     groups = []
