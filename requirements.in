@@ -17,3 +17,4 @@ numpy
 requests
 pytest
 streamlit
+boto3

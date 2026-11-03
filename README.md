@@ -2,6 +2,13 @@
 
 Models for predicting current and future player performance from Out of the Park Baseball data.
 
+## Where to start
+
+- [docs/workflows.md](docs/workflows.md): what each script is for and the steps for the usual jobs (new ratings files, retraining the models, a new league or game version, a new machine).
+- [docs/scripts.md](docs/scripts.md): usage, options and outputs of every script.
+
+`files/` is not in git. The trained models are kept in the S3 bucket `ootp-models` with a history of every set: `python scripts/sync_models.py push` after training, `pull` on another machine (needs `aws configure` credentials).
+
 ## Setup
 
 Python 3.14 (pyenv virtualenv `ootp-analytics`). Install the requirements file matching your hardware:
