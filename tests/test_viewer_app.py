@@ -301,3 +301,98 @@ def test_the_ratings_dialog_title_is_the_full_name():
     row = pd.Series({"First Name": "Jesus", "Last Name": "Recinos"})
     assert player_card.full_name(row, "J. Recinos") == "Jesus Recinos"
     assert player_card.full_name(pd.Series({"Age": 20}), "J. Recinos") == "J. Recinos"
+
+
+DEPTH = str(Path(__file__).resolve().parent.parent / "viewer" / "screens" / "depth_chart.py")
+
+
+def depth_frame():
+    from viewer import queries
+
+    save = next(iter(load_update_config()))
+    return save, queries.load_outlook(save, available_seasons(save)[-1])
+
+
+def test_depth_chart_lists_each_player_once_with_the_depth_asked_for():
+    from viewer import depth
+
+    save, frame = depth_frame()
+    org = load_update_config()[save]["org"]
+    chart = depth.depth_chart(frame, org)
+    assert list(chart) == depth.CHART_SLOTS
+    ids = [i for table in chart.values() for i in table["ID"]]
+    assert len(ids) == len(set(ids))
+    assert all(len(chart[s]) <= depth.DEPTH_HITTERS for s in depth.CHART_SLOTS if s not in ("SP", "RP"))
+    assert all(len(chart[s]) <= depth.DEPTH_PITCHERS for s in ("SP", "RP"))
+    assert len(chart["SP"]) == depth.DEPTH_PITCHERS  # a whole organization has ten starters
+    assert chart["SP"]["Value"].iloc[:5].is_monotonic_decreasing  # the first pass, best first
+    assert chart["SP"]["Player"].str.match(r"^[RL]HP ").all()
+
+
+def test_depth_chart_minor_leagues_leave_out_the_mlb_roster_and_rankings_change_the_order():
+    from viewer import depth
+
+    save, frame = depth_frame()
+    org = load_update_config()[save]["org"]
+    minors = depth.depth_chart(frame, org, "Minor leagues", "Ceiling (10 years)")
+    assert all((table["Lev"] != "MLB").all() for table in minors.values())
+    current = depth.depth_chart(frame, org, ranked_by="Current")
+    floor = depth.depth_chart(frame, org, ranked_by="Floor (10 years)")
+    assert not current["RP"]["ID"].equals(floor["RP"]["ID"]) or not current["C"]["ID"].equals(floor["C"]["ID"])
+    with pytest.raises(ValueError):
+        depth.depth_chart(frame, org, ranked_by="Best")
+
+
+def test_depth_chart_page_draws_a_box_per_position_and_follows_the_choices():
+    app = AppTest.from_file(DEPTH, default_timeout=120).run()
+    assert not app.exception
+    page = " ".join(str(e.value) for e in app.get("html"))
+    for title in ("Left Field", "Shortstop", "Catcher", "Starting Rotation", "Bullpen"):
+        assert title in page
+    app.selectbox[1].select("Minor leagues").run()
+    assert not app.exception
+    app.selectbox[2].select("Floor (10 years)").run()
+    assert not app.exception
+
+
+def test_depth_assignment_puts_a_player_where_he_adds_the_most_and_only_where_he_is_ranked():
+    import pandas as pd
+
+    from viewer import depth
+
+    # A is the better CF of the two but B is useless at RF, so A goes to CF; C is ranked only at LF
+    values = pd.DataFrame({"CF": [10.0, 9.0, None], "RF": [8.0, 1.0, None], "LF": [None, None, 5.0]}, index=[1, 2, 3])
+    assert sorted(depth.assign_pass(values, {"CF": 1, "RF": 1, "LF": 1})) == [(1, "RF"), (2, "CF"), (3, "LF")]
+    # the best player of a position is not wasted elsewhere when the others cannot play it
+    values = pd.DataFrame({"CF": [10.0, 9.0], "RF": [8.0, None]}, index=[1, 2])
+    assert sorted(depth.assign_pass(values, {"CF": 1, "RF": 1})) == [(1, "RF"), (2, "CF")]
+    # nobody is placed where he is not ranked, so a short position stays empty
+    assert depth.assign_pass(pd.DataFrame({"CF": [None]}, index=[1]), {"CF": 1}) == []
+
+
+def test_depth_chart_shows_one_level_at_a_time_and_flags_players_over_its_limits():
+    from util.config import LevelLimits
+    from viewer import depth
+
+    save, frame = depth_frame()
+    org = load_update_config()[save]["org"]
+    options = depth.show_options(frame, org)
+    assert options[:2] == list(depth.SHOW) and len(options) > 2
+    level = options[2]
+    chart = depth.depth_chart(frame, org, level, limits={})
+    assert all((table["Lev"] == level).all() for table in chart.values())
+    assert all((table["Flag"] == "").all() for table in chart.values())  # no limits: nobody is over
+    strict = depth.depth_chart(frame, org, level, limits={level: LevelLimits(max_age=1, max_pro_years=1)})
+    everybody = pd.concat(strict.values())
+    assert len(everybody) and everybody["Flag"].str.contains("age").all()
+    with pytest.raises(ValueError):
+        depth.depth_chart(frame, org, "Nowhere")
+
+
+def test_depth_chart_page_offers_the_levels_of_the_organization():
+    app = AppTest.from_file(DEPTH, default_timeout=120).run()
+    assert not app.exception
+    shown = app.selectbox[1].options
+    assert any("International Complex" in option for option in shown) and len(shown) > 3
+    app.selectbox[1].select("AAA").run()
+    assert not app.exception

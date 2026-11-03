@@ -153,6 +153,7 @@ PAGES = {  # page key -> (file, link label, icon)
     "minors": ("screens/minors_overview.py", "Minor leagues", ":material/school:"),
     "draft": ("screens/draft_overview.py", "MLB draft", ":material/format_list_numbered:"),
     "iafa": ("screens/iafa_overview.py", "IAFA", ":material/public:"),
+    "depth": ("screens/depth_chart.py", "Depth chart", ":material/stadium:"),
     "explorer": ("screens/explorer.py", "Explorer", ":material/search:"),
 }
 POOL_TITLES = {"draft": "MLB draft class", "iafa": "International amateurs (IAFA)"}
@@ -186,7 +187,7 @@ def render(page: str = "org") -> None:
     projection = page != "org"
     orgs = overview.organizations(frame)
     mine = config[save].get("org")
-    first, *links = st.columns([1.2, 1, 1.3, 1, 0.8, 1], vertical_alignment="center")
+    first, *links = st.columns([1.2, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center")
     if has_org:
         choices = [ALL_ORGS, *([FREE_AGENTS] if page == "org" else []), *orgs]
         org = first.selectbox(

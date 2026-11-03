@@ -5,6 +5,10 @@
 #   ballparks (optional): ballpark ratings csv in files/<save>/; without it the Adj stats equal the plain ones.
 #            files/<save>/<season>/ballpark_ratings.csv overrides it for that season.
 #   home_share (optional, default 0.5): share of a player's PA / BF played in his own park.
+#   [<save>.levels."<level>"] (optional): limits of a minor league level, keyed by the level of the ratings column Lev (AAA, AA, A+,
+#            A-, R+, R, INT = the international complex, WL). max_age: the oldest age allowed; max_pro_years: the most years of
+#            professional experience allowed (ratings column PROY). 0 = no limit. The depth chart marks the players who exceed
+#            the limits of their level.
 #   [<save>.team_names] (optional): save team id -> "Team Name" in the ballpark csv. Dump saves match
 #            "city nickname" automatically (the table is for exceptions, keyed by team abbreviation or full name);
 #            export saves need it: key is the team abbreviation (ratings column TM).
@@ -32,6 +36,70 @@ ballparks = "ballpark_ratings.csv"
 source = "export"
 ratings = "Standard26"
 ballparks = "ballpark_ratings.csv"
+
+[TGS.levels."AAA"]
+max_age = 0
+max_pro_years = 0
+
+[TGS.levels."AA"]
+max_age = 0
+max_pro_years = 0
+
+[TGS.levels."A+"]
+max_age = 27
+max_pro_years = 0
+
+[TGS.levels."A-"]
+max_age = 25
+max_pro_years = 0
+
+[TGS.levels."R+"]
+max_age = 23
+max_pro_years = 0
+
+[TGS.levels."R"]
+max_age = 21
+max_pro_years = 0
+
+[TGS.levels."INT"]
+max_age = 0
+max_pro_years = 0
+
+[TGS.levels."WL"]
+max_age = 19
+max_pro_years = 0
+
+[TGS26.levels."AAA"]
+max_age = 0
+max_pro_years = 0
+
+[TGS26.levels."AA"]
+max_age = 0
+max_pro_years = 0
+
+[TGS26.levels."A+"]
+max_age = 27
+max_pro_years = 0
+
+[TGS26.levels."A-"]
+max_age = 25
+max_pro_years = 0
+
+[TGS26.levels."R+"]
+max_age = 23
+max_pro_years = 0
+
+[TGS26.levels."R"]
+max_age = 21
+max_pro_years = 0
+
+[TGS26.levels."INT"]
+max_age = 0
+max_pro_years = 0
+
+[TGS26.levels."WL"]
+max_age = 19
+max_pro_years = 0
 
 [TGS.team_names]
 ANA = "Anaheim Angels"

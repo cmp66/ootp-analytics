@@ -19,6 +19,7 @@ navigation = st.navigation(
         st.Page(SCREENS / "minors_overview.py", title="Minor leagues", url_path="minors"),
         st.Page(SCREENS / "draft_overview.py", title="MLB draft", url_path="draft"),
         st.Page(SCREENS / "iafa_overview.py", title="IAFA", url_path="iafa"),
+        st.Page(SCREENS / "depth_chart.py", title="Depth chart", url_path="depth"),
         st.Page(SCREENS / "explorer.py", title="Explorer", url_path="explorer"),
     ],
     position="top",
