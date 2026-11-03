@@ -4,11 +4,12 @@
 #   org:         your organization (team abbreviation in an export), for the lists that compare with your roster
 #                (trade_targets, my_depth, fa_for_my_roster). Without it those lists are skipped.
 #   steps:       optional list of steps to run (default: all). See `python scripts/update_all.py --steps`.
+#   The first save is the one the viewer opens.
 # Add a save here when you start another human league.
 
 [TGS]
 models_from = "Model-Sim"
-# org = "ABC"
+org = "CLE"  # Cleveland
 
 [TGS26]
 models_from = "Model-Sim-26-Std"

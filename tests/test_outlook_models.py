@@ -32,9 +32,11 @@ def test_split_seasons_leaves_a_gap_so_training_targets_do_not_reach_the_test_se
     seasons = np.repeat(np.arange(1, 41), 3)
     train, test = models.split_seasons(seasons, 3)
     assert test.tolist() == list(range(32, 38))  # the latest seasons whose 3-season future is in the table
-    assert train.max() == 26 and train.max() + models.GAP < test.min()
+    assert train.max() == 21 and train.max() + models.GAP < test.min()
     train5, test5 = models.split_seasons(seasons, 5)
     assert test5.max() == 35 and train5.max() + 5 < test5.min()
+    career_train, career_test = models.split_seasons(seasons, models.CAREER)  # looks CAREER_SPAN (10) seasons ahead
+    assert career_test.max() == 40 - models.CAREER_SPAN and career_train.max() + models.GAP < career_test.min()
 
 
 def test_subsample_keeps_whole_players():
@@ -196,3 +198,29 @@ def test_the_outlook_models_train_store_and_report_on_the_fixture_seasons(tmp_pa
     band = artifact.load_artifact("Model-Sim", "Standard27", "outlook/value-hitters-h1-q10")
     assert "band_shift" in band.notes and band.notes["quantile"] == 0.1
     assert train_outlook_models.main(["Nope"]) == 2
+
+
+def test_career_targets_are_the_peak_and_the_ever_top_flags_within_the_span(monkeypatch):
+    monkeypatch.setattr(models, "CAREER_SPAN", 3)
+    keyed = pd.DataFrame(
+        {
+            "ID": [1, 2, 3],
+            "slot_name": ["SS", "SS", "SS"],
+            "season": [1, 1, 1],
+            "value_now": [0.0, 10.0, 5.0],
+            "observed_h3": [True, True, False],
+        }
+    )
+    every = pd.DataFrame(
+        {"ID": [1, 1, 1, 3, 3], "slot": ["SS"] * 5, "season": [2, 3, 4, 2, 3], "value": [1.0, 7.0, 4.0, 9.0, 9.0]}
+    )  # player 2 is gone; player 3's future is not fully observed
+    values = pd.DataFrame(
+        {"ID": [1, 1, 1, 3], "slot": ["SS"] * 4, "season": [2, 3, 4, 2], "tier": ["top50", "top10", "rest", "top10"]}
+    )
+    out = models.add_career_targets(keyed, every, values)
+    assert out.loc[0, "dvalue_h99"] == 7.0 and out.loc[0, "top10_h99"] == 1.0 and out.loc[0, "top50_h99"] == 1.0
+    assert np.isnan(out.loc[1, "dvalue_h99"]) and out.loc[1, "top10_h99"] == 0.0 and out.loc[1, "top50_h99"] == 0.0
+    assert (
+        out.loc[2, [f"{c}_h99" for c in ("dvalue", "top10", "top50")]].isna().all() and not out.loc[2, "observed_h99"]
+    )
+    assert models.reach(models.CAREER) == 3 and models.reach(5) == 5

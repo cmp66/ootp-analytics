@@ -25,7 +25,8 @@ from util import paths
 from util.config import PROJECT_ROOT, get_save
 
 VIEWER_CONFIG = PROJECT_ROOT / "config" / "viewer.toml"
-HORIZONS = (1, 2, 3, 5)
+HORIZONS = (1, 2, 3, 5, 7, 10, 99)  # 99: the career view, the best season within the next 10 (outlook_models.CAREER)
+CAREER = 99
 LEVEL_NAMES = {0: "FA", 1: "MLB", 2: "AAA", 3: "AA", 4: "A", 5: "A-", 6: "Rookie"}
 IDENTITY_COLUMNS = [
     "ID",
@@ -59,7 +60,47 @@ def load_outlook(save: str, season: int) -> pd.DataFrame:
     frame = slots.merge(players.drop(columns=shared), on=["ID", "season"], how="left").merge(
         identity, on="ID", how="left"
     )
-    return add_pool_flags(frame, save)
+    return add_components(add_pool_flags(frame, save), save, season)
+
+
+FIELDING_COLUMN = {
+    "C": 2,
+    "1B": 3,
+    "2B": 4,
+    "3B": 5,
+    "SS": 6,
+    "LF": 7,
+    "CF": 8,
+    "RF": 9,
+}  # slot -> fielding model position
+
+
+def add_components(frame: pd.DataFrame, save: str, season: int) -> pd.DataFrame:
+    """`bat_value`, `run_value`, `field_value` (at the slot) and `pit_value`: the league-relative parts of the current value,
+    from the predicted-values file of the season. Left out when that file is missing."""
+    path = paths.output_file(save, season, "predicted-values")
+    if not path.exists():
+        return frame
+    parts = pd.read_csv(path).drop_duplicates("ID").set_index("ID")
+    out = frame.copy()
+    for target, source in (
+        ("bat_value", "batting_rel"),
+        ("run_value", "baserunning_rel"),
+        ("pit_value", "pitching_runs_rel"),
+    ):
+        if source in parts:
+            out[target] = out["ID"].map(parts[source])
+    field = np.full(len(out), np.nan)
+    for slot, number in FIELDING_COLUMN.items():
+        column = f"fielding_{number}_rel"
+        if column in parts:
+            mask = (out["slot"] == slot).to_numpy()
+            field[mask] = out.loc[mask, "ID"].map(parts[column]).to_numpy()
+    out["field_value"] = field
+    pitcher = out["slot"].isin(["SP", "RP"])  # a pitcher's value is the pitching part only, a hitter's the other three
+    out.loc[pitcher, ["bat_value", "run_value", "field_value"]] = np.nan
+    out.loc[~pitcher, "pit_value"] = np.nan
+    return out
 
 
 def add_pool_flags(frame: pd.DataFrame, save: str) -> pd.DataFrame:
@@ -89,7 +130,8 @@ def add_pool_flags(frame: pd.DataFrame, save: str) -> pd.DataFrame:
 
 
 def select_pool(frame: pd.DataFrame, pool: str, org: str | None = None) -> pd.DataFrame:
-    """Players of a pool: all, mlb, org (my organization), others (trade targets), free_agents, iafa, draft."""
+    """Players of a pool: all, mlb, org (my organization), others (trade targets), all_orgs (every organization), free_agents,
+    iafa, draft."""
     if pool in ("org", "others") and org is None:
         raise ValueError(f"pool {pool!r} needs an organization")
     masks = {
@@ -97,6 +139,7 @@ def select_pool(frame: pd.DataFrame, pool: str, org: str | None = None) -> pd.Da
         "mlb": frame["level"] == 1,
         "org": frame["org"] == str(org),
         "others": (frame["org"] != str(org)) & ~frame["is_free_agent"] & ~frame["is_iafa"],
+        "all_orgs": ~frame["org"].isin(["FA", "nan", ""]),  # everybody who belongs to an organization
         "free_agents": frame["is_free_agent"],
         "iafa": frame["is_iafa"],
         "draft": frame["is_draft"],
@@ -127,6 +170,11 @@ def apply_filters(
 # ---------------------------------------------------------------- lists
 
 
+def available_horizons(frame: pd.DataFrame) -> tuple[int, ...]:
+    """The horizons whose columns are in the outlook frame (files made before the longer horizons have fewer)."""
+    return tuple(h for h in HORIZONS if f"rank_score_h{h}" in frame.columns)
+
+
 def metric_column(metric: str, horizon: int, frame: pd.DataFrame) -> pd.Series:
     """The sort key of a list: p_top10, p_11_50 (top 50 but not top 10), p_top50, rank_score, value, floor, ceiling,
     season_value, p_start or p_roster."""
@@ -148,6 +196,28 @@ def tier_list(frame: pd.DataFrame, metric: str, horizon: int, top: int = 50, by_
     if by_player:
         ranked = ranked.drop_duplicates("ID")
     return ranked.head(top).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------- display
+
+
+SHOWN = [
+    "First Name", "Last Name", "Age", "org", "level_name", "slot", "value_now", "tier_now",
+    "bat_value", "run_value", "field_value", "pit_value",
+    "floor", "value", "ceiling", "p_top10", "p_top50", "p_stay", "season_value", "injury_cost", "p_start", "p_roster",
+]  # fmt: skip
+
+
+def display_table(rows: pd.DataFrame, horizon: int) -> pd.DataFrame:
+    """The columns of a list with the horizon's columns named plainly."""
+    out = pd.DataFrame(index=rows.index)
+    for column in SHOWN:
+        for source in (column, f"{column}_h{horizon}"):
+            if source in rows.columns:
+                out[column] = rows[source]
+                break
+    out.insert(0, "key", rows["key"].round(3))
+    return out
 
 
 # ---------------------------------------------------------------- comparison with an organization
@@ -230,7 +300,9 @@ def fit_table(
     thresholds = org_thresholds(frame if thresholds_from is None else thresholds_from, org, rules).set_index("slot")
     out = frame.join(thresholds[["start_threshold", "roster_threshold"]], on="slot")
     q = quantile_matrix(out, horizon)
-    stay = out[f"p_stay_h{horizon}"].to_numpy()
+    stay = out[
+        f"p_stay_h{1 if horizon == CAREER else horizon}"
+    ].to_numpy()  # the career view has no stay model of its own
     out[f"p_start_h{horizon}"] = stay * exceed_probability(q, out["start_threshold"].to_numpy())
     out[f"p_roster_h{horizon}"] = stay * exceed_probability(q, out["roster_threshold"].to_numpy())
     return out

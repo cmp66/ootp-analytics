@@ -162,7 +162,7 @@ def build_report(save: str, ratings: str, results: dict, seconds: float) -> str:
         "of the long CPU league "
         f"(trained in {seconds / 60:.0f} minutes). Each game version has its own models.",
         "",
-        "Hold-out: the test rows are the latest six seasons with an observed future; training uses rows at least five seasons "
+        "Hold-out: the test rows are the latest six seasons with an observed future; training uses rows at least ten seasons "
         "earlier "
         f"(for horizon 1 the training seasons end {one['train_seasons'][1]}, the test seasons are {one['test_seasons'][0]}-"
         f"{one['test_seasons'][1]}; the dates move with the horizon). The final models are retrained on all observed rows.",
@@ -180,7 +180,10 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--families", nargs="+", choices=list(outlook_models.FAMILIES), default=list(outlook_models.FAMILIES)
     )
-    parser.add_argument("--horizons", nargs="+", type=int, default=list(outlook_models.HORIZONS))
+    parser.add_argument(
+        "--horizons", nargs="+", type=int, default=list(outlook_models.OUTLOOK_HORIZONS),
+        help="seasons ahead; 99 is the career view (best season within the next 10)",
+    )  # fmt: skip
     parser.add_argument(
         "--max-rows", type=int, default=outlook_models.MAX_ROWS, help="training rows per model (whole players)"
     )

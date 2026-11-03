@@ -4,7 +4,7 @@ ratings are worth at each position, and where he stands among the players of the
 Two tables per save are written to files/<save>/outlook/:
 - players.csv.gz: one row per player and season: identity, traits (WE, INT, leadership), the four prone fields, the
   entry route and season, level, playing time at every level, the gate ratings, and whether he is still in the league 1,
-  2, 3 and 5 seasons later (`stay_h<n>`, `observed_h<n>`).
+  2, 3, 5, 7 and 10 seasons later (`stay_h<n>`, `observed_h<n>`).
 - slot_values.csv.gz: the value at every slot for every player and season, with the flag `qualified` (the targets of the
   outlook models need the value of a player who no longer passes a gate).
 - values.csv.gz: one row per player, season and slot (C, 1B, ..., RF, DH, SP, RP) that he qualifies for: the
@@ -30,7 +30,7 @@ from util import paths
 from util.config import PROJECT_ROOT, get_save
 
 OUTLOOK_CONFIG = PROJECT_ROOT / "config" / "outlook.toml"
-HORIZONS = (1, 2, 3, 5)
+HORIZONS = (1, 2, 3, 5, 7, 10)
 TOP_RANKS = {"top10": 10, "top50": 50}  # for a 30-team league
 BASE_TEAMS = 30
 
