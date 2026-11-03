@@ -16,3 +16,4 @@ xlsxwriter
 numpy
 requests
 pytest
+streamlit

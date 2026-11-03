@@ -5,14 +5,14 @@ Everything is trained on one game version's long CPU league from the tables of m
 that both a dump and an in-game export hold (age, ratings and the game's potentials, work ethic / intelligence / proneness
 tiers, level, height and weight).
 
-Models, per horizon h (1, 2, 3, 5 seasons ahead):
+Models, per horizon h (1, 2, 3, 5, 7, 10 seasons ahead, and CAREER = 99: the best season within the next 10 seasons):
 - `value`: five quantiles (10, 25, 50, 75, 90) of the change of the slot value, for each family (hitters at C..RF and DH, pitchers
   at SP and RP), conditional on the player being ranked at the slot in t+h; the floor and ceiling are the 10th and 90th.
 - `top10` / `top50`: classifiers for being ranked top 10 / top 50 at the same slot in t+h (a player who is gone counts as no).
 - `stay`: classifier for being in the league in t+h.
 - `avail`: quantiles (10, 50, 90) of the share of a full season he plays in t+h (time_share), a measure of availability.
 
-Honest evaluation holds out the latest seasons with a gap of five seasons (the targets of the training rows reach five seasons
+Honest evaluation holds out the latest seasons with a gap of ten seasons (the targets of the training rows reach ten seasons
 ahead) and compares with persistence baselines (value now, plus the mean change by age and slot).
 """
 
@@ -26,13 +26,25 @@ from sklearn.isotonic import IsotonicRegression
 from model import data, outlook_data
 from model.artifact import Artifact, load_artifact, save_artifact
 
-HORIZONS = (1, 2, 3, 5)
+HORIZONS = (1, 2, 3, 5, 7, 10)
+CAREER = 99  # pseudo-horizon: the targets are the peak (best slot value) and "ever top 10 / top 50" within CAREER_SPAN seasons
+CAREER_SPAN = 10
+OUTLOOK_HORIZONS = (
+    *HORIZONS,
+    CAREER,
+)  # the horizons of the slot models; the player models (stay, availability) use HORIZONS
 VALUE_QUANTILES = (0.1, 0.25, 0.5, 0.75, 0.9)
 AVAIL_QUANTILES = (0.1, 0.5, 0.9)
 FAMILIES = {"hitters": outlook_data.HITTER_SLOTS, "pitchers": outlook_data.PITCHER_SLOTS}
 SLOT_CODES = {slot: i for i, slot in enumerate([*outlook_data.HITTER_SLOTS, *outlook_data.PITCHER_SLOTS])}
-GAP = 5  # seasons between the last training season and the first test season (the longest horizon)
+GAP = 10  # seasons between the last training season and the first test season (the longest horizon)
 TEST_SEASONS = 6
+
+
+def reach(horizon: int) -> int:
+    """How many seasons ahead the targets of a horizon look (the career pseudo-horizon looks CAREER_SPAN seasons ahead)."""
+    return CAREER_SPAN if horizon == CAREER else horizon
+
 
 HITTER_RATINGS = [
     "BABIP", "GAP", "POW", "EYE", "K's", "BA P", "GAP P", "POW P", "EYE P", "K P",
@@ -130,11 +142,14 @@ def family_features(rows: pd.DataFrame, context: pd.DataFrame, ratings: pd.DataF
     return frame
 
 
-def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None = None) -> pd.DataFrame:
+def family_table(save: str, family: str, horizons=OUTLOOK_HORIZONS, tables: dict | None = None) -> pd.DataFrame:
     """Training rows of one family: one per player, season and slot he is ranked at, with features and targets.
 
     Targets per horizon h: `dvalue_h` (value at t+h minus value now, NaN if the player is gone or beyond the table),
-    `top50_h`, `top10_h` (0 when gone or not ranked then, NaN beyond the table), `observed_h`."""
+    `top50_h`, `top10_h` (0 when gone or not ranked then, NaN beyond the table), `observed_h`. For the CAREER pseudo-horizon:
+    `dvalue_h99` is the best value at the slot within the next CAREER_SPAN seasons minus the value now (NaN when he is never
+    there), `top10_h99` / `top50_h99` whether he is ever top 10 / top 50 at the slot then; observed only when all of those
+    seasons are inside the table."""
     tables = tables or outlook_data.read_tables(save)
     players, values, every = tables["players"], tables["values"], tables["slot_values"]
     if every is None:
@@ -142,10 +157,14 @@ def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None 
     rows = values[values["slot"].isin(FAMILIES[family])][["ID", "season", "slot", "value", "pct", "tier"]]
     rows = rows.rename(columns={"value": "value_now", "pct": "pct_now"})
     ptable = player_table(players, values)
-    context = ptable[[*CONTEXT_COLUMNS, *[f"observed_h{h}" for h in horizons]]]
+    reached = sorted({reach(h) for h in horizons})
+    context = ptable[[*CONTEXT_COLUMNS, *[f"observed_h{h}" for h in reached]]]
     ratings = load_ratings(save, sorted(players["season"].unique()), rating_columns_needed(family))
     keyed = family_features(rows, context, ratings, family)
     for h in horizons:
+        if h == CAREER:
+            keyed = add_career_targets(keyed, every, values)
+            continue
         later_value = every[["ID", "slot", "season", "value"]].assign(season=every["season"] - h)
         later_value = later_value.rename(columns={"slot": "slot_name", "value": f"value_h{h}"})
         keyed = keyed.merge(later_value, on=["ID", "slot_name", "season"], how="left")
@@ -157,7 +176,32 @@ def family_table(save: str, family: str, horizons=HORIZONS, tables: dict | None 
         tier = keyed[f"tier_h{h}"]
         keyed[f"top50_h{h}"] = tier.isin(["top10", "top50"]).astype(float).where(observed)
         keyed[f"top10_h{h}"] = (tier == "top10").astype(float).where(observed)
-    return keyed.drop(columns=["slot_name", *[f"tier_h{h}" for h in horizons], "tier"])
+    return keyed.drop(columns=["slot_name", *[f"tier_h{h}" for h in horizons if h != CAREER], "tier"])
+
+
+def add_career_targets(keyed: pd.DataFrame, every: pd.DataFrame, values: pd.DataFrame) -> pd.DataFrame:
+    """dvalue_h99, top10_h99, top50_h99 and observed_h99 (see family_table), from the next CAREER_SPAN seasons."""
+    out = keyed
+    peak = pd.Series(np.nan, index=out.index)
+    ever10 = pd.Series(0.0, index=out.index)
+    ever50 = pd.Series(0.0, index=out.index)
+    for k in range(1, CAREER_SPAN + 1):
+        later = every[["ID", "slot", "season", "value"]].assign(season=every["season"] - k)
+        later = later.rename(columns={"slot": "slot_name", "value": "later_value"})
+        merged = out[["ID", "slot_name", "season"]].merge(later, on=["ID", "slot_name", "season"], how="left")
+        peak = np.fmax(peak, merged["later_value"].set_axis(out.index))
+        tiers = values[["ID", "slot", "season", "tier"]].assign(season=values["season"] - k)
+        tiers = tiers.rename(columns={"slot": "slot_name"})
+        tier = out[["ID", "slot_name", "season"]].merge(tiers, on=["ID", "slot_name", "season"], how="left")["tier"]
+        tier = tier.set_axis(out.index)
+        ever10 = np.fmax(ever10, (tier == "top10").astype(float))
+        ever50 = np.fmax(ever50, tier.isin(["top10", "top50"]).astype(float))
+    observed = out[f"observed_h{CAREER_SPAN}"].astype(bool)
+    out[f"observed_h{CAREER}"] = observed
+    out[f"dvalue_h{CAREER}"] = (peak - out["value_now"]).where(observed)
+    out[f"top10_h{CAREER}"] = ever10.where(observed)
+    out[f"top50_h{CAREER}"] = ever50.where(observed)
+    return out
 
 
 # ---------------------------------------------------------------- models
@@ -252,7 +296,7 @@ def split_seasons(seasons: np.ndarray, horizon: int) -> tuple[np.ndarray, np.nda
     """(train, test) seasons for a horizon: the test seasons are the latest ones with an observed future; the training seasons
     stop GAP seasons before them, so no training target is looked at by the test seasons."""
     observed = np.sort(np.unique(seasons))
-    observed = observed[observed <= observed.max() - horizon]
+    observed = observed[observed <= observed.max() - reach(horizon)]
     test = observed[-TEST_SEASONS:]
     train = observed[observed < test.min() - GAP]
     return train, test
@@ -509,7 +553,7 @@ def train_value_models(run: Run, family: str, table: pd.DataFrame, horizon: int,
         models = quantile_fits(train, features, column, VALUE_QUANTILES)
         predictions = predict_quantiles(models, test[features])
         metrics = regression_metrics(test, horizon, predictions, age_slot_quantiles(train, horizon, VALUE_QUANTILES))
-    final = subsample_players(known[known["season"] <= max(run.seasons) - horizon], run.max_rows)
+    final = subsample_players(known[known["season"] <= max(run.seasons) - reach(horizon)], run.max_rows)
     for q, model in quantile_fits(final, features, column, VALUE_QUANTILES).items():
         notes = {"kind": "value", "family": family, "horizon": horizon, "quantile": q}
         if metrics:
@@ -658,7 +702,7 @@ def train_outlook_models(
     save: str,
     ratings: str,
     families=("hitters", "pitchers"),
-    horizons=HORIZONS,
+    horizons=OUTLOOK_HORIZONS,
     max_rows: int = MAX_ROWS,
     evaluate: bool = True,
     log=print,
@@ -673,14 +717,15 @@ def train_outlook_models(
         log(f"{family}: {len(table)} rows")
         for h in horizons:
             results["families"][(family, h)] = train_family_horizon(run, family, table, h)
-    ptable = add_player_targets(player_table(tables["players"], tables["values"]), horizons)
-    for h in horizons:
+    player_horizons = [h for h in horizons if h != CAREER]  # stay and availability have no career version
+    ptable = add_player_targets(player_table(tables["players"], tables["values"]), player_horizons)
+    for h in player_horizons:
         results["player"][h] = train_player_models(run, ptable, h)
     return results
 
 
 def patch_expected_counts(
-    save: str, ratings: str, families=("hitters", "pitchers"), horizons=HORIZONS, log=print
+    save: str, ratings: str, families=("hitters", "pitchers"), horizons=OUTLOOK_HORIZONS, log=print
 ) -> None:
     """Add the expected counts to tier classifiers that were trained without them (no retraining: they come from the labels)."""
     tables = outlook_data.read_tables(save)

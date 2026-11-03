@@ -16,27 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import pandas as pd  # noqa: E402
-
 from util.seasons import available_seasons  # noqa: E402
 from viewer import queries  # noqa: E402
-
-SHOWN = [
-    "First Name", "Last Name", "Age", "org", "level_name", "slot", "value_now", "tier_now", "floor", "value", "ceiling",
-    "p_top10", "p_top50", "p_stay", "season_value", "injury_cost", "p_start", "p_roster",
-]  # fmt: skip
-
-
-def table(rows: pd.DataFrame, horizon: int) -> pd.DataFrame:
-    """The columns of a list with the horizon's columns named plainly."""
-    out = pd.DataFrame(index=rows.index)
-    for column in SHOWN:
-        for source in (column, f"{column}_h{horizon}"):
-            if source in rows.columns:
-                out[column] = rows[source]
-                break
-    out.insert(0, "key", rows["key"].round(3))
-    return out
 
 
 def main(argv=None) -> int:
@@ -68,7 +49,7 @@ def main(argv=None) -> int:
     except (KeyError, ValueError, FileNotFoundError) as error:
         print(f"error: {error.args[0] if isinstance(error, KeyError) else error}", file=sys.stderr)
         return 2
-    result = table(rows, horizon)
+    result = queries.display_table(rows, horizon)
     if args.out:
         result.to_csv(args.out, index=False)
         print(f"{len(result)} rows -> {args.out}")

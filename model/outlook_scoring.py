@@ -19,7 +19,16 @@ import numpy as np
 import pandas as pd
 
 from model import artifact, formats, outlook_data, outlook_models, registry
-from model.outlook_models import AVAIL_FEATURES, FAMILIES, HORIZONS, PLAYER_FEATURES, VALUE_QUANTILES, feature_names
+from model.outlook_models import (
+    AVAIL_FEATURES,
+    CAREER,
+    FAMILIES,
+    HORIZONS,
+    OUTLOOK_HORIZONS,
+    PLAYER_FEATURES,
+    VALUE_QUANTILES,
+    feature_names,
+)
 from util.config import get_save
 
 RANK_WEIGHTS = (0.25, 0.5, 0.25)  # floor, median, ceiling
@@ -270,11 +279,18 @@ def score_players(
 
 
 def score_slots(
-    models: OutlookModels, inputs: dict, ptable: pd.DataFrame, players: pd.DataFrame, horizons=HORIZONS
+    models: OutlookModels, inputs: dict, ptable: pd.DataFrame, players: pd.DataFrame, horizons=OUTLOOK_HORIZONS
 ) -> pd.DataFrame:
-    """Floor / median / ceiling, tier chances and season value for every ranked slot of every player."""
+    """Floor / median / ceiling, tier chances and season value for every ranked slot of every player.
+
+    The CAREER horizon (99) describes his best season within the next ten: its median / floor / ceiling are those of the peak
+    value, its tier chances the chance of ever being top 10 / top 50 at the slot; it has no season value (no availability).
+    """
     ranked, season = inputs["ranked"], inputs["season"]
     thresholds = tier_thresholds(ranked, inputs["teams"])
+    first_real = min(
+        h for h in horizons if h != CAREER
+    )  # the career chance counts him only if he stays at least that long
     outputs = []
     for family, slots in FAMILIES.items():
         rows = ranked[ranked["slot"].isin(slots)][["ID", "season", "slot", "value", "pct", "rank", "tier"]]
@@ -303,7 +319,7 @@ def score_slots(
             quantile_matrix = np.sort(
                 np.column_stack([now + low, now + q[0.25], now + q[0.5], now + q[0.75], now + high]), axis=1
             )
-            stay = per_player.reindex(frame["ID"])[f"p_stay_h{h}"].to_numpy()
+            stay = per_player.reindex(frame["ID"])[f"p_stay_h{first_real if h == CAREER else h}"].to_numpy()
             for tier in ("top10", "top50"):
                 from_classifier = models.probability(tier, family, h, X, names, inputs["teams"])
                 limit = names.map(thresholds[tier]).to_numpy(dtype=float)
@@ -314,6 +330,8 @@ def score_slots(
             result[f"rank_score_h{h}"] = (
                 w_floor * result[f"floor_h{h}"] + w_median * result[f"value_h{h}"] + w_ceiling * result[f"ceiling_h{h}"]
             )
+            if h == CAREER:
+                continue
             joined = per_player.reindex(frame["ID"])
             avail = np.column_stack([joined[f"avail_p10_h{h}"], joined[f"avail_h{h}"], joined[f"avail_p90_h{h}"]])
             avail = np.sort(np.nan_to_num(avail, nan=0.6), axis=1)
@@ -342,7 +360,7 @@ def outlook_for_season(
     """(slots, players): the outlook columns of every player of a season, for the horizons the model set has."""
     config = get_save(save)
     models = OutlookModels(models_from or save, config.ratings)
-    horizons = tuple(h for h in (horizons or HORIZONS) if h in models.horizons())
+    horizons = tuple(h for h in (horizons or OUTLOOK_HORIZONS) if h in models.horizons())
     if not horizons:
         raise FileNotFoundError(
             f"no outlook value models in {models.save}; run scripts/train_outlook_models.py {models.save}"
@@ -350,7 +368,7 @@ def outlook_for_season(
     inputs = season_inputs(save, season, models_from)
     inputs["save"] = save
     ptable = scoring_player_table(inputs["state"], inputs["ranked"])
-    players = score_players(models, ptable, horizons)
+    players = score_players(models, ptable, tuple(h for h in horizons if h != CAREER))
     slots = score_slots(models, inputs, ptable, players, horizons)
     return slots, players
 
