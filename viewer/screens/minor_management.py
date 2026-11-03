@@ -175,19 +175,20 @@ def main() -> None:
         st.info(f"{org} has no minor leaguers on the ladder.")
         return
     prospect_share, top_share = 1 - rules.prospect, 1 - rules.top_prospect
-    st.caption(
-        " ".join(
-            [
-                f"**{org}** {save} {season}: the focus is the development of the better players while they can still improve.",
-                f"A prospect has a ceiling in the top {prospect_share:.0%} of the league's minor leaguers",
-                f"(top {top_share:.0%}: top prospect); Win = seasons of development left. Key ratings are compared with the players of each level in all",
-                f"organizations (percentile; green from {rules.green:.0%}). Up = dominates the level and has a chance at the",
-                "next one (a prospect with development left needs one green rating less) or is old for the level; Down = weak for the",
-                "level; Must move = over the age or pro-years limit. A move is only listed to a level whose limits he meets",
-                "(Blocked tells when it is not). Click a player for his ratings.",
-            ]
-        )
-    )
+    sentences = [
+        f"**{org}** {save} {season}: the focus is the development of the better players while they can still improve.",
+        f"A prospect has a ceiling in the top {prospect_share:.0%} of the league's minor leaguers "
+        f"(top {top_share:.0%}: top prospect).",
+        "Win = seasons of development left.",
+        "Key ratings are compared with the players of each level in all organizations (percentile; "
+        f"green from {rules.green:.0%}).",
+        "Up = dominates the level and has a chance at the next one (a prospect with development left needs one green "
+        "rating less) or is old for the level.",
+        "Down = weak for the level.",
+        "Must move = over the age or pro-years limit.",
+        "A move is only listed to a level whose limits he meets (Blocked tells when it is not). Click a player for his ratings.",
+    ]
+    st.caption(" ".join(sentences))
     show_filler = st.checkbox("Also show the moves of depth players and of players past their window")
     everyone = st.checkbox("Also show players with no move")
     ladder = minors.ladder(levels)
