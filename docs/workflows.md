@@ -93,7 +93,7 @@ TGS and TGS26 are all 20-80 and keep using the 20-80 models.
 
 Two kinds. The **value models** turn ratings into runs. The **outlook models** project those values forward and depend on the value models, so retrain them after the value models change.
 
-*Retrain the value models* (new training seasons, changed attribute lists, a fix to the processing):
+*Retrain the value models* (new training seasons, changed attribute lists, a fix to the processing; `train_models.py` also trains the park event-rate models of the viewer's park adjustment, `--streams park` alone does only those, in seconds):
 
 1. `python scripts/process_seasons.py Model-Sim --start 2046` (reprocess the training seasons if the processing changed).
 2. `python scripts/train_models.py Model-Sim --start 2046 --stop 2086`; add `--no-cv` to skip the honest scores (faster).
@@ -120,6 +120,8 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 6. Point a human league's `models_from` at the new save in `config/update.toml`.
 
 ### 5. I changed the lists or the viewer
+
+- The rules of the acquisitions page (what counts as a need, the weight of a reliever, which free agents are left out) are in `config/acquisition.toml`. It needs the `finance` folder in the export for the budget space; without it the costs are not checked.
 
 - The age and pro-years limits of each minor league level, and the promotion ladder (the order of the level tables, top level first), are in `config/saves.toml`; the rules of the level moves page (what counts as green, how many key ratings, how old is old for a level) in `config/minors.toml`. Check the ladder order of a new league.
 - The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.

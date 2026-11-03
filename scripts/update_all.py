@@ -10,6 +10,7 @@ Usage:
 For each save the steps run in order (a failed step stops that save, the other saves still run):
     process   processed output files of the season (scripts/process_seasons.py)
     values    predicted values of every player, plan 14 models (scripts/predict_values.py)
+    park      neutral-park event rates of the hitters, for the park adjustment of the viewer (scripts/predict_park.py)
     outlook   floor / ceiling, top-10 / top-50 chances, injury cost (scripts/predict_outlook.py)
     lists     every list of config/viewer.toml as a csv in output/lists/ (scripts/outlook_lists.py)
 When a function or output is added to the project, add its step to STEPS here (and to the README) so the update stays complete.
@@ -27,7 +28,8 @@ from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts import outlook_lists, predict_outlook, predict_values, process_seasons  # noqa: E402
+from model import park, scales  # noqa: E402
+from scripts import outlook_lists, predict_outlook, predict_park, predict_values, process_seasons  # noqa: E402
 from util import paths  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
@@ -60,6 +62,17 @@ def _values(job: Job) -> int:
     return predict_values.main([job.save, "--season", str(job.season), "--models-from", job.models_from])
 
 
+def _park(job: Job) -> int:
+    """The neutral-park event rates for the park adjustment of the viewer; skipped when the model set has no park models yet."""
+    config = get_save(job.save)
+    try:
+        park.load_models(job.models_from, scales.model_set(config.ratings, config.scales))
+    except FileNotFoundError:
+        print("  skipped: no park models (train them with scripts/train_models.py <training save> --streams park)")
+        return 0
+    return predict_park.main([job.save, "--season", str(job.season), "--models-from", job.models_from])
+
+
 def _outlook(job: Job) -> int:
     return predict_outlook.main([job.save, "--season", str(job.season), "--models-from", job.models_from])
 
@@ -86,6 +99,7 @@ def _lists(job: Job) -> int:
 STEPS = [
     Step("process", "processed output files of the season", _process),
     Step("values", "predicted values (plan 14 models)", _values),
+    Step("park", "neutral-park event rates for the park adjustment of the viewer", _park),
     Step("outlook", "outlook scores: floor, ceiling, tier chances, injury cost", _outlook),
     Step("lists", "the lists of config/viewer.toml as csv files", _lists),
 ]

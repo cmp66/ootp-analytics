@@ -76,13 +76,23 @@ def ranking_column(frame: pd.DataFrame, ranked_by: str) -> str:
 NOT_ALLOWED = -1e6  # a player is never put where the files do not rank him
 
 
-def assign_pass(values: pd.DataFrame, places: dict[str, int]) -> list[tuple[int, str]]:
+PREFERENCE = (
+    0.05  # runs: the small bonus for playing the position he is listed at, which breaks exact ties between assignments
+)
+
+
+def assign_pass(values: pd.DataFrame, places: dict[str, int], listed: pd.Series | None = None) -> list[tuple[int, str]]:
     """The best way to fill the places once: `values` has a row per player and a column per slot (NaN: not ranked there);
-    `places` the number of players each slot takes. Returns (player ID, slot) pairs of the largest total value."""
+    `places` the number of players each slot takes. Returns (player ID, slot) pairs of the largest total value. `listed` (ID ->
+    the position he is listed at) gives a player a bonus of PREFERENCE runs at that position: two assignments with the same total
+    value (shortstop and second baseman swapped, say) are then decided by who plays where, not by rounding."""
     columns = [slot for slot, count in places.items() for _ in range(count)]
     if values.empty or not columns:
         return []
     matrix = values[columns].fillna(NOT_ALLOWED).to_numpy(dtype=float)
+    if listed is not None:
+        home = listed.reindex(values.index).to_numpy()
+        matrix = matrix + PREFERENCE * (home[:, None] == np.array(columns)[None, :]) * (matrix > NOT_ALLOWED / 2)
     rows, cols = linear_sum_assignment(matrix, maximize=True)
     return [(int(values.index[r]), columns[c]) for r, c in zip(rows, cols) if matrix[r, c] > NOT_ALLOWED / 2]
 
@@ -91,9 +101,10 @@ def fill(pool: pd.DataFrame, column: str, places: dict[str, int], depth: int) ->
     """Slot -> player IDs in depth order: `depth` passes of assign_pass, each over the players the earlier passes left."""
     values = pool[pool["slot"].isin(places)].pivot_table(index="ID", columns="slot", values=column, aggfunc="max")
     values = values.reindex(columns=list(places))
+    listed = pool.drop_duplicates("ID").set_index("ID")["LPOS"] if "LPOS" in pool.columns else None
     order: dict[str, list[int]] = {slot: [] for slot in places}
     for _ in range(depth):
-        picked = assign_pass(values, places)
+        picked = assign_pass(values, places, listed)
         if not picked:
             break
         for player, slot in sorted(

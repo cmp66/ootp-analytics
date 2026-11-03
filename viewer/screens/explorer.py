@@ -110,6 +110,9 @@ def main() -> None:
         index=orgs.index(org_default) + 1 if org_default in orgs else 0,
     )
 
+    park_on = league.park_toggle(st.sidebar, org, "park-explorer", league.park_available(save, season))
+    frame = league.park_frame(save, season, frame, org, park_on)  # values in the park of my organization
+
     pools = ["all", "mlb", "org", "others", "free_agents", "iafa", "draft"]
     pool_name = st.sidebar.selectbox("Players from", pools, index=pools.index(spec.pool), format_func=POOL_LABELS.get)
     slots = st.sidebar.multiselect("Positions", queries.SLOT_ORDER, default=list(spec.slots))

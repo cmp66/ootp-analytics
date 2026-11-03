@@ -56,7 +56,7 @@ def test_unknown_step_or_save_is_an_error(monkeypatch, tmp_path):
 
 
 def test_real_steps_cover_the_scripts():
-    assert [s.name for s in update_all.STEPS] == ["process", "values", "outlook", "lists"]
+    assert [s.name for s in update_all.STEPS] == ["process", "values", "park", "outlook", "lists"]
     assert "TGS" in update_all.load_update_config()
 
 

@@ -27,7 +27,14 @@ POSITION_ROWS = 10
 KINDS = {"Position players": "hit", "Starting pitchers": "sp", "Relief pitchers": "rp"}
 COLORS = {"hit": "#1f5f99", "pos": "#3b7a57", "sp": "#a0522d", "rp": "#7a4a99"}
 RUN_COLUMNS = ["Off", "Def", "Run"]
-NUMBER_FORMATS = {"Value": "{:.1f}", "Ceiling": "{:.1f}", "Floor": "{:.1f}", "Top-10 %": "{:.0f}", "Top-50 %": "{:.0f}"}
+NUMBER_FORMATS = {
+    "Park": "{:+.1f}",
+    "Value": "{:.1f}",
+    "Ceiling": "{:.1f}",
+    "Floor": "{:.1f}",
+    "Top-10 %": "{:.0f}",
+    "Top-50 %": "{:.0f}",
+}
 
 EXPLANATION = {
     "five": {
@@ -71,7 +78,7 @@ def styled(frame: pd.DataFrame):
 
 COLUMN_WIDTHS = {  # pixels: the three narrow cards must fit their columns without clipping or a sideways scrollbar
     "Player": 112, "Pos": 40, "Age": 40, "Lev": 46, "Off": 50, "Def": 50, "Run": 50, "Value": 56, "Ceiling": 62,
-    "Floor": 56, "Top-10 %": 66, "Top-50 %": 66, "Org": 42,
+    "Floor": 56, "Top-10 %": 66, "Top-50 %": 66, "Org": 42, "Park": 46,
 }  # fmt: skip
 
 
@@ -155,8 +162,12 @@ PAGES = {  # page key -> (file, link label, icon)
     "iafa": ("screens/iafa_overview.py", "IAFA", ":material/public:"),
     "depth": ("screens/depth_chart.py", "Depth chart", ":material/stadium:"),
     "management": ("screens/minor_management.py", "Level moves", ":material/swap_vert:"),
+    "acquire": ("screens/acquisitions.py", "Acquisitions", ":material/person_add:"),
     "explorer": ("screens/explorer.py", "Explorer", ":material/search:"),
 }
+LINK_WIDTHS = [
+    round(0.45 + 0.075 * len(label), 2) for _, label, _ in PAGES.values()
+]  # the width of each link of the top row
 POOL_TITLES = {"draft": "MLB draft class", "iafa": "International amateurs (IAFA)"}
 POOL_NAMES = {"minors": "org", "draft": "draft", "iafa": "iafa"}
 ALL_ORGS = "All organizations"
@@ -168,7 +179,7 @@ def render(page: str = "org") -> None:
     (players of no organization yet). All but the first show floor / ceiling instead of the current value."""
     config = load_update_config()
     st.html(STYLE)
-    league_column, first, *links = st.columns([0.9, 1.2, 1, 1.3, 1, 0.8, 1, 1.1, 1.3], vertical_alignment="center")
+    league_column, first, *links = st.columns([0.9, 1.2, *LINK_WIDTHS], vertical_alignment="center")
     save = league.choose_save(config, league_column, key=f"league-{page}")
     seasons = available_seasons(save)
     if not seasons:
@@ -203,8 +214,13 @@ def render(page: str = "org") -> None:
         except StreamlitPageNotFoundError:  # run on its own, without the navigation of viewer/app.py
             break
     mode, window = "current", "five"
+    park_team = (
+        org if org not in (None, ALL_ORGS, FREE_AGENTS) else (mine if not has_org else None)
+    )  # the draft and IAFA pages: mine
+    available = league.park_available(save, season)
     if projection:
-        choice, span, caption = st.columns([1.2, 2.4, 6], vertical_alignment="center")
+        choice, span, park_column, caption = st.columns([1.2, 2.4, 1.9, 5], vertical_alignment="center")
+        park_on = league.park_toggle(park_column, park_team, f"park-{page}", available)
         mode = choice.radio("Projection", ["Ceiling", "Floor"], horizontal=True, label_visibility="collapsed").lower()
         windows = {"Next 5 seasons": "five", "Career (best of 10 seasons)": "career"}
         if "ceiling_h99" not in frame.columns:
@@ -217,10 +233,13 @@ def render(page: str = "org") -> None:
         )
         caption.caption(EXPLANATION[window][mode].format(who=who, save=save, season=season))
     else:
-        st.markdown(
+        park_column, text = st.columns([1.9, 8.1], vertical_alignment="center")
+        park_on = league.park_toggle(park_column, park_team, f"park-{page}", available)
+        text.markdown(
             f"**{org}** {save} {season}: Value = the player's current value in runs above the league's average starter at the "
             "position (Off + Def + Run). Click a header to sort everybody listed, a player for his ratings."
         )
+    frame = league.park_frame(save, season, frame, park_team, park_on)  # Park = what the park changes in the value
     pool_name = {ALL_ORGS: "all_orgs", FREE_AGENTS: "free_agents"}.get(org, POOL_NAMES.get(page, "org"))
     owner, with_all = None if org in (ALL_ORGS, FREE_AGENTS) else org, org == ALL_ORGS
     tables = overview.pool_overview(

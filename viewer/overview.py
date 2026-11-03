@@ -61,6 +61,8 @@ def _players(
                 out[label] = rows[column]
     for label, column in MODES[mode]["columns"]:
         out[label] = rows[column]
+    if "park_effect" in rows:  # the park-adjusted view: what the park changes in the value
+        out["Park"] = rows["park_effect"]
     out["Slot"] = rows["slot"] if with_slot else slot  # the position the ratings card is for
     return out.reset_index(drop=True)
 
