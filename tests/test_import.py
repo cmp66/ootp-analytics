@@ -124,3 +124,20 @@ def test_nothing_is_logged_when_everyone_has_ratings(caplog):
     with caplog.at_level("WARNING", logger="util.importCSV"):
         assert importCSV.report_missing_ratings("batting", stats, ratings, "PA", "Test", 2000) == 0
     assert caplog.text == ""
+
+
+def test_files_in_the_ratings_folder_that_are_not_player_lists_are_skipped(tmp_path, monkeypatch):
+    import pandas as pd
+
+    from util import importCSV, paths
+
+    folder = tmp_path / "ratings"
+    folder.mkdir()
+    pd.DataFrame({"Team Name": ["A"], "Abbr": ["AAA"], "PF": [1.0]}).to_csv(folder / "park_info.csv", index=False)
+    monkeypatch.setattr(paths, "export_ratings_dir", lambda league, season: folder)
+    try:
+        importCSV.import_ratings("L", 1, "R", str(tmp_path))
+    except FileNotFoundError as error:
+        assert "No ratings files" in str(error)  # nothing but the park file: no player list is left
+    else:
+        raise AssertionError("expected FileNotFoundError")

@@ -132,6 +132,7 @@ def import_ratings(league: str, season: int, ratings_type: str, basedir: str) ->
 
     filedir = paths.export_ratings_dir(league, season)
     frames = [pd.read_csv(filedir / file) for file in sorted(os.listdir(filedir))]
+    frames = [frame for frame in frames if "ID" in frame.columns]  # a park info file in the folder is not a player list
     if not frames:
         raise FileNotFoundError(f"No ratings files in {filedir}")
     df_player_ratings = pd.concat(frames, ignore_index=True)

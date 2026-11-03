@@ -18,7 +18,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 from scripts.update_all import load_update_config  # noqa: E402
 from util import paths  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
-from viewer import overview, player_card, queries  # noqa: E402
+from viewer import league, overview, player_card, queries  # noqa: E402
 
 ROW_HEIGHT = 21  # pixels of a table row; lower it if the screen does not fit
 HEADER_HEIGHT = 36
@@ -166,7 +166,9 @@ def render(page: str = "org") -> None:
     """Draw a page: "org" (current value of one organization), "minors" (its players not on the MLB roster) or "draft" / "iafa"
     (players of no organization yet). All but the first show floor / ceiling instead of the current value."""
     config = load_update_config()
-    save = next(iter(config))
+    st.html(STYLE)
+    league_column, first, *links = st.columns([0.9, 1.2, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center")
+    save = league.choose_save(config, league_column, key=f"league-{page}")
     seasons = available_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
@@ -182,12 +184,10 @@ def render(page: str = "org") -> None:
     except FileNotFoundError:
         st.error(f"{save} {season} has no outlook files yet: run `python scripts/update_all.py {save}`.")
         return
-    st.html(STYLE)
     has_org = page in ("org", "minors")
     projection = page != "org"
     orgs = overview.organizations(frame)
     mine = config[save].get("org")
-    first, *links = st.columns([1.2, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center")
     if has_org:
         choices = [ALL_ORGS, *([FREE_AGENTS] if page == "org" else []), *orgs]
         org = first.selectbox(
