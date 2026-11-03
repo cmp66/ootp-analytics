@@ -15,15 +15,12 @@ org = "CLE"  # Cleveland
 models_from = "Model-Sim-26-Std"
 # org = "ABC"
 
-# The two leagues below have ratings that are not all on the 20-80 scale (Dugout26: batting and pitching 20-80, speed, stamina and
-# fielding 1-10; PBL27: everything 1-10; see scripts/detect_rating_scales.py). Their models are not done yet, so only the
-# processing runs; add the other steps when the scale handling exists.
+# Dugout26 (batting and pitching 20-80; speed, stamina and fielding 1-10) and PBL27 (everything 1-10) are scored with models trained
+# on ratings turned to their mix of scales (the `scales` key of config/saves.toml; scripts/train_models.py --scales).
 [Dugout26]
 models_from = "Model-Sim-26-Std"
 org = "CIN"  # Cincinnati
-steps = ["process"]
 
 [PBL27]
 models_from = "Model-Sim"
 org = "TOR"  # Toronto
-steps = ["process"]

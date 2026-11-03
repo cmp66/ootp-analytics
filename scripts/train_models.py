@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from model import artifact, domains, registry  # noqa: E402
+from model import artifact, data, domains, registry, scales  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons, select_seasons  # noqa: E402
 
@@ -35,6 +35,12 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--no-cv", action="store_true", help="skip the cross-validation and hold-out scores")
     parser.add_argument("--device", help="torch device for networks (cpu, cuda, xpu); default: OOTP_DEVICE or CPU")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument(
+        "--scales",
+        metavar="LEAGUE",
+        help="train on ratings turned to the mix of scales of this league (its 1-10 columns); the models go to "
+        "<ratings>@<league> and the league names them in the `scales` key of config/saves.toml",
+    )
     return parser.parse_args(argv)
 
 
@@ -50,18 +56,32 @@ def main(argv=None) -> int:
         stop = args.stop if args.stop is not None else available[-1]
         seasons = select_seasons(available, start, stop)
         todo = registry.specs(args.streams, include_plain=not args.no_plain)
+        view, key, coarse = None, save.ratings, []
+        if args.scales:
+            conversion = scales.Conversion.load(scales.version_of(save.ratings))
+            coarse = scales.profile_columns(args.scales, conversion=conversion)
+            if not coarse:
+                raise ValueError(f"{args.scales} has no ratings on the 1-10 scale: nothing to convert")
+            view, key = scales.coarse_view(conversion, coarse, seed=args.seed), scales.model_set(
+                save.ratings, args.scales
+            )
     except (KeyError, ValueError) as error:
         print(f"error: {error.args[0] if isinstance(error, KeyError) else error}", file=sys.stderr)
         return 2
 
-    print(f"Training {len(todo)} models on {args.save} {seasons[0]}-{seasons[-1]} (ratings {save.ratings})")
+    print(f"Training {len(todo)} models on {args.save} {seasons[0]}-{seasons[-1]} (ratings {key})")
+    if args.scales:
+        print(f"  ratings turned to 1-10 as in {args.scales}: {len(coarse)} columns")
     failed = []
     for spec in todo:
         started = time.perf_counter()
         try:
-            trained = registry.train_spec(
-                spec, args.save, save.ratings, seasons, cv=not args.no_cv, device=args.device, seed=args.seed
-            )
+            with data.ratings_view(view):
+                trained = registry.train_spec(
+                    spec, args.save, key, seasons, cv=not args.no_cv, device=args.device, seed=args.seed
+                )
+            if args.scales:
+                trained.notes["scales"] = {"profile": args.scales, "columns": coarse}
             path = artifact.save_artifact(trained)
         except FileNotFoundError as error:
             print(f"  {spec.name}: {error}", file=sys.stderr)

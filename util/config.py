@@ -30,6 +30,9 @@ class SaveConfig:
     team_names: dict[str, str] = field(default_factory=dict)
     # level of the ratings column Lev (AAA, AA, A+, A-, R+, R, INT, ...) -> its limits; a level that is not listed has none
     levels: dict[str, LevelLimits] = field(default_factory=dict)
+    # name of the rating scale profile of a league whose ratings are not all 20-80 (the models for it are trained on ratings
+    # turned to that mix, see model/scales.py); None: all 20-80
+    scales: str | None = None
 
 
 def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
@@ -59,6 +62,7 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
             home_share=home_share,
             team_names=dict(values.get("team_names", {})),
             levels=levels,
+            scales=values.get("scales"),
         )
     return saves
 

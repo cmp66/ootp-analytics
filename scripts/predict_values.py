@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd  # noqa: E402
 
-from model import artifact, data, registry  # noqa: E402
+from model import artifact, data, registry, scales  # noqa: E402
 from util import paths  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
@@ -71,7 +71,7 @@ def main(argv=None) -> int:
         season = args.season if args.season is not None else (available_seasons(args.save) or [None])[-1]
         if season is None:
             raise ValueError(f"no seasons with data for {args.save}")
-        artifacts = load_artifacts(models_from, save.ratings)
+        artifacts = load_artifacts(models_from, scales.model_set(save.ratings, save.scales))
         result = predict_season(args.save, season, artifacts)
     except (KeyError, ValueError, FileNotFoundError) as error:
         print(f"error: {error.args[0] if isinstance(error, KeyError) else error}", file=sys.stderr)

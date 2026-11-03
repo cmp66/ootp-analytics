@@ -18,7 +18,7 @@ that is scored (model/relative.py).
 import numpy as np
 import pandas as pd
 
-from model import artifact, formats, outlook_data, outlook_models, registry
+from model import artifact, formats, outlook_data, outlook_models, registry, scales
 from model.outlook_models import (
     AVAIL_FEATURES,
     CAREER,
@@ -113,8 +113,11 @@ def season_inputs(save: str, season: int, models_from: str | None = None) -> dic
     """State, ranked slot values and the player table of one season, from its player-data alone."""
     config = get_save(save)
     models_from = models_from or save
-    plan14 = outlook_data._load_artifacts(models_from, config.ratings)
+    plan14 = outlook_data._load_artifacts(models_from, scales.model_set(config.ratings, config.scales))
     state = outlook_data.season_state(save, season)
+    if config.scales:  # the position minimums and the outlook models know the 20-80 scale: give them the expected value
+        conversion = scales.Conversion.load(scales.version_of(config.ratings))
+        state = conversion.expect_frame(state, scales.profile_columns(save, season, conversion))
     scored, _ = registry.score_season(save, season, plan14)
     values = outlook_data.slot_values(state, scored)
     gates = outlook_data.load_gates(config.ratings)
