@@ -81,6 +81,9 @@ def team_starters(frame: pd.DataFrame, settings: Settings, column: str = "value_
     table = pd.DataFrame(out, columns=["org", "place", "ID", "slot"])
     value = pool.drop_duplicates(["ID", "slot"]).set_index(["ID", "slot"])[column]
     table["value"] = [value.get((i, s), np.nan) for i, s in zip(table["ID"], table["slot"])]
+    if "park_effect" in pool:  # the park-adjusted view: what the park changes in the starter's value
+        effect = pool.drop_duplicates(["ID", "slot"]).set_index(["ID", "slot"])["park_effect"]
+        table["park"] = [effect.get((i, s), np.nan) for i, s in zip(table["ID"], table["slot"])]
     return table
 
 
@@ -172,7 +175,9 @@ def candidate_pool(
     rows = rows[~(fa & rows["Sign"].isin(settings.hard_to_sign))]
     rows["Player"] = rows.apply(_name, axis=1)
     keep = ["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign", "Years", column]
-    return rows[keep].rename(columns={column: "value"}).reset_index(drop=True)
+    if "park_effect" in rows:
+        keep.append("park_effect")
+    return rows[keep].rename(columns={column: "value", "park_effect": "park"}).reset_index(drop=True)
 
 
 def options(pool: pd.DataFrame, need: pd.Series, settings: Settings) -> pd.DataFrame:

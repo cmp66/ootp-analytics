@@ -582,3 +582,27 @@ def test_the_acquisition_page_lists_the_needs_the_best_package_and_the_candidate
     assert needs["Place"].iloc[0] and set(needs["Need"]) <= {"NEED", ""}
     app.checkbox[0].check().run()  # also upgrade places that are not a need
     assert not app.exception
+
+
+@pytest.mark.parametrize(
+    "page", ["org_overview", "minors_overview", "draft_overview", "depth_chart", "explorer", "acquisitions"]
+)
+def test_the_park_toggle_values_the_players_in_the_park_of_the_organization_and_follows_the_page(page):
+    app = AppTest.from_file(str(SCREENS / f"{page}.py"), default_timeout=240).run()
+    toggles = app.sidebar.toggle if page == "explorer" else app.toggle
+    assert len(toggles) == 1 and toggles[0].label.startswith("Park-adjusted values")
+    if toggles[0].disabled:
+        pytest.skip("the league has no park factors or no park models (scripts/train_models.py --streams park)")
+    assert not toggles[0].value
+    toggles[0].set_value(True).run()
+    assert not app.exception
+    if page == "org_overview":
+        assert "Park" in app.dataframe[0].value.columns  # what the park changes in each value
+    if page == "acquisitions":
+        assert "Park" in app.dataframe[0].value.columns
+
+
+def test_the_park_toggle_is_off_for_all_organizations_and_free_agents():
+    app = AppTest.from_file(str(SCREENS / "org_overview.py"), default_timeout=240).run()
+    app.selectbox[1].select("Free agents").run()
+    assert app.toggle[0].disabled and not app.exception

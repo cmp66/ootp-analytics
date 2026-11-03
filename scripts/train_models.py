@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from model import artifact, data, domains, registry, scales  # noqa: E402
+from model import artifact, data, domains, park, registry, scales  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons, select_seasons  # noqa: E402
 
@@ -30,7 +30,10 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("save", help="save name (folder under files/ and table in config/saves.toml)")
     parser.add_argument("--start", type=int, help="first season to train on (default: the first with data)")
     parser.add_argument("--stop", type=int, help="last season to train on (default: the latest)")
-    parser.add_argument("--streams", nargs="+", choices=list(domains.REVIEWED_FEATURES), help="default: all")
+    parser.add_argument(
+        "--streams", nargs="+", choices=[*domains.REVIEWED_FEATURES, "park"],
+        help="default: all; park = the event rates of the park adjustment (model/park.py)",
+    )  # fmt: skip
     parser.add_argument("--no-plain", action="store_true", help="skip the plain total fallbacks of the stacked streams")
     parser.add_argument("--no-cv", action="store_true", help="skip the cross-validation and hold-out scores")
     parser.add_argument("--device", help="torch device for networks (cpu, cuda, xpu); default: OOTP_DEVICE or CPU")
@@ -55,7 +58,11 @@ def main(argv=None) -> int:
         start = args.start if args.start is not None else available[0]
         stop = args.stop if args.stop is not None else available[-1]
         seasons = select_seasons(available, start, stop)
-        todo = registry.specs(args.streams, include_plain=not args.no_plain)
+        value_streams = [s for s in args.streams if s != "park"] if args.streams else None
+        train_park = args.streams is None or "park" in args.streams
+        todo = (
+            [] if args.streams and not value_streams else registry.specs(value_streams, include_plain=not args.no_plain)
+        )
         view, key, coarse = None, save.ratings, []
         if args.scales:
             conversion = scales.Conversion.load(scales.version_of(save.ratings))
@@ -96,6 +103,25 @@ def main(argv=None) -> int:
             f"[{time.perf_counter() - started:.0f}s]",
             flush=True,
         )
+    if train_park:
+        started = time.perf_counter()
+        try:
+            with data.ratings_view(view):
+                made = park.train(args.save, key, seasons, seed=args.seed)
+            for event, trained in made.items():
+                if args.scales:
+                    trained.notes["scales"] = {"profile": args.scales, "columns": coarse}
+                artifact.save_artifact(trained)
+            scores = ", ".join(
+                f"{e} R2 {m.metrics['holdout']['r2']:.2f}" for e, m in made.items() if "holdout" in m.metrics
+            )
+            print(
+                f"  park event rates: {len(made)} models, hold-out {scores} [{time.perf_counter() - started:.0f}s]",
+                flush=True,
+            )
+        except FileNotFoundError as error:
+            print(f"  park: {error}", file=sys.stderr)
+            failed.append("park")
     if failed:
         print("Not trained (missing output files): " + ", ".join(failed), file=sys.stderr)
         return 1

@@ -23,8 +23,8 @@ from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
-    "Place": 60, "Player": 150, "Age": 50, "Value": 62, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50, "Source": 90, "From": 60,
-    "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
+    "Place": 60, "Player": 150, "Age": 50, "Value": 62, "Park": 56, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50, "Source": 90,
+    "From": 60, "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
 }  # fmt: skip
 TEXT_COLUMNS = ("Place", "Player", "Need", "Source", "From", "Deal", "Sign", "Yrs", "Best option", "Option")
 
@@ -35,10 +35,12 @@ def load(save: str, season: int):
 
 
 @st.cache_data(show_spinner="Working out the rosters...")
-def compute(save: str, season: int, org: str, settings: acquire.Settings):
+def compute(save: str, season: int, org: str, settings: acquire.Settings, park_on: bool = False):
+    """The needs and the candidates. With the park adjustment every team's starters are valued in their own park (the fair
+    comparison) and the candidates, wherever they come from, in the park of `org`."""
     frame, _ = load(save, season)
-    needs = acquire.needs(frame, org, settings)
-    pool = acquire.candidate_pool(frame, org, needs, settings)
+    needs = acquire.needs(league.park_frame(save, season, frame, org, park_on, own=True), org, settings)
+    pool = acquire.candidate_pool(league.park_frame(save, season, frame, org, park_on), org, needs, settings)
     return needs, pool
 
 
@@ -82,7 +84,8 @@ def needs_table(needs: pd.DataFrame, pool: pd.DataFrame, budget: float, settings
     out = pd.DataFrame(
         {
             "Place": needs["place"], "Player": needs["Player"], "Age": needs["Age"], "Value": needs["value"],
-            "Pct": needs["pct"] * 100, "Target": needs["target"], "Gap": needs["gap"],
+            **({"Park": needs["park"]} if "park" in needs else {}), "Pct": needs["pct"] * 100, "Target": needs["target"],
+            "Gap": needs["gap"],
             "Need": np.where(needs["need"], "NEED", ""), "Best option": best,
         }
     )  # fmt: skip
@@ -91,7 +94,8 @@ def needs_table(needs: pd.DataFrame, pool: pd.DataFrame, budget: float, settings
 
 def style_needs(frame: pd.DataFrame):
     style = frame.style.format(
-        {"Value": "{:.1f}", "Target": "{:.1f}", "Gap": "{:.1f}", "Pct": "{:.0f}", "Age": "{:.0f}"}, na_rep=""
+        {"Value": "{:.1f}", "Park": "{:+.1f}", "Target": "{:.1f}", "Gap": "{:.1f}", "Pct": "{:.0f}", "Age": "{:.0f}"},
+        na_rep="",
     )
     return style.apply(lambda row: ["font-weight: 700; color: #d6453d" if row["Need"] else "" for _ in row], axis=1)
 
@@ -123,7 +127,8 @@ def candidate_view(options: pd.DataFrame) -> pd.DataFrame:
             "ID": options["ID"], "slot": options["slot"], "Player": options["Player"], "Age": options["Age"],
             "Source": options["Source"], "From": options["From"], "Deal": options["Deal"],
             "Cost $m": options["Cost"] / 1e6, "Sign": options["Sign"],
-            "Yrs": options["Years"].astype(str), "Value": options["value"], "Gain": options["Gain"],
+            "Yrs": options["Years"].astype(str), "Value": options["value"],
+            **({"Park": options["park"]} if "park" in options else {}), "Gain": options["Gain"],
             "Per $m": options["Gain"] / (options["Cost"] / 1e6).clip(lower=0.5),
         }
     )  # fmt: skip
@@ -131,7 +136,14 @@ def candidate_view(options: pd.DataFrame) -> pd.DataFrame:
 
 
 def style_candidates(frame: pd.DataFrame):
-    formats = {"Cost $m": "{:.1f}", "Value": "{:.1f}", "Gain": "{:.1f}", "Per $m": "{:.1f}", "Age": "{:.0f}"}
+    formats = {
+        "Cost $m": "{:.1f}",
+        "Value": "{:.1f}",
+        "Park": "{:+.1f}",
+        "Gain": "{:.1f}",
+        "Per $m": "{:.1f}",
+        "Age": "{:.0f}",
+    }
     return frame.style.format(formats, na_rep="")
 
 
@@ -161,7 +173,8 @@ def main() -> None:
         except StreamlitPageNotFoundError:  # run on its own, without the navigation of viewer/app.py
             break
     settings = settings_from_page(acquire.load_settings())
-    needs, pool = compute(save, season, org, settings)
+    park_on = league.park_toggle(st, org, "park-acquire", league.park_available(save, season))
+    needs, pool = compute(save, season, org, settings, park_on)
     budget = acquire.budget_space(finances, org)
 
     metrics = st.columns(4)

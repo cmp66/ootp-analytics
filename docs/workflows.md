@@ -93,7 +93,7 @@ TGS and TGS26 are all 20-80 and keep using the 20-80 models.
 
 Two kinds. The **value models** turn ratings into runs. The **outlook models** project those values forward and depend on the value models, so retrain them after the value models change.
 
-*Retrain the value models* (new training seasons, changed attribute lists, a fix to the processing):
+*Retrain the value models* (new training seasons, changed attribute lists, a fix to the processing; `train_models.py` also trains the park event-rate models of the viewer's park adjustment, `--streams park` alone does only those, in seconds):
 
 1. `python scripts/process_seasons.py Model-Sim --start 2046` (reprocess the training seasons if the processing changed).
 2. `python scripts/train_models.py Model-Sim --start 2046 --stop 2086`; add `--no-cv` to skip the honest scores (faster).

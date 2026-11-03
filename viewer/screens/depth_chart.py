@@ -121,12 +121,15 @@ def main() -> None:
             column.page_link(target, label=label, icon=icon, disabled=key == "depth")
         except StreamlitPageNotFoundError:  # run on its own, without the navigation of viewer/app.py
             break
+    park_column, text_column = st.columns([1.9, 8.1], vertical_alignment="center")
+    park_on = league.park_toggle(park_column, org, "park-depth", league.park_available(save, season))
+    frame = league.park_frame(save, season, frame, org, park_on)  # his organization's players valued in its park
     try:
         chart = depth.depth_chart(frame, org, choice, ranking, get_save(save).levels)
     except ValueError as error:  # outlook files made before the career view have no 10-season floor / ceiling
         st.error(str(error))
         return
-    st.caption(
+    text_column.caption(
         f"**{org}** {save} {season}: built like a team: the best lineup is picked first, every player at the position where he "
         f"adds the most given the others, then the best backups from the players left, and so on; each player once, "
         f"{depth.DEPTH_HITTERS} deep at each position, {depth.DEPTH_PITCHERS} at starting and relief pitcher. "

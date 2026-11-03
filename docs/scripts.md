@@ -66,7 +66,7 @@ Trains the value models of a save into `files/models/<save>/<ratings>/` (one `.j
 train_models.py Model-Sim --start 2046 --stop 2086
 train_models.py Model-Sim --streams batting baserunning --no-cv
 ```
-For a league whose ratings are not all 20-80 add `--scales <league>`: the training ratings are turned into the mix of scales that league shows (its 1-10 columns, converted with `config/rating-scales/<version>.csv`) and the models go to `files/models/<save>/<ratings>@<league>/`. The league names that set in the `scales` key of `config/saves.toml`. Takes minutes.
+`--streams park` trains the four neutral-park event-rate models of the park adjustment (home runs, doubles, triples, hits per plate appearance, from the hitters' ratings; `model/park.py`) into the `park` folder of the model set; the default (all streams) trains them too. For a league whose ratings are not all 20-80 add `--scales <league>`: the training ratings are turned into the mix of scales that league shows (its 1-10 columns, converted with `config/rating-scales/<version>.csv`) and the models go to `files/models/<save>/<ratings>@<league>/`. The league names that set in the `scales` key of `config/saves.toml`. Takes minutes.
 
 Options: `--streams` (batting, baserunning, pitching-fip, pitching-babip, fielding), `--no-plain` (skip the total fallbacks), `--no-cv` (skip the honest scores; faster), `--device cpu|cuda|xpu` (or `OOTP_DEVICE`), `--seed`. Needs processed output for the seasons.
 
@@ -113,6 +113,9 @@ Prints the scores stored at training (honest) and the scores on the seasons aske
 
 ### check_format_parity.py
 `check_format_parity.py [--out docs/export-dump-parity.md]` compares dump and export saves of the same ratings set: columns the models read, trait conversions, level, draft route. Run after changing the import or `model/formats.py`.
+
+### predict_park.py
+`predict_park.py <save> [--season N] [--models-from <training save>]` writes `<save>-<season>-park-rates.csv`: for every player with ratings his neutral-park rate per plate appearance of home runs, doubles, triples and hits and the share of his plate appearances from the left side. The viewer's park-adjusted values read it (`viewer/parks.py`). `update_all.py` runs it as the `park` step (skipped, with a note, when the model set has no park models).
 
 ### build_scale_tables.py
 `build_scale_tables.py [--root files/Ratings-Analysis] [--versions OOTP26 OOTP27]` builds `config/rating-scales/<version>.csv` from two dumps of one league taken at the same moment, one with 20-80 ratings (`<root>/<version>/20-80/`) and one with 1-10 (`<root>/<version>/1-10/`): how often each 20-80 value is each 1-10 value, per rating column. The tables are in git; rerun only for a new game version.
