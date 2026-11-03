@@ -112,6 +112,9 @@ Prints the scores stored at training (honest) and the scores on the seasons aske
 ### check_format_parity.py
 `check_format_parity.py [--out docs/export-dump-parity.md]` compares dump and export saves of the same ratings set: columns the models read, trait conversions, level, draft route. Run after changing the import or `model/formats.py`.
 
+### detect_rating_scales.py
+`detect_rating_scales.py <save> [--season N] [--all]` shows, for each rating the value models read, the scale of the league (20-80 or 1-10), the range, the number of different values and the step between them; `--all` covers every numeric column. Use it on a league whose ratings are not all 20-80 to see which columns are which (reads the processed player-data; `model/scales.py`).
+
 ### rating_importance.py, compare_versions.py, derived_ratings.py
 Documentation generators for `docs/`:
 - `rating_importance.py [save] [--out ...] [--observations ...] [--folds 5 --repeats 3]`: which ratings matter most per model (`docs/model-attribute-ranking*.md`).
