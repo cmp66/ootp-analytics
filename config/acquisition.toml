@@ -1,0 +1,21 @@
+# Rules of the roster acquisition page (viewer/acquire.py): where an MLB roster needs an upgrade and who could provide it.
+#
+# The starters of every organization are the best lineup (one player at each of C, 1B, 2B, 3B, SS, LF, CF, RF, DH, chosen so that the
+# total value is as large as possible), five starting pitchers and `bullpen` relievers, from the players at the MLB level. A starter
+# is a NEED when his value is in the lower part of the starters of the league at his place (percentile at most `need_percentile`).
+# The upgrade candidates come from three places: INTERNAL (the organization's own players who are not starters: the bench and the
+# minor leaguers), WAIVERS (players of other organizations on waivers, claimed with their contract) and FREE AGENTS (asking their
+# demand for a year). A candidate is worth his value at the place minus the value of the starter he would replace, counted with the
+# weight of the place (a reliever pitches about a third of the innings of a starter). What an acquisition costs is the contract of a
+# claimed player and the demand of a free agent for a year (internal players cost nothing extra) against the budget space of the
+# organization, the money still available for the season.
+
+[rules]
+need_percentile = 0.40     # a starter at or below this percentile of the league's starters at the place needs an upgrade
+target_percentile = 0.50   # the value he should reach: this percentile of the league's starters at the place
+bullpen = 7                # relievers counted as starters
+min_gain = 1.0             # runs a candidate must add to be listed
+hard_to_sign = ["Impossible"]   # free agents who are not listed (their `Sign` level)
+
+[weights]                  # what a run of value at the place counts for (hitters and starting pitchers 1)
+RP = 0.35

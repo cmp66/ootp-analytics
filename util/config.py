@@ -54,7 +54,8 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
             if unknown:
                 raise ValueError(f"Save {name}, level {level}: unknown keys {sorted(unknown)}")
             levels[level] = LevelLimits(
-                **{key: int(value) for key, value in limits.items() if key != "ladder"}, ladder=bool(limits.get("ladder", True))
+                **{key: int(value) for key, value in limits.items() if key != "ladder"},
+                ladder=bool(limits.get("ladder", True)),
             )
             if min(levels[level].max_age, levels[level].max_pro_years) < 0:
                 raise ValueError(f"Save {name}, level {level}: limits cannot be negative (0 = no limit)")

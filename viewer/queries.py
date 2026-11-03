@@ -43,12 +43,24 @@ IDENTITY_COLUMNS = [
     "Draft",
     "SctCat",
     "PROY",
+    "WAIV",  # the exports of 2046 on: on waivers (Yes), designated for assignment (DFA), what a free agent asks (DEM, a year),
+    "DFA",  # how willing he is to sign (Sign) and the contract now (SLR, years left YL)
+    "DEM",
+    "Sign",
+    "SLR",
+    "YL",
 ]
 IAFA_MAX_AGE = 19  # SctCat "International" also holds foreign professionals; the IAFA prospects are the young ones
 SLOT_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH", "SP", "RP"]
 
 
 # ---------------------------------------------------------------- loading and pools
+
+
+def load_finances(save: str, season: int) -> pd.DataFrame | None:
+    """The teams' finances of the season (stats/finances.py), None when the save has none."""
+    path = paths.output_file(save, season, "finances")
+    return pd.read_csv(path) if path.exists() else None
 
 
 def load_outlook(save: str, season: int) -> pd.DataFrame:

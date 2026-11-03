@@ -14,6 +14,11 @@ def export_dir(save: str, season: int) -> Path:
     return save_dir(save) / str(season)
 
 
+def finance_dir(save: str, season: int) -> Path:
+    """The financial overview of the league of an export season (one csv with a row per team)."""
+    return export_dir(save, season) / "finance"
+
+
 def export_ratings_dir(save: str, season: int) -> Path:
     return export_dir(save, season) / "ratings"
 

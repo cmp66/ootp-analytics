@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 import stats
-from stats import batting, fielding, parks, pitching
+from stats import batting, fielding, finances, parks, pitching
 from util import importCSV
 from util.config import get_save
 
@@ -58,6 +58,8 @@ def process_season(league: str, season: int, source: str | None = None, ratings:
         df_pitching_right, df_pitching_left, df_pitching, league, season, df_lg_batting
     )
     df_player_data = stats.add_league_attribute_averages(league, season, df_ratings)
+    if source == "export":
+        finances.write_finances(league, season)  # when the export has a finance folder
 
     return SeasonResult(
         ratings=df_ratings,

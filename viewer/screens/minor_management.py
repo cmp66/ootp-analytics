@@ -142,7 +142,7 @@ def show(frame: pd.DataFrame, keys: list[str], rules: minors.Rules, key: str):
 def main() -> None:
     config = load_update_config()
     st.html(org_view.STYLE)
-    league_column, first, *links = st.columns([0.9, 1.2, 1, 1.3, 1, 0.8, 1, 1.1, 1.3], vertical_alignment="center")
+    league_column, first, *links = st.columns([0.9, 1.2, *org_view.LINK_WIDTHS], vertical_alignment="center")
     save = league.choose_save(config, league_column, key="league-minors-management")
     seasons = available_seasons(save)
     if not seasons:

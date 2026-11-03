@@ -121,6 +121,8 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 
 ### 5. I changed the lists or the viewer
 
+- The rules of the acquisitions page (what counts as a need, the weight of a reliever, which free agents are left out) are in `config/acquisition.toml`. It needs the `finance` folder in the export for the budget space; without it the costs are not checked.
+
 - The age and pro-years limits of each minor league level, and the promotion ladder (the order of the level tables, top level first), are in `config/saves.toml`; the rules of the level moves page (what counts as green, how many key ratings, how old is old for a level) in `config/minors.toml`. Check the ladder order of a new league.
 - The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.
 
