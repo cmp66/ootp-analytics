@@ -3,6 +3,11 @@
 For every minor leaguer of an organization: where his key ratings stand among all the players of his level (the way the game shows
 ratings relative to a level), where they would stand at the next level up, how old he is for the level, and from that a move: up,
 down or must move (over the level's limits), with the level he goes to and why. See config/minors.toml for the rules.
+
+The focus is the development of the better players while they can still develop: a player is a top prospect, a prospect or depth
+by where his ceiling (the 90th percentile of his best season within ten) stands among all minor leaguers of his position in the
+league, and his development window is what is left until the age at which players of his kind stop improving (measured in the
+training leagues, config/minors.toml). Depth players and players past their window are filler: they are only listed on request.
 """
 
 import tomllib
@@ -22,6 +27,7 @@ LABELS = {  # short column titles of the key ratings
     "STU": "Stu", "MOV": "Mov", "CON.1": "Ctl",
 }  # fmt: skip
 UP, DOWN, MUST = "Up", "Down", "Must move"
+TOP_PROSPECT, PROSPECT, PAST, DEPTH = "Top prospect", "Prospect", "Past window", "Depth"
 
 
 @dataclass(frozen=True)
@@ -35,12 +41,26 @@ class Rules:
     min_green_pitchers: int = 2
     next_floor: float = 0.35
     old_for_level: float = 0.75
+    prospect: float = 0.80
+    top_prospect: float = 0.95
+    develop_hitters: tuple = (
+        ("OOTP26", 25),
+        ("OOTP27", 25),
+    )  # the last age at which ratings still grow, by game version
+    develop_pitchers: tuple = (("OOTP26", 26), ("OOTP27", 26))
 
     def keys(self, pitcher: bool) -> tuple:
         return self.pitchers if pitcher else self.hitters
 
     def min_green(self, pitcher: bool) -> int:
         return self.min_green_pitchers if pitcher else self.min_green_hitters
+
+    def develops_through(self, version: str, pitcher: bool) -> int:
+        """The last age at which players of this kind still improve in this game version."""
+        table = dict(self.develop_pitchers if pitcher else self.develop_hitters)
+        if version not in table:
+            raise ValueError(f"config/minors.toml has no development age for {version} (known: {sorted(table)})")
+        return table[version]
 
 
 def load_rules(path: Path = MINORS_CONFIG) -> Rules:
@@ -49,6 +69,8 @@ def load_rules(path: Path = MINORS_CONFIG) -> Rules:
     for kind in ("hitters", "pitchers"):
         if kind in raw.get("ratings", {}):
             values[kind] = tuple(raw["ratings"][kind])
+        if kind in raw.get("development", {}):
+            values[f"develop_{kind}"] = tuple(sorted(raw["development"][kind].items()))
     unknown = set(values) - set(Rules.__dataclass_fields__)
     if unknown:
         raise ValueError(f"{path}: unknown settings {sorted(unknown)}")
@@ -71,6 +93,32 @@ def percentile(values: pd.Series, peers: np.ndarray) -> pd.Series:
     )
 
 
+def prospect_info(frame: pd.DataFrame) -> pd.DataFrame:
+    """Per minor leaguer of the league (ID): the ceiling and floor of his best season within ten at the position where his ceiling
+    stands highest, where they stand (percentile among the minor leaguers of his kind in the league) and his chance of ever being
+    a top-50 player at it."""
+    ceiling = depth.ranking_column(frame, "Ceiling (10 years)")
+    floor = depth.ranking_column(frame, "Floor (10 years)")
+    chance = ceiling.replace("ceiling", "p_top50")
+    rows = frame[
+        frame["slot"].isin(depth.CHART_SLOTS) & ~frame["org"].isin(["FA", "nan", ""]) & (frame["team_level"] != TOP)
+    ]
+    rows = rows.assign(
+        ceiling_pct=rows.groupby("slot")[ceiling].rank(pct=True), floor_pct=rows.groupby("slot")[floor].rank(pct=True)
+    )
+    best = rows.sort_values("ceiling_pct", ascending=False, kind="stable").drop_duplicates("ID").copy()
+    # the highest of his positions' percentiles is high for everybody: rank those among all the minor leaguers of his kind, so
+    # that 0.8 means the better fifth of them (hitters and pitchers apart)
+    best["pitcher"] = best["slot"].isin(["SP", "RP"])
+    best["ceiling_pct"] = best.groupby("pitcher")["ceiling_pct"].rank(pct=True)
+    best["floor_pct"] = best.groupby("pitcher")["floor_pct"].rank(pct=True)
+    info = pd.DataFrame(
+        {"ID": best["ID"], "Ceil": best[ceiling], "Floor": best[floor], "ceiling_pct": best["ceiling_pct"],
+         "floor_pct": best["floor_pct"], "Top50": best[chance] * 100 if chance in best else np.nan}
+    )  # fmt: skip
+    return info.reset_index(drop=True)
+
+
 def league_players(frame: pd.DataFrame, ratings: pd.DataFrame, rules: Rules) -> pd.DataFrame:
     """One row per player who belongs to an organization: ID, org, team_level, Age, PROY, pitcher, his best slot (by value now),
     value now, name, and the key ratings of both kinds."""
@@ -87,6 +135,7 @@ def league_players(frame: pd.DataFrame, ratings: pd.DataFrame, rules: Rules) -> 
     if "PROY" not in out:
         out["PROY"] = np.nan
     out["pitcher"] = out["slot"].isin(["SP", "RP"])
+    out = out.merge(prospect_info(frame), on="ID", how="left")
     keys = [k for k in dict.fromkeys([*rules.hitters, *rules.pitchers]) if k in ratings.columns]
     out = out.merge(ratings[["ID", *keys]], on="ID", how="left")
     for key in keys:
@@ -95,14 +144,22 @@ def league_players(frame: pd.DataFrame, ratings: pd.DataFrame, rules: Rules) -> 
 
 
 def manage(
-    frame: pd.DataFrame, ratings: pd.DataFrame, org: str, levels: dict[str, LevelLimits], rules: Rules | None = None
+    frame: pd.DataFrame,
+    ratings: pd.DataFrame,
+    org: str,
+    levels: dict[str, LevelLimits],
+    rules: Rules | None = None,
+    version: str = "OOTP27",
 ) -> pd.DataFrame:
     """The minor leaguers of `org` on the ladder: their ratings relative to the level and the move suggested.
 
     Columns: ID, Player, Pos, Age, Pro, Level, pitcher, the key ratings as percentiles at the level (`pct_<rating>`) and at the
     next level up (`next_<rating>`), green (how many are green), mean, next_mean (mean of the percentiles at the next level),
-    age_pct, Value, Move ("", Up, Down or Must move), To (the level), Reason, Blocked (why the limits do not allow it, else "").
-    Players of organizations other than `org` are the peers only.
+    age_pct, Value, Ceil, Floor, Top50 (the chance in % of ever being top 50 at the position), ceiling_pct, Tier (top prospect,
+    prospect or depth, by the ceiling_pct among the league's minor leaguers), Window (seasons of development left until the age
+    at which this kind of player stops improving in this game `version`), focus (a prospect with a window left), Move ("", Up,
+    Down or Must move), To (the level), Reason, Blocked (why the limits do not allow it, else ""). Players of organizations
+    other than `org` are the peers only.
     """
     rules = rules or Rules()
     rungs = ladder(levels)
@@ -133,6 +190,17 @@ def manage(
     if not rows:
         return pd.DataFrame()
     table = pd.concat(rows, ignore_index=True)
+    last_age = table["pitcher"].map(lambda pitcher: rules.develops_through(version, bool(pitcher)))
+    table["Window"] = (last_age - table["Age"] + 1).clip(lower=0).astype(int)
+    table["Tier"] = np.where(
+        table["ceiling_pct"] >= rules.top_prospect,
+        TOP_PROSPECT,
+        np.where(table["ceiling_pct"] >= rules.prospect, PROSPECT, DEPTH),
+    )
+    table["Tier"] = np.where(
+        (table["Window"] == 0) & (table["Tier"] != DEPTH), PAST, table["Tier"]
+    )  # nothing left to develop
+    table["focus"] = table["Tier"].isin([TOP_PROSPECT, PROSPECT])
     decided = table.apply(lambda r: _decide(r, levels, rules), axis=1, result_type="expand")
     table[["Move", "To", "Reason", "Blocked"]] = decided
     table["Player"] = (table["First Name"].astype(str) + " " + table["Last Name"].astype(str)).map(depth._tidy)
@@ -161,6 +229,10 @@ def _decide(row: pd.Series, levels: dict[str, LevelLimits], rules: Rules) -> tup
     can_up = _fits(row["above"], age, years, levels) if row["above"] != TOP else ""
     ready = pd.notna(row["next_mean"]) and row["next_mean"] >= rules.next_floor
     needed = rules.min_green(bool(row["pitcher"]))
+    if row["focus"]:
+        needed = max(
+            1, needed - 1
+        )  # a prospect with development left needs the challenge more than he needs to dominate
     if over:
         return MUST, row["above"], f"over the limit of the level ({over})", can_up
     if row["green"] >= needed and ready:
@@ -170,7 +242,7 @@ def _decide(row: pd.Series, levels: dict[str, LevelLimits], rules: Rules) -> tup
             f"{row['green']} of {row['keys']} key ratings green at the level; mean {row['next_mean']:.0%} at {row['above']}",
             can_up,
         )
-    if row["age_pct"] >= rules.old_for_level and row["mean"] >= rules.average and ready:
+    if row["focus"] and row["age_pct"] >= rules.old_for_level and row["mean"] >= rules.average and ready:
         return (
             UP,
             row["above"],

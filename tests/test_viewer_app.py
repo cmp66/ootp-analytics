@@ -460,7 +460,8 @@ def minors_inputs(changes: dict | None = None):
                 pid += 1
                 value = typical + 3 * (place - 5)
                 row = {"ID": pid, "season": 1, "slot": "SS", "value_now": float(value), "org": org, "team_level": level,
-                       "level_name": level, "Age": 22, "PROY": 2, "First Name": "F", "Last Name": f"P{pid}"}  # fmt: skip
+                       "level_name": level, "Age": 22, "PROY": 2, "First Name": "F", "Last Name": f"P{pid}",
+                       "ceiling_h99": value + 8.0, "floor_h99": value - 8.0, "p_top50_h99": 0.1}  # fmt: skip
                 if org == "MINE":
                     row.update((changes or {}).get((level, place), {}))
                 rows.append(row)
@@ -535,3 +536,30 @@ def test_the_management_page_lists_the_moves_of_every_league_and_survives_a_leag
         assert not app.exception
     app.checkbox[0].check().run()
     assert not app.exception
+
+
+def test_prospects_are_the_better_ceilings_with_development_left_and_the_rest_is_filler():
+    from viewer import minors
+
+    table = moves({("AA", 9): {"ceiling_h99": 300.0}, ("AA", 8): {"ceiling_h99": 300.0, "Age": 30}})
+    top = table[(table["Level"] == "AA") & (table["Ceil"] == 308.0 - 8.0)] if False else table[table["Ceil"] == 300.0]
+    assert sorted(top["Age"]) == [22, 30]
+    young = top[top["Age"] == 22].iloc[0]
+    assert (
+        young["Tier"] == minors.TOP_PROSPECT and young["Window"] == 4 and bool(young["focus"])
+    )  # hitters grow through 25
+    old = top[top["Age"] == 30].iloc[0]
+    assert (
+        old["Tier"] == minors.PAST and old["Window"] == 0 and not old["focus"]
+    )  # a great ceiling, but nothing left to develop
+    assert set(table.loc[~table["focus"], "Tier"]) <= {minors.DEPTH, minors.PAST}
+    assert 0.0 < table["focus"].mean() < 0.5  # the better fifth, not everybody
+
+
+def test_the_development_age_is_set_per_game_version_and_kind_in_the_config():
+    from viewer import minors
+
+    rules = minors.load_rules()
+    assert rules.develops_through("OOTP27", False) == 25 and rules.develops_through("OOTP26", True) == 26
+    with pytest.raises(ValueError):
+        rules.develops_through("OOTP99", False)
