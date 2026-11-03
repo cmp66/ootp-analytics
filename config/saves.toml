@@ -40,10 +40,12 @@ ballparks = "ballpark_ratings.csv"
 [Dugout26]
 source = "export"
 ratings = "Standard26"
+ballparks = "ballpark_ratings.csv"
 
 [PBL27]
 source = "export"
 ratings = "Standard27"
+ballparks = "ballpark_ratings.csv"
 
 [TGS.levels."AAA"]
 max_age = 0
@@ -229,3 +231,76 @@ ratings = "Standard27"
 [Dugout]
 source = "export"
 ratings = "Standard"
+
+[Dugout26.team_names]  # team code of the ratings -> Team Name of ballpark_ratings.csv; '# check' = matched by the code's look, please confirm
+ABQ = "Albuquerque Blues"
+ANA = "Anaheim Angels"
+ARI = "Arizona Diamondbacks"
+ATL = "Atlanta Braves"
+BAL = "Baltimore Orioles"
+BOS = "Boston Red Sox"
+CHC = "Chicago Cubs"
+CHW = "Chicago White Sox"  # check
+CIN = "Cincinnati Reds"
+CLE = "Cleveland Guardians"
+COL = "Colorado Rockies"
+DET = "Detroit Tigers"
+HOU = "Houston Astros"
+KC = "Kansas City Royals"  # check
+LAD = "Los Angeles Dodgers"
+MIA = "Miami Marlins"
+MIL = "Milwaukee Brewers"
+MIN = "Minnesota Twins"
+MON = "Montreal Expos"
+NSH = "Nashville Stars"
+NYM = "New York Mets"
+NYY = "New York Yankees"
+OAK = "Oakland Athletics"
+OTT = "Ottawa Mounties"
+PHI = "Philadelphia Phillies"
+PIT = "Pittsburgh Pirates"
+SA = "San Antonio Scorpions"  # check
+SD = "San Diego Padres"  # check
+SEA = "Seattle Mariners"
+SF = "San Francisco Giants"  # check
+STL = "St. Louis Cardinals"
+TBA = "Tampa Bay Devil Rays"  # check
+TEX = "Texas Rangers"
+TOR = "Toronto Blue Jays"
+VAN = "Vancouver Evergreens"
+WAS = "Washington Nationals"
+
+[PBL27.team_names]  # team code of the ratings -> Team Name of ballpark_ratings.csv; '# check' = matched by the code's look, please confirm
+ARI = "Arizona Diamondbacks"
+ATL = "Atlanta Braves"
+BAL = "Baltimore Orioles"
+BOS = "Boston Red Sox"
+CAR = "Carolina Warhounds"  # check
+CHA = "Chicago White Sox"  # check
+CHN = "Chicago Cubs"  # check
+CIN = "Cincinnati Reds"
+CLE = "Cleveland Indians"
+COL = "Colorado Rockies"
+DET = "Detroit Tigers"
+HOU = "Houston Astros"
+KCA = "Kansas City Royals"  # check
+LAA = "Los Angeles Angels"  # check
+LAN = "Los Angeles Dodgers"  # check
+MIA = "Miami Marlins"
+MIL = "Milwaukee Brewers"
+MIN = "Minnesota Twins"
+MON = "Montreal Expos"  # check
+NYA = "New York Yankees"  # check
+NYN = "New York Mets"  # check
+OAK = "Oakland Athletics"
+PHI = "Philadelphia Phillies"
+PIT = "Pittsburgh Pirates"
+SDN = "San Diego Padres"  # check
+SEA = "Seattle Mariners"
+SFN = "San Francisco Giants"  # check
+SLN = "St. Louis Cardinals"  # check
+TBA = "Tampa Bay Rays"  # check
+TEX = "Texas Rangers"
+TOR = "Toronto Blue Jays"
+WAS = "Washington Nationals"
+
