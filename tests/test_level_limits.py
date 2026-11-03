@@ -24,8 +24,8 @@ def test_bad_level_limits_are_refused(tmp_path):
         load_saves(write(tmp_path, '[S.levels."AA"]\nmax_age = -1\n'))
 
 
-def test_the_shipped_config_lists_every_level_of_the_human_leagues_with_no_limit():
+def test_the_shipped_config_lists_every_level_of_the_human_leagues():
     for name in ("TGS", "TGS26"):
         levels = load_saves()[name].levels
         assert set(levels) >= {"AAA", "AA", "A+", "A-", "R+", "R", "INT"}
-        assert all(limit == LevelLimits() for limit in levels.values())
+        assert all(isinstance(limit, LevelLimits) for limit in levels.values())

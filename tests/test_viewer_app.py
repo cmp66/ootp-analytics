@@ -379,9 +379,9 @@ def test_depth_chart_shows_one_level_at_a_time_and_flags_players_over_its_limits
     options = depth.show_options(frame, org)
     assert options[:2] == list(depth.SHOW) and len(options) > 2
     level = options[2]
-    chart = depth.depth_chart(frame, org, level)
+    chart = depth.depth_chart(frame, org, level, limits={})
     assert all((table["Lev"] == level).all() for table in chart.values())
-    assert all((table["Flag"] == "").all() for table in chart.values())  # no limits configured: nobody is over
+    assert all((table["Flag"] == "").all() for table in chart.values())  # no limits: nobody is over
     strict = depth.depth_chart(frame, org, level, limits={level: LevelLimits(max_age=1, max_pro_years=1)})
     everybody = pd.concat(strict.values())
     assert len(everybody) and everybody["Flag"].str.contains("age").all()

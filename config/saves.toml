@@ -46,19 +46,19 @@ max_age = 0
 max_pro_years = 0
 
 [TGS.levels."A+"]
-max_age = 0
+max_age = 27
 max_pro_years = 0
 
 [TGS.levels."A-"]
-max_age = 0
+max_age = 25
 max_pro_years = 0
 
 [TGS.levels."R+"]
-max_age = 0
+max_age = 23
 max_pro_years = 0
 
 [TGS.levels."R"]
-max_age = 0
+max_age = 21
 max_pro_years = 0
 
 [TGS.levels."INT"]
@@ -66,7 +66,7 @@ max_age = 0
 max_pro_years = 0
 
 [TGS.levels."WL"]
-max_age = 0
+max_age = 19
 max_pro_years = 0
 
 [TGS26.levels."AAA"]
@@ -78,19 +78,19 @@ max_age = 0
 max_pro_years = 0
 
 [TGS26.levels."A+"]
-max_age = 0
+max_age = 27
 max_pro_years = 0
 
 [TGS26.levels."A-"]
-max_age = 0
+max_age = 25
 max_pro_years = 0
 
 [TGS26.levels."R+"]
-max_age = 0
+max_age = 23
 max_pro_years = 0
 
 [TGS26.levels."R"]
-max_age = 0
+max_age = 21
 max_pro_years = 0
 
 [TGS26.levels."INT"]
@@ -98,7 +98,7 @@ max_age = 0
 max_pro_years = 0
 
 [TGS26.levels."WL"]
-max_age = 0
+max_age = 19
 max_pro_years = 0
 
 [TGS.team_names]
