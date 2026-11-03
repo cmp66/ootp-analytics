@@ -142,9 +142,9 @@ def candidate_pool(
     frame: pd.DataFrame, org: str, starters: pd.DataFrame, settings: Settings, column: str = "value_now"
 ) -> pd.DataFrame:
     """Every player who could be an upgrade, with his value at every slot he is ranked at: ID, slot, Player, Age, Source, From
-    (his team or level), Cost (dollars for a year), Sign, Years (contract years left), value. Internal: the organization's
-    players who are not starters; Waivers: players of other organizations on waivers; Free agent: the free agents (minus those
-    who are hard to sign by the settings).
+    (his team or level), Deal (a free agent who asks nothing signs a minor league deal), Cost (dollars for a year), Sign,
+    Years (contract years left), value. Internal: the organization's players who are not starters; Waivers: players of other
+    organizations on waivers; Free agent: the free agents (minus those hard to sign by the settings).
     """
     members = ~frame["org"].isin(["FA", "nan", ""])
     taken = set(starters.loc[starters["org"] == str(org), "ID"])
@@ -164,12 +164,14 @@ def candidate_pool(
     cost[rows["Source"] == WAIVERS] = salary[rows["Source"] == WAIVERS].where(salary > 0).fillna(minimum_salary(frame))
     fa = rows["Source"] == FREE_AGENT
     cost[fa] = demand[fa].where(demand[fa] > 0).fillna(minimum_salary(frame))  # no demand listed: a minimum contract
+    # a demand of 0 is a player who signs a minor league deal (with a major league option): cheap
+    rows["Deal"] = np.where(fa & ~(demand > 0), "Minor league", np.where(fa, "MLB", ""))
     rows["Cost"] = cost
     rows["Sign"] = rows["Sign"] if "Sign" in rows else ""
     rows["Years"] = rows["YL"] if "YL" in rows else ""
     rows = rows[~(fa & rows["Sign"].isin(settings.hard_to_sign))]
     rows["Player"] = rows.apply(_name, axis=1)
-    keep = ["ID", "slot", "Player", "Age", "Source", "From", "Cost", "Sign", "Years", column]
+    keep = ["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign", "Years", column]
     return rows[keep].rename(columns={column: "value"}).reset_index(drop=True)
 
 

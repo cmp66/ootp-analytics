@@ -24,9 +24,9 @@ from viewer.screens import org_view  # noqa: E402
 ROW_HEIGHT = 35
 WIDTHS = {
     "Place": 60, "Player": 150, "Age": 50, "Value": 62, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50, "Source": 90, "From": 60,
-    "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
+    "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
 }  # fmt: skip
-TEXT_COLUMNS = ("Place", "Player", "Need", "Source", "From", "Sign", "Yrs", "Best option", "Option")
+TEXT_COLUMNS = ("Place", "Player", "Need", "Source", "From", "Deal", "Sign", "Yrs", "Best option", "Option")
 
 
 @st.cache_data(show_spinner="Loading the player files...")
@@ -121,7 +121,8 @@ def candidate_view(options: pd.DataFrame) -> pd.DataFrame:
     out = pd.DataFrame(
         {
             "ID": options["ID"], "slot": options["slot"], "Player": options["Player"], "Age": options["Age"],
-            "Source": options["Source"], "From": options["From"], "Cost $m": options["Cost"] / 1e6, "Sign": options["Sign"],
+            "Source": options["Source"], "From": options["From"], "Deal": options["Deal"],
+            "Cost $m": options["Cost"] / 1e6, "Sign": options["Sign"],
             "Yrs": options["Years"].astype(str), "Value": options["value"], "Gain": options["Gain"],
             "Per $m": options["Gain"] / (options["Cost"] / 1e6).clip(lower=0.5),
         }
