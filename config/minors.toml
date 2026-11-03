@@ -1,0 +1,25 @@
+# Rules of the minor league management page (viewer/minors.py). They follow how the game's "ratings relative to the level" are read:
+# a rating is compared with the players of the level, in all organizations, and counts as "green" when it is high enough there.
+#
+# A player is a PROMOTION candidate when at least `min_green_*` of his key ratings are green at his level (he dominates it) and he
+# would not be at the bottom of the next level (the mean percentile of his key ratings among that level's players is at least
+# `next_floor`, so he has a chance to succeed). He is an OVERDUE candidate (don't let him stagnate) when he is old for the level
+# (age percentile among the players of the level at least `old_for_level`), his ratings are at least average there (mean percentile
+# at least `average`) and he would not be at the bottom of the next level. He MUST MOVE when he is over the age or pro-years limit of
+# his level (config/saves.toml). He is a DEMOTION candidate when his ratings are weak at his level (mean percentile at most `red`
+# and none of his key ratings green). A move is only suggested to a level whose age and pro-years limits he meets (a 26 year old
+# does not go down to a level with a maximum age of 25). The statistics of the season are not used: the current ratings are what
+# counts (and in a league where potential influences the minor league statistics, such as PBL27, they say even less).
+
+[ratings]  # the key ratings, the columns of player-data
+hitters = ["CON", "GAP", "POW", "EYE", "K's", "BABIP"]
+pitchers = ["STU", "MOV", "CON.1"]
+
+[rules]  # ~30% of the organization comes out as promotion candidates with these; raise green or min_green_* for fewer
+green = 0.70              # percentile among the players of the level from which a rating counts as green
+red = 0.25                # mean percentile at or below which a player is weak for his level
+average = 0.50            # mean percentile a player has to reach to be moved up for being old for the level
+min_green_hitters = 4     # of the six key ratings
+min_green_pitchers = 2    # of the three key ratings
+next_floor = 0.35         # mean percentile at the next level a player needs to be moved up there
+old_for_level = 0.75      # age percentile among the players of the level from which he is old for it

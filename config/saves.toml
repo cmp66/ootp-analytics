@@ -11,7 +11,8 @@
 #   [<save>.levels."<level>"] (optional): limits of a minor league level, keyed by the level of the ratings column Lev (AAA, AA, A+,
 #            A-, R+, R, INT = the international complex, WL). max_age: the oldest age allowed; max_pro_years: the most years of
 #            professional experience allowed (ratings column PROY). 0 = no limit. The depth chart marks the players who exceed
-#            the limits of their level.
+#            the limits of their level. The ORDER of these tables is the promotion ladder, top level first (the minor league
+#            management page moves players along it); `ladder = false` keeps a level off the ladder.
 #   [<save>.team_names] (optional): save team id -> "Team Name" in the ballpark csv. Dump saves match
 #            "city nickname" automatically (the table is for exceptions, keyed by team abbreviation or full name);
 #            export saves need it: key is the team abbreviation (ratings column TM).
@@ -83,6 +84,7 @@ max_pro_years = 0
 [TGS.levels."WL"]
 max_age = 19
 max_pro_years = 0
+ladder = false
 
 [TGS26.levels."AAA"]
 max_age = 0
@@ -115,6 +117,7 @@ max_pro_years = 0
 [TGS26.levels."WL"]
 max_age = 19
 max_pro_years = 0
+ladder = false
 
 [Dugout26.levels."AAA"]
 max_age = 0
@@ -152,12 +155,12 @@ max_pro_years = 0
 max_age = 25
 max_pro_years = 0
 
-[PBL27.levels."S A"]
-max_age = 23
-max_pro_years = 0
-
 [PBL27.levels."A-"]
 max_age = 24
+max_pro_years = 0
+
+[PBL27.levels."S A"]
+max_age = 23
 max_pro_years = 0
 
 [PBL27.levels."R"]

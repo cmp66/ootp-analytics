@@ -442,3 +442,96 @@ def test_the_league_selector_lists_every_save_and_switches_the_page_to_another_l
     league_box.select(others[0]).run()
     assert not app.exception
     assert (app.sidebar.selectbox if page == "explorer" else app.selectbox)[0].value == others[0]
+
+
+# ---------------------------------------------------------------- minor league management
+
+
+def minors_inputs(changes: dict | None = None):
+    """A small league: two organizations with ten hitters at each of MLB, AAA, AA and A; every key rating of a player is the same
+    number (the level's typical 60 / 50 / 40 / 30, spread by 3 per place), ages 22, two years as a pro. `changes` sets columns of
+    single players of MINE: {(level, place): {"Age": 26}}."""
+    from util.config import LevelLimits
+
+    rows, ratings, pid = [], [], 0
+    for org in ("MINE", "OTHER"):
+        for level, typical in (("MLB", 60), ("AAA", 50), ("AA", 40), ("A", 30)):
+            for place in range(10):
+                pid += 1
+                value = typical + 3 * (place - 5)
+                row = {"ID": pid, "season": 1, "slot": "SS", "value_now": float(value), "org": org, "team_level": level,
+                       "level_name": level, "Age": 22, "PROY": 2, "First Name": "F", "Last Name": f"P{pid}"}  # fmt: skip
+                if org == "MINE":
+                    row.update((changes or {}).get((level, place), {}))
+                rows.append(row)
+                ratings.append({"ID": pid, **dict.fromkeys(("CON", "GAP", "POW", "EYE", "K's", "BABIP"), value)})
+    levels = {"AAA": LevelLimits(), "AA": LevelLimits(), "A": LevelLimits(max_age=25)}
+    return pd.DataFrame(rows), pd.DataFrame(ratings), levels
+
+
+def moves(changes=None):
+    from viewer import minors
+
+    frame, ratings, levels = minors_inputs(changes)
+    return minors.manage(frame, ratings, "MINE", levels)
+
+
+def test_the_ladder_is_the_order_of_the_level_tables_without_the_levels_off_it():
+    from util.config import LevelLimits
+    from viewer import minors
+
+    levels = {"AAA": LevelLimits(), "AA": LevelLimits(), "WL": LevelLimits(ladder=False), "R": LevelLimits()}
+    assert minors.ladder(levels) == ["AAA", "AA", "R"]
+
+
+def test_percentiles_count_ties_half_and_rules_come_from_the_config_file(tmp_path):
+    import numpy as np
+
+    from viewer import minors
+
+    got = minors.percentile(pd.Series([1.0, 2.0, 3.0, 9.0]), np.array([1.0, 2.0, 2.0, 3.0]))
+    assert got.round(3).tolist() == [0.125, 0.5, 0.875, 1.0]
+    assert minors.load_rules(tmp_path / "missing.toml") == minors.Rules()
+    config = tmp_path / "m.toml"
+    config.write_text('[ratings]\nhitters = ["CON"]\n[rules]\ngreen = 0.8\n')
+    rules = minors.load_rules(config)
+    assert rules.green == 0.8 and rules.hitters == ("CON",) and rules.min_green_hitters == 4
+    config.write_text("[rules]\nspeed = 1\n")
+    with pytest.raises(ValueError):
+        minors.load_rules(config)
+
+
+def test_a_player_who_dominates_his_level_goes_up_and_a_weak_one_goes_down():
+    from viewer import minors
+
+    table = moves()
+    assert set(table["Level"]) == {"AAA", "AA", "A"} and len(table) == 30  # MLB is not on the ladder
+    # place 9 is the best of his level: green everywhere there and no worse than average at the level above
+    best_aa = table[(table["Level"] == "AA") & (table["Value"] == 52.0)].iloc[0]
+    assert best_aa["Move"] == minors.UP and best_aa["To"] == "AAA" and best_aa["green"] == 6
+    worst_aa = table[(table["Level"] == "AA") & (table["Value"] == 25.0)].iloc[0]
+    assert worst_aa["Move"] == minors.DOWN and worst_aa["To"] == "A" and worst_aa["Blocked"] == ""
+    assert not ((table["Level"] == "A") & (table["Move"] == minors.DOWN)).any()  # nobody goes down from the bottom
+    assert (table.loc[table["Move"] == "", ["To", "Reason", "Blocked"]] == "").all().all()  # no move, no reason
+
+
+def test_a_player_over_the_limit_of_his_level_must_move_up_and_cannot_go_down_to_a_level_he_is_too_old_for():
+    from viewer import minors
+
+    table = moves({("A", 4): {"Age": 26}, ("AA", 0): {"Age": 26}})  # the A limit is 25; AA's worst player is 26
+    old = table[(table["Level"] == "A") & (table["Age"] == 26)].iloc[0]
+    assert old["Move"] == minors.MUST and old["To"] == "AA" and "age 26 > 25 at A" in old["Reason"]
+    stuck = table[(table["Level"] == "AA") & (table["Age"] == 26)].iloc[0]
+    assert stuck["Move"] == minors.DOWN and stuck["To"] == "A" and stuck["Blocked"] == "age 26 > 25 at A"
+
+
+def test_the_management_page_lists_the_moves_of_every_league_and_survives_a_league_switch():
+    app = AppTest.from_file(str(SCREENS / "minor_management.py"), default_timeout=180).run()
+    assert not app.exception and len(app.dataframe) >= 4
+    assert any("to move" in s.value for s in app.subheader)
+    first, others = other_leagues_with_files()
+    if others:
+        app.selectbox[0].select(others[0]).run()
+        assert not app.exception
+    app.checkbox[0].check().run()
+    assert not app.exception

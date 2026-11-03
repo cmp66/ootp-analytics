@@ -121,6 +121,7 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 
 ### 5. I changed the lists or the viewer
 
+- The age and pro-years limits of each minor league level, and the promotion ladder (the order of the level tables, top level first), are in `config/saves.toml`; the rules of the level moves page (what counts as green, how many key ratings, how old is old for a level) in `config/minors.toml`. Check the ladder order of a new league.
 - The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.
 
 - Lists are defined in `config/viewer.toml`. Edit it and run `update_all.py --only lists`, or look at one with `outlook_lists.py TGS --list <name>`.

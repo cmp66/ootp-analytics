@@ -89,7 +89,7 @@ def main() -> None:
     config = load_update_config()
     st.html(STYLE)
     league_column, first, show, ranked, *links = st.columns(
-        [0.9, 1.2, 1.4, 1.6, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center"
+        [0.9, 1.2, 1.4, 1.6, 1, 1.3, 1, 0.8, 1, 1.1, 1.3], vertical_alignment="center"
     )
     save = league.choose_save(config, league_column, key="league-depth")
     seasons = available_seasons(save)
