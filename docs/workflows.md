@@ -112,6 +112,8 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 
 ### 5. I changed the lists or the viewer
 
+- The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.
+
 - Lists are defined in `config/viewer.toml`. Edit it and run `update_all.py --only lists`, or look at one with `outlook_lists.py TGS --list <name>`.
 - The viewer reads the csv files; code changes show after a reload (Streamlit offers "Rerun"). A new output should become a step in `STEPS` of `scripts/update_all.py` so that it stays the one command.
 

@@ -9,6 +9,15 @@ SOURCES = ("dump", "export")
 
 
 @dataclass(frozen=True)
+class LevelLimits:
+    """The limits of a minor league level (0 = no limit): a player older than `max_age` or with more than `max_pro_years` years of
+    professional experience does not belong at the level."""
+
+    max_age: int = 0
+    max_pro_years: int = 0
+
+
+@dataclass(frozen=True)
 class SaveConfig:
     name: str
     source: str
@@ -19,6 +28,8 @@ class SaveConfig:
     home_share: float = 0.5
     # save-specific team identifier -> "Team Name" in the ballpark csv (export: ratings TM abbreviation)
     team_names: dict[str, str] = field(default_factory=dict)
+    # level of the ratings column Lev (AAA, AA, A+, A-, R+, R, INT, ...) -> its limits; a level that is not listed has none
+    levels: dict[str, LevelLimits] = field(default_factory=dict)
 
 
 def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
@@ -32,6 +43,14 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
         home_share = values.get("home_share", 0.5)
         if not 0 <= home_share <= 1:
             raise ValueError(f"Save {name}: home_share must be between 0 and 1, got {home_share}")
+        levels = {}
+        for level, limits in values.get("levels", {}).items():
+            unknown = set(limits) - {"max_age", "max_pro_years"}
+            if unknown:
+                raise ValueError(f"Save {name}, level {level}: unknown keys {sorted(unknown)}")
+            levels[level] = LevelLimits(**{key: int(value) for key, value in limits.items()})
+            if min(levels[level].max_age, levels[level].max_pro_years) < 0:
+                raise ValueError(f"Save {name}, level {level}: limits cannot be negative (0 = no limit)")
         saves[name] = SaveConfig(
             name=name,
             source=values["source"],
@@ -39,6 +58,7 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
             ballparks=values.get("ballparks"),
             home_share=home_share,
             team_names=dict(values.get("team_names", {})),
+            levels=levels,
         )
     return saves
 

@@ -15,6 +15,7 @@ import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from scripts.update_all import load_update_config  # noqa: E402
+from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
 from viewer import depth, overview, queries  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
@@ -45,17 +46,27 @@ STYLE = org_view.STYLE + f"""
 .box .row {{display: flex; justify-content: space-between; gap: 12px; white-space: nowrap;}}
 .box .lev {{color: #cfd6e6;}}
 .box .value {{color: #9fb0cf; font-size: 12px; min-width: 38px; text-align: right;}}
+.box .over {{color: #ff7b72;}}
 .box .none {{color: #8a93a8; font-style: italic;}}
 </style>
 """
+
+
+def over(row) -> str:
+    """Red name with the reason as a tooltip for a player who exceeds the limits of his level."""
+    return (
+        f' class="over" title="Over the limits of {html.escape(str(row.Lev))}: {html.escape(row.Flag)}"'
+        if row.Flag
+        else ""
+    )
 
 
 def box_html(slot: str, players) -> str:
     left, top = BOX_PLACES[slot]
     rows = (
         "".join(
-            f'<div class="row"><span>{html.escape(row.Player)}</span><span class="lev">{html.escape(str(row.Lev))}</span>'
-            f'<span class="value">{row.Value:.1f}</span></div>'
+            f'<div class="row"><span{over(row)}>{html.escape(row.Player)}</span>'
+            f'<span class="lev">{html.escape(str(row.Lev))}</span><span class="value">{row.Value:.1f}</span></div>'
             for row in players.itertuples()
         )
         or '<div class="none">nobody</div>'
@@ -94,7 +105,12 @@ def main() -> None:
     org = first.selectbox(
         "Organization", orgs, index=orgs.index(mine) if mine in orgs else 0, label_visibility="collapsed"
     )
-    choice = show.selectbox("Show", depth.SHOW, label_visibility="collapsed", format_func=lambda s: f"Show: {s}")
+    choice = show.selectbox(
+        "Show",
+        depth.show_options(frame, org),
+        label_visibility="collapsed",
+        format_func=lambda s: f"Show: {depth.show_label(s)}",
+    )
     ranking = ranked.selectbox(
         "Ranked by", depth.RANKED_BY, label_visibility="collapsed", format_func=lambda s: f"Ranked by: {s}"
     )
@@ -104,7 +120,7 @@ def main() -> None:
         except StreamlitPageNotFoundError:  # run on its own, without the navigation of viewer/app.py
             break
     try:
-        chart = depth.depth_chart(frame, org, choice, ranking)
+        chart = depth.depth_chart(frame, org, choice, ranking, get_save(save).levels)
     except ValueError as error:  # outlook files made before the career view have no 10-season floor / ceiling
         st.error(str(error))
         return
@@ -112,6 +128,7 @@ def main() -> None:
         f"**{org}** {save} {season}: built like a team: the best lineup is picked first, every player at the position where he "
         f"adds the most given the others, then the best backups from the players left, and so on; each player once, "
         f"{depth.DEPTH_HITTERS} deep at each position, {depth.DEPTH_PITCHERS} at starting and relief pitcher. "
+        "A name in red is over the age or pro-years limit of his level (config/saves.toml; hover for the reason). "
         + {
             "Current": "Ranked by value now (runs above the league's average starter at the position).",
             "Ceiling (10 years)": "Ranked by the ceiling: the 90th percentile of his best season within the next 10.",

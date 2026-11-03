@@ -8,6 +8,7 @@ and so on: pass 1 is the starting team, pass 2 the first backups. Pitchers are a
 pitcher. A player is only placed where the files rank him (his ratings reach the position's minimum) and appears once.
 """
 
+import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
@@ -18,7 +19,10 @@ HITTER_SLOTS = [slot for slot in CHART_SLOTS if slot not in ("SP", "RP")]
 PITCHER_SLOTS = {"SP": 5, "RP": 5}  # places per pass, so two passes give the ten of each box
 DEPTH_HITTERS = 5
 DEPTH_PITCHERS = 10
-SHOW = ("Entire organization", "Minor leagues")
+WHOLE, MINORS = "Entire organization", "Minor leagues"
+SHOW = (WHOLE, MINORS)  # and, after these, the level (team) codes of show_options
+LEVEL_ORDER = ["AAA", "AA", "A+", "A", "A-", "R+", "R", "Rookie", "INT", "WL"]  # the levels of the files, top to bottom
+LEVEL_LABELS = {"INT": "International Complex"}
 RANKED_BY = ("Current", "Ceiling (10 years)", "Floor (10 years)")
 HANDS = {1: "R", 2: "L"}  # the throwing hand codes of the files
 
@@ -26,6 +30,33 @@ HANDS = {1: "R", 2: "L"}  # the throwing hand codes of the files
 def _tidy(name: str) -> str:
     """Some files hold the names of the amateur classes in capitals."""
     return name.title() if name.isupper() else name
+
+
+def show_label(show: str) -> str:
+    return LEVEL_LABELS.get(show, show)
+
+
+def show_options(frame: pd.DataFrame, org: str) -> list[str]:
+    """The parts of an organization the chart can show: all of it, its minor leagues, and each level (team) it has players at."""
+    levels = set(queries.select_pool(frame, "org", org)["team_level"]) - {"MLB", "FA", "other"}
+    known = [level for level in LEVEL_ORDER if level in levels]
+    return [*SHOW, *known, *sorted(levels - set(known))]
+
+
+def limit_flags(rows: pd.DataFrame, limits: dict) -> list[str]:
+    """For each player the limits of his level he exceeds: "" or a short text such as "age 25 > 24; pro years 6 > 5"."""
+    flags = []
+    for level, age, years in zip(
+        rows["team_level"], rows["Age"], rows.get("PROY", pd.Series(np.nan, index=rows.index))
+    ):
+        limit = limits.get(level)
+        found = []
+        if limit and limit.max_age and age > limit.max_age:
+            found.append(f"age {age:g} > {limit.max_age}")
+        if limit and limit.max_pro_years and pd.notna(years) and years > limit.max_pro_years:
+            found.append(f"pro years {years:g} > {limit.max_pro_years}")
+        flags.append("; ".join(found))
+    return flags
 
 
 def ranking_column(frame: pd.DataFrame, ranked_by: str) -> str:
@@ -74,16 +105,22 @@ def fill(pool: pd.DataFrame, column: str, places: dict[str, int], depth: int) ->
 
 
 def depth_chart(
-    frame: pd.DataFrame, org: str, show: str = SHOW[0], ranked_by: str = RANKED_BY[0]
+    frame: pd.DataFrame, org: str, show: str = WHOLE, ranked_by: str = RANKED_BY[0], limits: dict | None = None
 ) -> dict[str, pd.DataFrame]:
-    """Slot -> its players in depth order (the starter first); columns ID, Player, Lev, Value (the ranking value at the slot)."""
-    if show not in SHOW:
-        raise ValueError(f"unknown choice {show!r}; known: {SHOW}")
+    """Slot -> its players in depth order (the starter first); columns ID, Player, Lev, Value (the ranking value at the slot) and
+    Flag (the limits of his level he exceeds; `limits` is the `levels` of the save's config: level -> LevelLimits).
+
+    `show`: the whole organization, its minor leagues, or one level (team) of show_options.
+    """
+    if show not in show_options(frame, org):
+        raise ValueError(f"unknown choice {show!r}; known: {show_options(frame, org)}")
     column = ranking_column(frame, ranked_by)
     pool = queries.select_pool(frame, "org", org)
     pool = pool[pool["slot"].isin(CHART_SLOTS)].dropna(subset=[column])
-    if show == SHOW[1]:
+    if show == MINORS:
         pool = pool[pool["level_name"] != "MLB"]
+    elif show != WHOLE:
+        pool = pool[pool["team_level"] == show]
     hitters = fill(pool, column, dict.fromkeys(HITTER_SLOTS, 1), DEPTH_HITTERS)
     placed = {player for ids in hitters.values() for player in ids}
     pitchers = fill(pool[~pool["ID"].isin(placed)], column, PITCHER_SLOTS, DEPTH_PITCHERS // PITCHER_SLOTS["SP"])
@@ -98,8 +135,9 @@ def depth_chart(
             {
                 "ID": rows.index.to_numpy(),
                 "Player": names.to_numpy(),
-                "Lev": rows["level_name"].to_numpy(),
+                "Lev": rows["team_level"].to_numpy(),
                 "Value": rows[column].to_numpy(),
+                "Flag": limit_flags(rows, limits or {}),
             }
         )
     return chart

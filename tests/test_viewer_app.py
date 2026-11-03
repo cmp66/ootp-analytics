@@ -368,3 +368,31 @@ def test_depth_assignment_puts_a_player_where_he_adds_the_most_and_only_where_he
     assert sorted(depth.assign_pass(values, {"CF": 1, "RF": 1})) == [(1, "RF"), (2, "CF")]
     # nobody is placed where he is not ranked, so a short position stays empty
     assert depth.assign_pass(pd.DataFrame({"CF": [None]}, index=[1]), {"CF": 1}) == []
+
+
+def test_depth_chart_shows_one_level_at_a_time_and_flags_players_over_its_limits():
+    from util.config import LevelLimits
+    from viewer import depth
+
+    save, frame = depth_frame()
+    org = load_update_config()[save]["org"]
+    options = depth.show_options(frame, org)
+    assert options[:2] == list(depth.SHOW) and len(options) > 2
+    level = options[2]
+    chart = depth.depth_chart(frame, org, level)
+    assert all((table["Lev"] == level).all() for table in chart.values())
+    assert all((table["Flag"] == "").all() for table in chart.values())  # no limits configured: nobody is over
+    strict = depth.depth_chart(frame, org, level, limits={level: LevelLimits(max_age=1, max_pro_years=1)})
+    everybody = pd.concat(strict.values())
+    assert len(everybody) and everybody["Flag"].str.contains("age").all()
+    with pytest.raises(ValueError):
+        depth.depth_chart(frame, org, "Nowhere")
+
+
+def test_depth_chart_page_offers_the_levels_of_the_organization():
+    app = AppTest.from_file(DEPTH, default_timeout=120).run()
+    assert not app.exception
+    shown = app.selectbox[1].options
+    assert any("International Complex" in option for option in shown) and len(shown) > 3
+    app.selectbox[1].select("AAA").run()
+    assert not app.exception

@@ -42,6 +42,7 @@ IDENTITY_COLUMNS = [
     "organization_id",
     "Draft",
     "SctCat",
+    "PROY",
 ]
 IAFA_MAX_AGE = 19  # SctCat "International" also holds foreign professionals; the IAFA prospects are the young ones
 SLOT_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH", "SP", "RP"]
@@ -112,6 +113,7 @@ def add_pool_flags(frame: pd.DataFrame, save: str) -> pd.DataFrame:
     out = frame.copy()
     config = get_save(save)
     out["level_name"] = out["level"].map(lambda v: LEVEL_NAMES.get(int(v), "other") if pd.notna(v) else "FA")
+    out["team_level"] = out["level_name"]  # the team: an export names it (A+ and A-, R+ and R), a dump only the level
     if config.source == "export":
         lev = out["Lev"].astype(str) if "Lev" in out else pd.Series("", index=out.index)
         scouting = out["SctCat"].astype(str) if "SctCat" in out else pd.Series("", index=out.index)
@@ -120,6 +122,7 @@ def add_pool_flags(frame: pd.DataFrame, save: str) -> pd.DataFrame:
         out["is_iafa"] = (scouting == "International") & (out["Age"] <= IAFA_MAX_AGE) & (lev == "FA")
         out["is_free_agent"] = (lev == "FA") & ~out["is_draft"] & ~out["is_iafa"]
         out["level_name"] = np.where(lev.isin(["INT", "WL"]), lev, out["level_name"])
+        out["team_level"] = np.where(lev != "", lev, out["level_name"])
     else:
         organization = pd.to_numeric(out.get("organization_id", 0), errors="coerce").fillna(0)
         out["org"] = organization.astype(int).astype(str)
