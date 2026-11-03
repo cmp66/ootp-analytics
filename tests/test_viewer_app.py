@@ -606,3 +606,19 @@ def test_the_park_toggle_is_off_for_all_organizations_and_free_agents():
     app = AppTest.from_file(str(SCREENS / "org_overview.py"), default_timeout=240).run()
     app.selectbox[1].select("Free agents").run()
     assert app.toggle[0].disabled and not app.exception
+
+
+def test_an_exact_tie_between_assignments_is_decided_by_the_position_a_player_is_listed_at():
+    from viewer import depth
+
+    # A (listed SS) and B (listed 2B): SS + 2B for A + B and 2B + SS for A + B add up to the same -6.5
+    values = pd.DataFrame({"SS": [8.0, -17.5], "2B": [11.0, -14.5]}, index=pd.Index([1, 2], name="ID"))
+    listed = pd.Series({1: "SS", 2: "2B"})
+    assert sorted(depth.assign_pass(values, {"SS": 1, "2B": 1}, listed)) == [(1, "SS"), (2, "2B")]
+    assert sorted(depth.assign_pass(values, {"SS": 1, "2B": 1}, pd.Series({1: "2B", 2: "SS"}))) == [
+        (1, "2B"),
+        (2, "SS"),
+    ]
+    # a real difference in value still beats the preference
+    better = pd.DataFrame({"SS": [8.0, -17.5], "2B": [12.0, -14.5]}, index=pd.Index([1, 2], name="ID"))
+    assert sorted(depth.assign_pass(better, {"SS": 1, "2B": 1}, listed)) == [(1, "2B"), (2, "SS")]
