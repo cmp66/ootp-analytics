@@ -37,6 +37,14 @@ source = "export"
 ratings = "Standard26"
 ballparks = "ballpark_ratings.csv"
 
+[Dugout26]
+source = "export"
+ratings = "Standard26"
+
+[PBL27]
+source = "export"
+ratings = "Standard27"
+
 [TGS.levels."AAA"]
 max_age = 0
 max_pro_years = 0
@@ -99,6 +107,58 @@ max_pro_years = 0
 
 [TGS26.levels."WL"]
 max_age = 19
+max_pro_years = 0
+
+[Dugout26.levels."AAA"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."AA"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."A"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."S A"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."R"]
+max_age = 0
+max_pro_years = 0
+
+[Dugout26.levels."INT"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."AAA"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."AA"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."A"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."S A"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."A-"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."R"]
+max_age = 0
+max_pro_years = 0
+
+[PBL27.levels."INT"]
+max_age = 0
 max_pro_years = 0
 
 [TGS.team_names]

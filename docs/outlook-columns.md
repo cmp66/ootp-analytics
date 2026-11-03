@@ -15,7 +15,7 @@ potential) pass the minimum in `config/outlook.toml`; DH and RP have no minimum.
 | `ID`, `season`, `slot` | the player and the slot |
 | `value_now` | rating-based value now (batting + baserunning + fielding at the position per season for hitters; DH batting + baserunning; pitching runs per 200 IP for pitchers), league relative |
 | `pct_now`, `rank_now`, `tier_now` | percentile, rank (1 = best) and tier (top10, top50, rest) among the players ranked at the slot; ranks 10 and 50 are for 30 teams and scale with the number of teams |
-| `value_h1` ... `value_h10` | median value 1, 2, 3, 5, 7 and 10 seasons ahead |
+| `value_h1` ... `value_h10` | median value 1, 5, 7 and 10 seasons ahead (also 2 and 3 in files made before they were dropped) |
 | `value_h99`, `floor_h99`, `ceiling_h99`, `p_top10_h99`, `p_top50_h99` | the career view: the median, 10th and 90th percentile of his best season (best value at the slot) within the next 10 seasons, and the chance that he is top 10 / top 50 at the slot at some point in those 10 seasons; `rank_score_h99` blends them. It has no stay, availability or season-value columns |
 | `floor_h`, `ceiling_h` | 10th and 90th percentile of the value (an 80 % band, widened so that it covers 80 % of held-out outcomes); `q25_h`, `q75_h` the quartiles |
 | `p_top10_h`, `p_top50_h` | chance of being top 10 / top 50 at the slot in that season (a player who will be gone counts as no): the average of a bagged classifier and the chance that his value distribution is above the league's own rank-10 / rank-50 value at the slot (see below) |

@@ -224,3 +224,8 @@ def test_career_targets_are_the_peak_and_the_ever_top_flags_within_the_span(monk
         out.loc[2, [f"{c}_h99" for c in ("dvalue", "top10", "top50")]].isna().all() and not out.loc[2, "observed_h99"]
     )
     assert models.reach(models.CAREER) == 3 and models.reach(5) == 5
+
+
+def test_the_trained_horizons_are_the_ones_in_use_plus_the_career_view():
+    assert models.TRAINED_HORIZONS == (1, 5, 7, 10)
+    assert models.OUTLOOK_HORIZONS == (1, 5, 7, 10, models.CAREER)

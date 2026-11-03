@@ -29,10 +29,20 @@ from model.artifact import Artifact, load_artifact, save_artifact
 HORIZONS = (1, 2, 3, 5, 7, 10)
 CAREER = 99  # pseudo-horizon: the targets are the peak (best slot value) and "ever top 10 / top 50" within CAREER_SPAN seasons
 CAREER_SPAN = 10
-OUTLOOK_HORIZONS = (
+TRAINED_HORIZONS = (
+    1,
+    5,
+    7,
+    10,
+)  # what gets trained: 2 and 3 seasons ahead were not used, and each horizon costs training time
+KNOWN_HORIZONS = (
     *HORIZONS,
     CAREER,
-)  # the horizons of the slot models; the player models (stay, availability) use HORIZONS
+)  # what a model set may hold (older sets also have 2 and 3); scoring uses what is there
+OUTLOOK_HORIZONS = (
+    *TRAINED_HORIZONS,
+    CAREER,
+)  # the horizons of the slot models and of the player models (stay, availability; the career view has none)
 VALUE_QUANTILES = (0.1, 0.25, 0.5, 0.75, 0.9)
 AVAIL_QUANTILES = (0.1, 0.5, 0.9)
 FAMILIES = {"hitters": outlook_data.HITTER_SLOTS, "pitchers": outlook_data.PITCHER_SLOTS}

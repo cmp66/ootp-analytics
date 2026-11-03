@@ -56,7 +56,7 @@ Scores every player with the outlook models and writes `<save>-<season>-outlook-
 ```
 predict_outlook.py TGS --models-from Model-Sim [--season 2046] [--depth-percentile 0.3]
 ```
-Horizons 1, 2, 3, 5, 7, 10 seasons ahead and the career view (`_h99`). Columns: [outlook-columns.md](outlook-columns.md). About 15 s.
+Horizons 1, 5, 7, 10 seasons ahead (the models of 2 and 3 were dropped; older output files may still have them) and the career view (`_h99`). Columns: [outlook-columns.md](outlook-columns.md). About 15 s.
 
 ## Training
 
@@ -82,7 +82,7 @@ train_outlook_models.py Model-Sim
 train_outlook_models.py Model-Sim --horizons 99 --out docs/outlook-model-evaluation-Model-Sim-career.md
 train_outlook_models.py Model-Sim --families hitters --no-eval
 ```
-Options: `--families {hitters,pitchers}`, `--horizons` (default 1 2 3 5 7 10 99; 99 = career view), `--max-rows`, `--no-eval`, `--out`. Needs the tables of `build_outlook_tables.py`.
+Options: `--families {hitters,pitchers}`, `--horizons` (default 1 5 7 10 99; 99 = career view), `--max-rows`, `--no-eval`, `--out`. Needs the tables of `build_outlook_tables.py`.
 
 ### sync_models.py
 Stores the trained models in the S3 bucket `ootp-models` and fetches them on another machine. Uses `boto3` and the credentials of `aws configure` (the AWS CLI itself is not needed; `OOTP_MODELS_BUCKET` or `--bucket` changes the bucket).
