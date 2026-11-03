@@ -154,6 +154,7 @@ PAGES = {  # page key -> (file, link label, icon)
     "draft": ("screens/draft_overview.py", "MLB draft", ":material/format_list_numbered:"),
     "iafa": ("screens/iafa_overview.py", "IAFA", ":material/public:"),
     "depth": ("screens/depth_chart.py", "Depth chart", ":material/stadium:"),
+    "management": ("screens/minor_management.py", "Level moves", ":material/swap_vert:"),
     "explorer": ("screens/explorer.py", "Explorer", ":material/search:"),
 }
 POOL_TITLES = {"draft": "MLB draft class", "iafa": "International amateurs (IAFA)"}
@@ -167,7 +168,7 @@ def render(page: str = "org") -> None:
     (players of no organization yet). All but the first show floor / ceiling instead of the current value."""
     config = load_update_config()
     st.html(STYLE)
-    league_column, first, *links = st.columns([0.9, 1.2, 1, 1.3, 1, 0.8, 1, 1.1], vertical_alignment="center")
+    league_column, first, *links = st.columns([0.9, 1.2, 1, 1.3, 1, 0.8, 1, 1.1, 1.3], vertical_alignment="center")
     save = league.choose_save(config, league_column, key=f"league-{page}")
     seasons = available_seasons(save)
     if not seasons:

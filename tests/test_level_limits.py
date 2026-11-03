@@ -29,3 +29,12 @@ def test_the_shipped_config_lists_every_level_of_the_human_leagues():
         levels = load_saves()[name].levels
         assert set(levels) >= {"AAA", "AA", "A+", "A-", "R+", "R", "INT"}
         assert all(isinstance(limit, LevelLimits) for limit in levels.values())
+
+
+def test_a_level_can_be_kept_off_the_promotion_ladder_and_the_table_order_is_kept(tmp_path):
+    path = write(
+        tmp_path, '[S.levels."AAA"]\nmax_age = 30\n[S.levels."WL"]\nladder = false\n[S.levels."AA"]\nmax_age = 27\n'
+    )
+    levels = load_saves(path)["S"].levels
+    assert list(levels) == ["AAA", "WL", "AA"] and levels["WL"].ladder is False and levels["AAA"].ladder is True
+    assert levels["WL"] == LevelLimits(ladder=False)

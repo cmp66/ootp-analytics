@@ -1,0 +1,40 @@
+# Rules of the minor league management page (viewer/minors.py). They follow how the game's "ratings relative to the level" are read:
+# a rating is compared with the players of the level, in all organizations, and counts as "green" when it is high enough there.
+#
+# A player is a PROMOTION candidate when at least `min_green_*` of his key ratings are green at his level (he dominates it) and he
+# would not be at the bottom of the next level (the mean percentile of his key ratings among that level's players is at least
+# `next_floor`, so he has a chance to succeed). He is an OVERDUE candidate (don't let him stagnate) when he is old for the level
+# (age percentile among the players of the level at least `old_for_level`), his ratings are at least average there (mean percentile
+# at least `average`) and he would not be at the bottom of the next level. He MUST MOVE when he is over the age or pro-years limit of
+# his level (config/saves.toml). He is a DEMOTION candidate when his ratings are weak at his level (mean percentile at most `red`
+# and none of his key ratings green). A move is only suggested to a level whose age and pro-years limits he meets (a 26 year old
+# does not go down to a level with a maximum age of 25). The statistics of the season are not used: the current ratings are what
+# counts (and in a league where potential influences the minor league statistics, such as PBL27, they say even less).
+#
+# The focus is the development of the better players while they can still develop. A player is a TOP PROSPECT or a PROSPECT when his
+# ceiling (the 90th percentile of his best season within ten) stands high among all minor leaguers of his position in the league
+# (percentile `top_prospect` / `prospect`), otherwise he is DEPTH. His DEVELOPMENT WINDOW is what is left of the years until the age
+# at which players of his kind stop improving. A prospect with a window left is the focus: he needs one key rating less to be moved
+# up and counts as old for the level. Depth players and players past their window are filler: moving them matters less, so the page
+# lists them only on request (except those who must move because of the limits of their level).
+
+[ratings]  # the key ratings, the columns of player-data
+hitters = ["CON", "GAP", "POW", "EYE", "K's", "BABIP"]
+pitchers = ["STU", "MOV", "CON.1"]
+
+[rules]  # ~30% of the organization comes out as promotion candidates with these; raise green or min_green_* for fewer
+green = 0.70              # percentile among the players of the level from which a rating counts as green
+red = 0.25                # mean percentile at or below which a player is weak for his level
+average = 0.50            # mean percentile a player has to reach to be moved up for being old for the level
+prospect = 0.80           # ceiling percentile among the league's minor leaguers at the position
+top_prospect = 0.95
+min_green_hitters = 4     # of the six key ratings
+min_green_pitchers = 2    # of the three key ratings
+next_floor = 0.35         # mean percentile at the next level a player needs to be moved up there
+old_for_level = 0.75      # age percentile among the players of the level from which he is old for it
+
+[development]  # the last age at which the key ratings still grow on average, by game version
+# Measured in the training leagues (Model-Sim and Model-Sim-26-Std): the mean yearly change of the key ratings falls to about zero at
+# 25 for hitters (+0.1 at 25, 0.0 at 26) and at 26 for pitchers (+0.4 at 26, +0.1 at 27 in OOTP27; +0.2 at 26, -0.1 at 27 in OOTP26).
+hitters = { OOTP26 = 25, OOTP27 = 25 }
+pitchers = { OOTP26 = 26, OOTP27 = 26 }
