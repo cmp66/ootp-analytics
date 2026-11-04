@@ -62,9 +62,8 @@ def over(row) -> str:
     )
 
 
-def box_html(slot: str, players) -> str:
-    left, top = BOX_PLACES[slot]
-    rows = (
+def player_rows(players) -> str:
+    return (
         "".join(
             f'<div class="row"><span{over(row)}>{html.escape(row.Player)}</span>'
             f'<span class="lev">{html.escape(str(row.Lev))}</span><span class="value">{row.Value:.1f}</span></div>'
@@ -72,8 +71,13 @@ def box_html(slot: str, players) -> str:
         )
         or '<div class="none">nobody</div>'
     )
+
+
+def box_html(slot: str, players) -> str:
+    left, top = BOX_PLACES[slot]
     kind = " pitchers" if slot in ("SP", "RP") else ""
-    return f'<div class="box{kind}" style="left:{left}%; top:{top}%"><h4>{BOX_TITLES[slot]}</h4>{rows}</div>'
+    heading = f"<h4>{BOX_TITLES[slot]}</h4>"
+    return f'<div class="box{kind}" style="left:{left}%; top:{top}%">{heading}{player_rows(players)}</div>'
 
 
 def chart_html(chart: dict) -> str:
@@ -122,11 +126,23 @@ def main() -> None:
             column.page_link(target, label=label, icon=icon, disabled=key == "depth")
         except StreamlitPageNotFoundError:  # run on its own, without the navigation of viewer/app.py
             break
-    park_column, text_column = st.columns([1.9, 8.1], vertical_alignment="center")
+    park_column, side_column, text_column = st.columns([1.9, 1.6, 6.5], vertical_alignment="center")
     park_on = league.park_toggle(park_column, org, "park-depth", league.park_available(save, season))
     frame = league.park_frame(save, season, frame, org, park_on)  # his organization's players valued in its park
+    splits = (
+        ranking == "Current" and "value_vs_right" in frame.columns
+    )  # the projections have no split by the pitcher's hand
+    view = side_column.selectbox(
+        "Lineup",
+        depth.SIDE_CHOICES if splits else depth.SIDE_CHOICES[:1],
+        label_visibility="collapsed",
+        format_func=lambda s: f"Lineup: {s}",
+        help="The hitters' values against right- or left-handed pitchers (current values only).",
+        disabled=not splits,
+    )
+    sides = {label: side for side, label in depth.SIDE_LABELS.items()}
     try:
-        chart = depth.depth_chart(frame, org, choice, ranking, get_save(save).levels)
+        chart = depth.depth_chart(frame, org, choice, ranking, get_save(save).levels, sides.get(view))
     except ValueError as error:  # outlook files made before the career view have no 10-season floor / ceiling
         st.error(str(error))
         return
@@ -140,12 +156,18 @@ def main() -> None:
             "Ceiling (10 years)": "Ranked by the ceiling: the 90th percentile of his best season within the next 10.",
             "Floor (10 years)": "Ranked by the floor: the 10th percentile of his best season within the next 10.",
         }[ranking]
+        + (
+            " The hitters' values are against right- or left-handed pitchers (the batting part of the value swapped for "
+            "his split); fielding and running do not change, the pitchers are one list."
+            if view != "Overall"
+            else ""
+        )
     )
     # the chart is drawn as html, which cannot be clicked: a list of its players opens the ratings page of one
     players = {
         f"{slot}: {row.Player} ({row.Lev})": (int(row.ID), slot, row.Player)
-        for slot, table in chart.items()
-        for row in table.itertuples()
+        for slot, rows in chart.items()
+        for row in rows.itertuples()
     }
     generation = st.session_state.setdefault("depth_generation", 0)  # a new key clears the choice
     chosen = st.columns([3, 7])[0].selectbox(

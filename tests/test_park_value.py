@@ -124,3 +124,33 @@ def test_the_park_models_train_store_next_to_the_value_models_and_score_every_pl
     assert out[["HR", "DOUBLE", "TRIPLE", "H"]].ge(0).all().all() and out["HR"].mean() < out["H"].mean()
     with pytest.raises(FileNotFoundError):
         park.load_models("Model-Sim", "Standard99")
+
+
+def test_the_value_against_one_side_uses_the_batting_side_a_switch_hitter_takes_against_it():
+    rates = pd.DataFrame(
+        {
+            "left_share": [0.0, 1.0, 0.72],
+            "HR": [0.03] * 3,
+            "DOUBLE": [0.04] * 3,
+            "TRIPLE": [0.004] * 3,
+            "H": [0.25] * 3,
+        },
+        index=pd.Index([1, 2, 3], name="ID"),
+    )
+    ctx = parks.ParkContext(factors(HR_L=1.4, HR_R=1.0), 1.0, COEF, 4.5, rates)  # only left-handed power is helped
+    frame = pd.DataFrame(
+        {
+            "ID": [1, 2, 3], "slot": ["SS"] * 3, "org": ["PARK"] * 3, "B": [1, 2, 3], "value_now": [10.0] * 3,
+            "value_vs_right": [10.0] * 3, "value_vs_left": [10.0] * 3,
+        }
+    )  # fmt: skip
+    out = parks.adjust(frame, ctx, team="PARK")
+    gain = out["value_vs_right"] - 10
+    assert (
+        gain[0] == pytest.approx(0.0) and gain[1] > 0
+    )  # the right-handed hitter is not helped, the left-handed one is
+    assert gain[2] == pytest.approx(gain[1])  # a switch hitter bats left against a right-hander
+    assert out.loc[2, "value_vs_left"] == pytest.approx(10.0)  # and right against a left-hander
+    assert out.loc[1, "value_vs_left"] == pytest.approx(
+        out.loc[1, "value_vs_right"]
+    )  # a left-handed hitter bats left always

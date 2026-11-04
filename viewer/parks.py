@@ -16,9 +16,11 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from model.park import SWITCH
 from stats import parks
 from util import paths
 from util.config import get_save
+from viewer import queries
 
 VALUE_COLUMNS = re.compile(
     r"^(value_now|bat_value|pit_value|(value|q25|q75|floor|ceiling|rank_score|season_value|season_floor|season_ceiling)_h\d+)$"
@@ -94,11 +96,26 @@ def effective(ctx: ParkContext, teams: pd.Series) -> pd.DataFrame:
     return out.fillna(1.0).set_axis(teams.index)
 
 
-def hitter_shift(ctx: ParkContext, ids: pd.Series, eff: pd.DataFrame) -> pd.Series:
+def side_left_share(bats: pd.Series, side: str) -> pd.Series:
+    """The share of a hitter's plate appearances from the left side against pitchers who throw with `side` ("right" or "left"):
+    left-handed hitters 1, right-handed 0, a switch hitter bats left against a right-hander and right against a left-hander.
+    NaN for a hitter whose batting hand is not known."""
+    codes = pd.to_numeric(bats, errors="coerce")
+    share = pd.Series(np.nan, index=bats.index)
+    share[codes == 1] = 0.0
+    share[codes == 2] = 1.0
+    share[codes == SWITCH] = 1.0 if side == "right" else 0.0
+    return share
+
+
+def hitter_shift(ctx: ParkContext, ids: pd.Series, eff: pd.DataFrame, left_share: pd.Series | None = None) -> pd.Series:
     """The runs per 600 PA a hitter gains (or loses) in the park: his neutral-park rates times what each event changes by, with
-    the run weights of the league. Zero for a player without rates."""
+    the run weights of the league. Zero for a player without rates. `left_share` (same index as `ids`) replaces his usual share of
+    plate appearances from the left side, for the value against one kind of pitcher; NaN keeps the usual one."""
     rates = ctx.rates.reindex(ids.to_numpy()).set_axis(ids.index)
     left = rates["left_share"].fillna(0.5)
+    if left_share is not None:
+        left = left_share.fillna(left)
     f_avg = left * eff["AVG_L"] + (1 - left) * eff["AVG_R"]
     f_hr = left * eff["HR_L"] + (1 - left) * eff["HR_R"]
     hits, doubles, triples, homers = rates["H"], rates["DOUBLE"], rates["TRIPLE"], rates["HR"]
@@ -136,5 +153,13 @@ def adjust(frame: pd.DataFrame, ctx: ParkContext, team: str | None = None, own: 
             out[column] = factor * out[column] - (factor - 1) * base
         else:
             out[column] = np.where(pitcher, factor * out[column] - (factor - 1) * base, out[column] + shift)
+    for (
+        side
+    ) in queries.SIDES:  # the value against one kind of pitcher: a switch hitter bats from the other side of the plate
+        column = f"value_vs_{side}"
+        if column in out:
+            bats = out["B"] if "B" in out else pd.Series(np.nan, index=out.index)
+            side_shift = hitter_shift(ctx, out["ID"], eff, side_left_share(bats, side))
+            out[column] = out[column] + side_shift.where(~pitcher, 0.0)
     out["park_effect"] = out["value_now"] - frame["value_now"]
     return out

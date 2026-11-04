@@ -76,6 +76,7 @@ def load_outlook(save: str, season: int) -> pd.DataFrame:
     return add_components(add_pool_flags(frame, save), save, season)
 
 
+SIDES = ("right", "left")  # the throwing hand of the pitcher a hitter faces: `value_vs_right` and `value_vs_left`
 FIELDING_COLUMN = {
     "C": 2,
     "1B": 3,
@@ -111,6 +112,12 @@ def add_components(frame: pd.DataFrame, save: str, season: int) -> pd.DataFrame:
             field[mask] = out.loc[mask, "ID"].map(parts[column]).to_numpy()
     out["field_value"] = field
     pitcher = out["slot"].isin(["SP", "RP"])  # a pitcher's value is the pitching part only, a hitter's the other three
+    if {"batting", "batting_vs_right", "batting_vs_left"} <= set(parts.columns):
+        # the value against a right- or left-handed pitcher: the batting part of the value now swapped for the hitter's split
+        # (the blended batting is the mix of the two splits at the league's share of pitchers, so only that part changes)
+        for side in SIDES:
+            gap = out["ID"].map(parts[f"batting_vs_{side}"] - parts["batting"])
+            out[f"value_vs_{side}"] = (out["value_now"] + gap).where(~pitcher)
     out.loc[pitcher, ["bat_value", "run_value", "field_value"]] = np.nan
     out.loc[~pitcher, "pit_value"] = np.nan
     return out
