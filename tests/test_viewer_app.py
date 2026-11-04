@@ -434,7 +434,9 @@ def other_leagues_with_files():
     return first, found
 
 
-@pytest.mark.parametrize("page", ["org_overview", "depth_chart", "explorer", "minor_management", "acquisitions"])
+@pytest.mark.parametrize(
+    "page", ["org_overview", "depth_chart", "explorer", "minor_management", "acquisitions", "rule5"]
+)
 def test_the_league_selector_lists_every_save_and_switches_the_page_to_another_league(page):
     first, others = other_leagues_with_files()
     app = AppTest.from_file(str(SCREENS / f"{page}.py"), default_timeout=120).run()
@@ -734,3 +736,28 @@ def test_depth_chart_page_offers_the_overall_lineup_and_the_two_sides():
         assert not app.exception
     app.selectbox[3].select("Floor (10 years)").run()  # the projections have no split: back to the overall chart
     assert not app.exception
+
+
+def test_the_rule_5_page_lists_the_draft_eligible_players_the_roster_room_and_the_players_to_draft():
+    app = AppTest.from_file(str(SCREENS / "rule5.py"), default_timeout=240).run()
+    assert not app.exception
+    assert [s.value for s in app.subheader] == [
+        "Your players who can be drafted", "Who could come off the 40-man", "Players to draft from other organizations",
+    ]  # fmt: skip
+    assert len(app.metric) == 5 and len(app.dataframe) >= 2
+    eligible = app.dataframe[0].value
+    assert {"Player", "Action", "Why", "Tier"} <= set(eligible.columns) and set(eligible["Action"]) <= {
+        "Protect",
+        "Low risk",
+        "Expose",
+    }
+    first, others = other_leagues_with_files()
+    for (
+        name
+    ) in (
+        others
+    ):  # the other leagues: an exact 40-man where the export has the flag, an estimate (with a warning) where not
+        app.selectbox[0].select(name).run()
+        assert not app.exception
+    app.number_input[0].set_value(3).run()
+    assert not app.exception and app.metric[3].value >= "3"
