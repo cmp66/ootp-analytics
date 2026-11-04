@@ -1,0 +1,10 @@
+# Only what the viewer image copies; the league files are a volume, never part of the image.
+*
+!config
+!model
+!stats
+!util
+!viewer
+!scripts
+!deploy/requirements-viewer.txt
+**/__pycache__

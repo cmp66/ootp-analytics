@@ -14,7 +14,7 @@ import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from util.update_config import load_update_config  # noqa: E402
-from util.seasons import available_seasons  # noqa: E402
+from util.seasons import served_seasons  # noqa: E402
 from viewer import data_cache, league, queries, report  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
@@ -94,7 +94,7 @@ def main() -> None:
         pass
     st.sidebar.title("Player lists")
     save = league.choose_save(config, st.sidebar, key="league-explorer")
-    seasons = available_seasons(save)
+    seasons = served_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
         return

@@ -16,7 +16,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
-from util.seasons import available_seasons  # noqa: E402
+from util.seasons import served_seasons  # noqa: E402
 from viewer import data_cache, depth, league, overview  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
@@ -96,7 +96,7 @@ def main() -> None:
         [0.9, 1.2, 1.4, 1.6, *org_view.LINK_WIDTHS], vertical_alignment="center"
     )
     save = league.choose_save(config, league_column, key="league-depth")
-    seasons = available_seasons(save)
+    seasons = served_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
         return

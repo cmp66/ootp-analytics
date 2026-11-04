@@ -54,11 +54,11 @@ def git_commit() -> str:
         return "nogit"
 
 
-def manifest_names(client, bucket: str) -> list[str]:
-    """Names of the stored sets, oldest first (the names start with the UTC time)."""
+def manifest_names(client, bucket: str, manifests: str = "manifests") -> list[str]:
+    """Names of the stored sets, oldest first (the names start with the UTC time). `manifests`: the key prefix of the set kind."""
     names = []
-    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="manifests/"):
-        names += [item["Key"].removeprefix("manifests/").removesuffix(".json") for item in page.get("Contents", [])]
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"{manifests}/"):
+        names += [item["Key"].removeprefix(f"{manifests}/").removesuffix(".json") for item in page.get("Contents", [])]
     return sorted(names)
 
 
@@ -69,15 +69,24 @@ def stored_blobs(client, bucket: str) -> set[str]:
     return blobs
 
 
-def read_manifest(client, bucket: str, name: str) -> dict:
-    body = client.get_object(Bucket=bucket, Key=f"manifests/{name}.json")["Body"].read()
+def read_manifest(client, bucket: str, name: str, manifests: str = "manifests") -> dict:
+    body = client.get_object(Bucket=bucket, Key=f"{manifests}/{name}.json")["Body"].read()
     return json.loads(body)
 
 
-def push(client, bucket: str, root: Path = MODELS, dry_run: bool = False) -> str | None:
-    files = local_files(root)
+def push(
+    client,
+    bucket: str,
+    root: Path = MODELS,
+    dry_run: bool = False,
+    files: dict[str, Path] | None = None,
+    manifests: str = "manifests",
+) -> str | None:
+    """Upload the files that are not in the bucket and write a manifest of the set. `files` (relative path -> file) defaults to
+    the models under `root`; `manifests` is the key prefix of this kind of set."""
+    files = local_files(root) if files is None else files
     if not files:
-        raise SystemExit(f"no model files under {root}")
+        raise SystemExit(f"no files to store under {root}")
     with ThreadPoolExecutor(WORKERS) as pool:
         hashes = dict(zip(files, pool.map(sha256, files.values())))
     stored = stored_blobs(client, bucket)
@@ -91,7 +100,7 @@ def push(client, bucket: str, root: Path = MODELS, dry_run: bool = False) -> str
     with ThreadPoolExecutor(WORKERS) as pool:
         list(pool.map(lambda item: client.upload_file(str(files[item[1]]), bucket, f"blobs/{item[0]}"), unique.items()))
     name = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{git_commit()}"
-    taken = manifest_names(client, bucket)
+    taken = manifest_names(client, bucket, manifests)
     suffix = 1
     while name in taken:  # two pushes in the same second
         suffix += 1
@@ -100,7 +109,7 @@ def push(client, bucket: str, root: Path = MODELS, dry_run: bool = False) -> str
         "name": name,
         "files": {path: {"sha256": hashes[path], "size": files[path].stat().st_size} for path in files},
     }
-    client.put_object(Bucket=bucket, Key=f"manifests/{name}.json", Body=json.dumps(manifest, indent=1).encode())
+    client.put_object(Bucket=bucket, Key=f"{manifests}/{name}.json", Body=json.dumps(manifest, indent=1).encode())
     print(f"stored set {name}")
     return name
 
@@ -116,9 +125,16 @@ def resolve(names: list[str], version: str | None) -> str:
     return found[0]
 
 
-def pull(client, bucket: str, root: Path = MODELS, version: str | None = None, dry_run: bool = False) -> str:
-    name = resolve(manifest_names(client, bucket), version)
-    files = read_manifest(client, bucket, name)["files"]
+def pull(
+    client,
+    bucket: str,
+    root: Path = MODELS,
+    version: str | None = None,
+    dry_run: bool = False,
+    manifests: str = "manifests",
+) -> str:
+    name = resolve(manifest_names(client, bucket, manifests), version)
+    files = read_manifest(client, bucket, name, manifests)["files"]
     todo = {}
     for path, info in files.items():
         target = root / path
@@ -143,9 +159,9 @@ def pull(client, bucket: str, root: Path = MODELS, version: str | None = None, d
     return name
 
 
-def show(client, bucket: str) -> None:
-    for name in reversed(manifest_names(client, bucket)):
-        manifest = read_manifest(client, bucket, name)
+def show(client, bucket: str, manifests: str = "manifests") -> None:
+    for name in reversed(manifest_names(client, bucket, manifests)):
+        manifest = read_manifest(client, bucket, name, manifests)
         total = sum(info["size"] for info in manifest["files"].values())
         print(f"{name}  {len(manifest['files'])} files  {total / 1e6:.0f} MB")
 

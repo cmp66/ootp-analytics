@@ -16,7 +16,7 @@ import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from util.update_config import load_update_config  # noqa: E402
-from util.seasons import available_seasons  # noqa: E402
+from util.seasons import served_seasons  # noqa: E402
 from viewer import data_cache, league, overview, player_card  # noqa: E402
 
 ROW_HEIGHT = 21  # pixels of a table row; lower it if the screen does not fit
@@ -172,7 +172,7 @@ def render(page: str = "org") -> None:
     st.html(STYLE)
     league_column, first, *links = st.columns([0.9, 1.2, *LINK_WIDTHS], vertical_alignment="center")
     save = league.choose_save(config, league_column, key=f"league-{page}")
-    seasons = available_seasons(save)
+    seasons = served_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
         return

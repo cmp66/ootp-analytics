@@ -136,12 +136,16 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 1. `git clone` the repository and check out the branch.
 2. Create the Python 3.14 environment and install the requirements file of the hardware (see the README, Setup), and run `aws configure` with the credentials that may use the bucket.
 3. `python scripts/sync_models.py pull` downloads the latest model set into `files/models/` (`--version <name>` for an earlier one). The models are pickles written by scikit-learn, PyTorch and friends: use the versions of the requirements file, or an artifact may fail to load. If one does, retrain (workflow 3).
-4. Copy the raw files you need from the old machine: `files/<save>/` for the human leagues (and the training leagues only if you will retrain or process them). `files/` except the models is not in git.
+4. Get the raw files: `python scripts/sync_files.py pull` (the human leagues: ratings and statistics exports, finance, ballparks; run `sync_files.py push` on the machine that has them first, and after each new export). The training leagues are only needed to retrain or process them: `sync_files.py pull --set training` (16 GB) or copy them. The processed outputs are made again by `update_all.py`. `files/` is not in git. The bucket policy has to allow the new machine's IP address.
 5. `update_all.py`, then `run_viewer.py`. `python -m pytest` runs without the raw files.
 
 ### 7. Checking that nothing broke
 
 `python -m pytest` (about 3 minutes) and `flake8 --max-line-length 130 viewer model scripts tests`. After retraining, also read the evaluation reports in `docs/outlook-model-evaluation-*.md` and compare with the previous ones in git.
+
+### 8. The viewer on a server
+
+The viewer runs in a container on a small server (about 350 MB of memory; `deploy/`). It reads only the processed files of the latest season of each human league: after `update_all.py`, `python scripts/sync_files.py push --set viewer`; the server pulls them (`deploy/refresh.sh`, also on a schedule). Setup, nginx and S3 access: [deploy/README.md](../deploy/README.md). `tests/test_viewer_memory.py` keeps every page inside the memory budget: a new screen should load its data through `viewer/data_cache.py`, never with its own cache, and must not change the shared frame.
 
 ## Where things are written
 
