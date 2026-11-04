@@ -190,22 +190,29 @@ def manage(
     if not rows:
         return pd.DataFrame()
     table = pd.concat(rows, ignore_index=True)
-    last_age = table["pitcher"].map(lambda pitcher: rules.develops_through(version, bool(pitcher)))
-    table["Window"] = (last_age - table["Age"] + 1).clip(lower=0).astype(int)
-    table["Tier"] = np.where(
-        table["ceiling_pct"] >= rules.top_prospect,
-        TOP_PROSPECT,
-        np.where(table["ceiling_pct"] >= rules.prospect, PROSPECT, DEPTH),
-    )
-    table["Tier"] = np.where(
-        (table["Window"] == 0) & (table["Tier"] != DEPTH), PAST, table["Tier"]
-    )  # nothing left to develop
-    table["focus"] = table["Tier"].isin([TOP_PROSPECT, PROSPECT])
+    table = add_tier(table, rules, version)
     decided = table.apply(lambda r: _decide(r, levels, rules), axis=1, result_type="expand")
     table[["Move", "To", "Reason", "Blocked"]] = decided
     table["Player"] = (table["First Name"].astype(str) + " " + table["Last Name"].astype(str)).map(depth._tidy)
     table = table.rename(columns={"slot": "Pos", "PROY": "Pro", "team_level": "Level", "value_now": "Value"})
     return table.drop(columns=["First Name", "Last Name", "org", "above", "below", "keys"])
+
+
+def add_tier(table: pd.DataFrame, rules: Rules, version: str = "OOTP27") -> pd.DataFrame:
+    """Window (seasons of development left until the age at which this kind of player stops improving in this game version),
+    Tier (top prospect, prospect, past his window or depth, by `ceiling_pct`) and focus (a prospect with a window left) for a
+    table with Age, pitcher and ceiling_pct."""
+    out = table.copy()
+    last_age = out["pitcher"].map(lambda pitcher: rules.develops_through(version, bool(pitcher)))
+    out["Window"] = (last_age - out["Age"] + 1).clip(lower=0).astype(int)
+    out["Tier"] = np.where(
+        out["ceiling_pct"] >= rules.top_prospect,
+        TOP_PROSPECT,
+        np.where(out["ceiling_pct"] >= rules.prospect, PROSPECT, DEPTH),
+    )
+    out["Tier"] = np.where((out["Window"] == 0) & (out["Tier"] != DEPTH), PAST, out["Tier"])  # nothing left to develop
+    out["focus"] = out["Tier"].isin([TOP_PROSPECT, PROSPECT])
+    return out
 
 
 def _fits(level: str | None, age, years, levels: dict[str, LevelLimits]) -> str:

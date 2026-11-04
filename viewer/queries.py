@@ -43,6 +43,10 @@ IDENTITY_COLUMNS = [
     "Draft",
     "SctCat",
     "PROY",
+    "SECY",  # the years on the secondary roster
+    "R5",  # eligible for the Rule 5 draft (a flag the export has when the league enables it)
+    "ON40",  # on the 40-man (secondary) roster, in the exports that have the flag; OY: the option years used
+    "OY",
     "WAIV",  # the exports of 2046 on: on waivers (Yes), designated for assignment (DFA), what a free agent asks (DEM, a year),
     "DFA",  # how willing he is to sign (Sign) and the contract now (SLR, years left YL)
     "DEM",

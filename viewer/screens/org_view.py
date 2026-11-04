@@ -163,6 +163,7 @@ PAGES = {  # page key -> (file, link label, icon)
     "depth": ("screens/depth_chart.py", "Depth chart", ":material/stadium:"),
     "management": ("screens/minor_management.py", "Level moves", ":material/swap_vert:"),
     "acquire": ("screens/acquisitions.py", "Acquisitions", ":material/person_add:"),
+    "rule5": ("screens/rule5.py", "Rule 5", ":material/gavel:"),
     "explorer": ("screens/explorer.py", "Explorer", ":material/search:"),
 }
 LINK_WIDTHS = [

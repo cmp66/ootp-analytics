@@ -22,6 +22,7 @@ navigation = st.navigation(
         st.Page(SCREENS / "depth_chart.py", title="Depth chart", url_path="depth"),
         st.Page(SCREENS / "minor_management.py", title="Level moves", url_path="moves"),
         st.Page(SCREENS / "acquisitions.py", title="Acquisitions", url_path="acquire"),
+        st.Page(SCREENS / "rule5.py", title="Rule 5", url_path="rule5"),
         st.Page(SCREENS / "explorer.py", title="Explorer", url_path="explorer"),
     ],
     position="top",
