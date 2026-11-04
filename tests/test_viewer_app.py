@@ -743,6 +743,7 @@ def test_the_rule_5_page_lists_the_draft_eligible_players_the_roster_room_and_th
     assert not app.exception
     assert [s.value for s in app.subheader] == [
         "Your players who can be drafted", "Who could come off the 40-man", "Players to draft from other organizations",
+        "High-potential prospects to draft",
     ]  # fmt: skip
     assert len(app.metric) == 5 and len(app.dataframe) >= 2
     eligible = app.dataframe[0].value

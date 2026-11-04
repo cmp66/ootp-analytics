@@ -122,3 +122,23 @@ def test_the_settings_come_from_the_config_file(tmp_path):
     config.write_text("[rules]\nbudget = 1\n")
     with pytest.raises(ValueError):
         rule5.load_settings(config)
+
+
+def test_exposed_prospects_of_other_organizations_with_high_potential_are_draft_candidates():
+    n = 30
+    frame = pd.DataFrame(
+        {
+            "ID": range(1, n + 1), "season": 2082, "slot": ["SS"] * n, "org": ["TOR"] * 2 + ["BOS"] * (n - 2),
+            "level_name": ["AAA"] * n, "team_level": ["AAA"] * n, "First Name": "P", "Last Name": [str(i) for i in range(n)],
+            "Age": [22] * n, "value_now": [-10.0] * n, "ceiling_h99": [float(i) for i in range(n)], "floor_h99": [-20.0] * n,
+            "p_top50_h99": [0.01] * n, "R5": ["Yes"] * n, "ON40": ["No"] * n,
+        }
+    )  # fmt: skip
+    frame.loc[frame["ID"] == n, "ON40"] = "Yes"  # the best prospect is protected by his team
+    frame.loc[frame["ID"] == n - 1, "R5"] = "-"  # and the next one cannot be drafted
+    rules = minors.load_rules()
+    found = rule5.potential_targets(frame, "TOR", SETTINGS, rules)
+    assert found["ID"].iloc[0] == n - 2  # the best one who is exposed and eligible
+    assert set(found["ID"]).isdisjoint({1, 2, n - 1, n})  # not my own players, not protected, not ineligible
+    assert (found["ceiling_pct"] >= SETTINGS.potential_percentile).all()
+    assert rule5.potential_targets(frame, "TOR", rule5.Settings(potential_percentile=1.1), rules).empty

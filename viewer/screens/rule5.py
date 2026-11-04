@@ -119,6 +119,26 @@ def style_targets(frame: pd.DataFrame):
     return frame.style.format({"Value": "{:.1f}", "Gain": "{:.1f}", "Age": "{:.0f}"}, na_rep="")
 
 
+def potential_view(targets: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "ID": targets["ID"], "slot": targets["slot"], "Player": targets["Player"], "Pos": targets["Pos"],
+            "Age": targets["Age"], "From": targets["From"], "Level": targets["Level"], "Tier": targets["Tier"],
+            "Win": targets["Window"], "Value": targets["Value"], "Ceil": targets["Ceil"], "Floor": targets["Floor"],
+            "Top-50 %": targets["Top50"], "Ceil %": targets["ceiling_pct"] * 100,
+        }
+    )  # fmt: skip
+
+
+def style_potential(frame: pd.DataFrame):
+    formats = {c: "{:.1f}" for c in ("Value", "Ceil", "Floor")} | {
+        "Top-50 %": "{:.0f}",
+        "Ceil %": "{:.0f}",
+        "Age": "{:.0f}",
+    }
+    return frame.style.format(formats, na_rep="")
+
+
 def main() -> None:
     config = load_update_config()
     st.html(org_view.STYLE)
@@ -252,6 +272,19 @@ def main() -> None:
         st.caption(
             "Gain = runs over the starter of the place (or over your best other player when it is empty). "
             "A pick takes a 40-man slot."
+        )
+
+    st.subheader("High-potential prospects to draft")
+    potential = rule5.potential_targets(frame, org, settings, rules, version)
+    if potential.empty:
+        st.write("No draft eligible prospect of another organization is exposed with that much potential.")
+    else:
+        view = potential_view(potential.head(30))
+        picked = picked or show(view, style_potential(view), f"rule5-potential-{save}-{org}-{generation}")
+        st.caption(
+            "Exposed draft eligible prospects (not on their 40-man roster) whose ceiling is in the best of the league at their "
+            "position, whether or not they help the MLB roster now: for a weak season you could take one and keep him on the "
+            "26-man roster for his potential. Ceil % = where the ceiling stands among the minor leaguers of his kind."
         )
     if picked:
         st.session_state["rule5_generation"] = generation + 1
