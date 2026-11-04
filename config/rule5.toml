@@ -7,9 +7,11 @@
 # A player is READY when his value now is at least `ready_percentile` of the MLB players at his position (a team that drafts him has
 # to keep him on its 26-man roster all season, so those are the ones who get picked). He is PROTECT when he is a prospect with
 # development left (config/minors.toml) whose ceiling would start in your MLB lineup (the weakest starter at his position, or he is
-# a top prospect) and who is ready or a top prospect, or when he is ready and better than a starter of the MLB lineup now (USEFUL). A prospect with that upside
-# who is not ready is LOW RISK, the rest is EXPOSE. When the 40-man is full, the players to take off it are the
-# ones with the least to keep them: not a starter, no prospect, the lowest value now.
+# a top prospect) and who is ready or a top prospect, or when he is ready and better than a starter of the MLB lineup now (USEFUL).
+# A prospect with development left whose ceiling is at least the `potential_percentile` of the league's minor leaguers at his
+# position is PROTECT too, ready or not: a team that is rebuilding does not care about the roster spot and drafts on potential.
+# A prospect with upside who is not ready and has no such potential is LOW RISK, the rest is EXPOSE.
+# When the 40-man is full, the players to take off it are the ones with the least to keep them: not a starter, no prospect, the lowest value now.
 
 [roster]
 size = 40
@@ -17,3 +19,4 @@ column = "ON40"
 
 [rules]
 ready_percentile = 0.20   # his value now against the MLB players at his position
+potential_percentile = 0.90   # his ceiling against the minor leaguers of his position; a rebuilding team may draft him unready

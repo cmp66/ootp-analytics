@@ -25,6 +25,7 @@ class Settings:
     size: int = 40
     column: str = "ON40"
     ready_percentile: float = 0.20
+    potential_percentile: float = 0.90
 
 
 def load_settings(path: Path = RULE5_CONFIG) -> Settings:
@@ -107,12 +108,15 @@ def recommend(table: pd.DataFrame, settings: Settings) -> pd.DataFrame:
     upside = eligible["Upside"].fillna(-1) > 0  # his ceiling would start there
     top = eligible["Tier"] == minors.TOP_PROSPECT
     prospect = eligible["focus"] & (upside | top)  # a top prospect is worth protecting wherever he plays
-    protect = useful | (prospect & (ready | top))
+    # a team that is rebuilding does not mind a roster spot wasted on a player who is not ready: it drafts on potential
+    potential = eligible["focus"] & (eligible["ceiling_pct"].fillna(0) >= settings.potential_percentile)
+    protect = useful | (prospect & (ready | top)) | potential
     low_risk = prospect & ~protect
     eligible["Action"] = np.where(protect, PROTECT, np.where(low_risk, LOW_RISK, EXPOSE))
     why = pd.Series("", index=eligible.index)
     why[prospect & ready] = "prospect and ready for the majors"
     why[prospect & top] = "top prospect"
+    why[potential & ~ready & ~top] = "high potential: a rebuilding team could take him without playing him"
     why[useful] = "would start over a player of the MLB lineup" + np.where(prospect[useful], " and is a prospect", "")
     why[low_risk] = "prospect but not ready for the majors: unlikely to be picked"
     why[~protect & ~low_risk] = np.where(
@@ -176,3 +180,36 @@ def draft_targets(
         return pd.DataFrame()
     both = pd.concat(found, ignore_index=True).sort_values("Gain", ascending=False).drop_duplicates("ID")
     return both.reset_index(drop=True)
+
+
+def potential_targets(
+    frame: pd.DataFrame, org: str, settings: Settings, rules: minors.Rules, version: str = "OOTP27"
+) -> pd.DataFrame:
+    """Draft eligible prospects of other organizations that are not on their 40-man roster and have high potential: a ceiling
+    of at least `potential_percentile` among the minor leaguers of their position, development left. Whether they would help the
+    MLB roster now does not matter: a team in a weak season can take one and keep him on the 26-man roster for his potential.
+    Columns ID, slot, Player, Pos, Age, From, Level, Value, Ceil, Floor, Top50, ceiling_pct, Tier, Window; the best ceiling first.
+    """
+    flags, _ = on_forty(frame, settings)
+    taken = ~frame["org"].isin(["FA", "nan", ""]) & (frame["org"] != str(org))
+    eligible = flagged(frame["R5"]) if "R5" in frame else pd.Series(False, index=frame.index)
+    rows = frame[taken & eligible & ~flags & frame["slot"].isin(depth.CHART_SLOTS)].dropna(subset=["value_now"])
+    if rows.empty:
+        return pd.DataFrame()
+    ceiling = depth.ranking_column(frame, "Ceiling (10 years)")
+    best = (
+        rows.dropna(subset=[ceiling]).sort_values(ceiling, ascending=False, kind="stable").drop_duplicates("ID").copy()
+    )
+    best["pitcher"] = best["slot"].isin(["SP", "RP"])
+    best = minors.add_tier(best.merge(minors.prospect_info(frame), on="ID", how="inner"), rules, version)
+    best = best[best["focus"] & (best["ceiling_pct"] >= settings.potential_percentile)]
+    out = pd.DataFrame(
+        {
+            "ID": best["ID"], "slot": best["slot"],
+            "Player": (best["First Name"].astype(str) + " " + best["Last Name"].astype(str)).map(depth._tidy),
+            "Pos": best["slot"], "Age": best["Age"], "From": best["org"], "Level": best["team_level"],
+            "Value": best["value_now"], "Ceil": best["Ceil"], "Floor": best["Floor"], "Top50": best["Top50"],
+            "ceiling_pct": best["ceiling_pct"], "Tier": best["Tier"], "Window": best["Window"],
+        }
+    )  # fmt: skip
+    return out.sort_values(["ceiling_pct", "Ceil"], ascending=False).reset_index(drop=True)

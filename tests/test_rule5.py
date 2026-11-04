@@ -66,6 +66,22 @@ def test_protect_prospects_who_are_ready_and_players_who_would_start_and_expose_
     assert rule5.recommend(table.assign(R5=False), SETTINGS).empty  # only the draft eligible are listed
 
 
+def test_a_prospect_with_high_potential_is_protected_although_he_is_not_ready():
+    table = players(
+        Player=["potential", "less"],
+        MLB=[0.05, 0.05],
+        Tier=[minors.PROSPECT, minors.PROSPECT],
+        focus=[True, True],
+        Upside=[4.0, 4.0],
+        ceiling_pct=[0.92, 0.85],
+    )
+    rec = rule5.recommend(table, SETTINGS).set_index("Player")
+    assert rec.loc["potential", "Action"] == rule5.PROTECT and "rebuilding" in rec.loc["potential", "Why"]
+    assert rec.loc["less", "Action"] == rule5.LOW_RISK
+    stricter = rule5.recommend(table, rule5.Settings(potential_percentile=0.95)).set_index("Player")
+    assert stricter.loc["potential", "Action"] == rule5.LOW_RISK  # the threshold is a setting
+
+
 def test_the_readiness_threshold_is_a_setting():
     table = players(Player=["a"], MLB=[0.3], Tier=[minors.PROSPECT], focus=[True], Upside=[2.0])
     assert rule5.recommend(table, SETTINGS)["Action"].iloc[0] == rule5.PROTECT
@@ -106,3 +122,23 @@ def test_the_settings_come_from_the_config_file(tmp_path):
     config.write_text("[rules]\nbudget = 1\n")
     with pytest.raises(ValueError):
         rule5.load_settings(config)
+
+
+def test_exposed_prospects_of_other_organizations_with_high_potential_are_draft_candidates():
+    n = 30
+    frame = pd.DataFrame(
+        {
+            "ID": range(1, n + 1), "season": 2082, "slot": ["SS"] * n, "org": ["TOR"] * 2 + ["BOS"] * (n - 2),
+            "level_name": ["AAA"] * n, "team_level": ["AAA"] * n, "First Name": "P", "Last Name": [str(i) for i in range(n)],
+            "Age": [22] * n, "value_now": [-10.0] * n, "ceiling_h99": [float(i) for i in range(n)], "floor_h99": [-20.0] * n,
+            "p_top50_h99": [0.01] * n, "R5": ["Yes"] * n, "ON40": ["No"] * n,
+        }
+    )  # fmt: skip
+    frame.loc[frame["ID"] == n, "ON40"] = "Yes"  # the best prospect is protected by his team
+    frame.loc[frame["ID"] == n - 1, "R5"] = "-"  # and the next one cannot be drafted
+    rules = minors.load_rules()
+    found = rule5.potential_targets(frame, "TOR", SETTINGS, rules)
+    assert found["ID"].iloc[0] == n - 2  # the best one who is exposed and eligible
+    assert set(found["ID"]).isdisjoint({1, 2, n - 1, n})  # not my own players, not protected, not ineligible
+    assert (found["ceiling_pct"] >= SETTINGS.potential_percentile).all()
+    assert rule5.potential_targets(frame, "TOR", rule5.Settings(potential_percentile=1.1), rules).empty
