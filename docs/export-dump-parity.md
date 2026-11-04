@@ -133,7 +133,7 @@ Drafted players of 11 sample seasons of Model-Sim-26-Std: 35711. The rule 'colle
 | Players | 1103 | 13832 | 5565 | 381 | 6299 | 8069 | 459 |
 | College flag | 0.0% | 0.2% | 6.1% | 98.7% | 100.0% | 100.0% | 100.0% |
 
-## Ratings set Standard27: Model-Sim 2086 (dump) against TGS 2046 (export)
+## Ratings set Standard27: Model-Sim 2086 (dump) against TGS27 2046 (export)
 
 Dump player-data 10307 rows, export 10561 rows.
 

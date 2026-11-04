@@ -8,7 +8,7 @@ from util.frames import add_constant_columns, numeric_columns
 
 RUNS_PER_WIN = 10
 # FIP weights (home runs, walks and hit batters, strikeouts); runs = numerator / 9. The weights derived from each
-# league's linear weights stay within about 10 % of these in every Model-Sim season and TGS (plans/13).
+# league's linear weights stay within about 10 % of these in every Model-Sim season and TGS27 (plans/13).
 FIP_HR, FIP_BB, FIP_K = 13, 3, -2
 PITCHER_ROLES = ["SP", "RP", "Mix"]
 

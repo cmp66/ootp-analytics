@@ -1,8 +1,8 @@
 """Show which scale (20-80 or 1-10) each rating column of a save is on.
 
 Usage:
-    PYTHONPATH=. python scripts/detect_rating_scales.py TGS                  # the ratings the value models read, latest season
-    PYTHONPATH=. python scripts/detect_rating_scales.py TGS --season 2046 --all   # every numeric column
+    PYTHONPATH=. python scripts/detect_rating_scales.py TGS27                  # the ratings the value models read, latest season
+    PYTHONPATH=. python scripts/detect_rating_scales.py TGS27 --season 2046 --all   # every numeric column
 
 Reads the processed player-data of the season (scripts/process_seasons.py). Prints, per column, the scale found, the range, the
 number of different values and the step between them, so a league that mixes the scales shows which columns are which.

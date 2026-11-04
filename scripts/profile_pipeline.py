@@ -1,6 +1,6 @@
 """Time each pipeline stage for a few seasons.
 
-Usage: python scripts/profile_pipeline.py [league:season ...]     (default Model-Sim:2045 TGS:2046)
+Usage: python scripts/profile_pipeline.py [league:season ...]     (default Model-Sim:2045 TGS27:2046)
 Writes the same output files as the real pipeline.
 """
 
@@ -47,7 +47,7 @@ def run(league: str, season: int) -> None:
 
 
 if __name__ == "__main__":
-    targets = sys.argv[1:] or ["Model-Sim:2045", "TGS:2046"]
+    targets = sys.argv[1:] or ["Model-Sim:2045", "TGS27:2046"]
     for target in targets:
         name, year = target.split(":")
         run(name, int(year))

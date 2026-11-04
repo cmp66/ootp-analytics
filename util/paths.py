@@ -36,5 +36,5 @@ def output_dir(save: str, season: int, create: bool = False) -> Path:
 
 
 def output_file(save: str, season: int, name: str) -> Path:
-    """Processed output file, e.g. output_file("TGS", 2046, "hitting") -> .../TGS-2046-hitting.csv"""
+    """Processed output file, e.g. output_file("TGS27", 2046, "hitting") -> .../TGS27-2046-hitting.csv"""
     return output_dir(save, season) / f"{save}-{season}-{name}.csv"

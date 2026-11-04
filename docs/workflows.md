@@ -20,7 +20,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 ```
 
 - **Training leagues** (`Model-Sim`, `Model-Sim-26-Std`) are long computer-only leagues exported as database dumps. The models are trained on them, one set per game version (the *ratings set*: `Standard27` = OOTP 27, `Standard26` = OOTP 26).
-- **Human leagues** (`TGS` = OOTP 27, `Dugout26` = OOTP 26, `PBL27` = OOTP 27; each with its own scale mix) are in-game exports. They are never trained on; they are scored with the models of the same game version (`models_from` in `config/update.toml`).
+- **Human leagues** (`TGS27` = OOTP 27, `Dugout26` = OOTP 26, `PBL27` = OOTP 27; each with its own scale mix) are in-game exports. They are never trained on; they are scored with the models of the same game version (`models_from` in `config/update.toml`).
 - **Trained models are in S3** (bucket `ootp-models`, pushed and pulled with `sync_models.py`), so a new machine gets them with one command instead of training. Nothing under `files/` is in git.
 
 ## Scripts in one line each
@@ -67,12 +67,12 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 
 This is the usual case. Cost: about 35 seconds for two saves.
 
-1. Put the export in the save's folder: `files/TGS/<season>/` with the ratings in `files/TGS/<season>/ratings/` (same layout as the earlier seasons).
-2. `PYTHONPATH=. python scripts/update_all.py` (all saves of `config/update.toml`) or `update_all.py TGS` (one save). Add `--season 2046` if it is not the latest season in the folder, `--if-changed` to skip a save whose files have not changed.
+1. Put the export in the save's folder: `files/TGS27/<season>/` with the ratings in `files/TGS27/<season>/ratings/` (same layout as the earlier seasons).
+2. `PYTHONPATH=. python scripts/update_all.py` (all saves of `config/update.toml`) or `update_all.py TGS27` (one save). Add `--season 2046` if it is not the latest season in the folder, `--if-changed` to skip a save whose files have not changed.
 3. `PYTHONPATH=. python scripts/run_viewer.py` and open http://localhost:8501. Reload the page if it was already open.
 4. The csv lists are also in `files/<save>/<season>/output/lists/`.
 
-If a step fails, the summary at the end of the run names it and the exit status is 1; the other saves still run. To redo one step: `update_all.py TGS --only outlook lists`. The step names: `update_all.py --steps`.
+If a step fails, the summary at the end of the run names it and the exit status is 1; the other saves still run. To redo one step: `update_all.py TGS27 --only outlook lists`. The step names: `update_all.py --steps`.
 
 ### 2. I start a new human league (or a new season file naming)
 
@@ -87,7 +87,7 @@ If a step fails, the summary at the end of the run names it and the exit status 
 3. Set `scales = "<league>"` for the league in `config/saves.toml` and `models_from` in `config/update.toml` as usual, then run workflow 1. The outlook models stay the 20-80 ones: the league's 1-10 ratings are given to them as the 20-80 value expected for each.
 4. A game version needs its conversion table in `config/rating-scales/` once (`build_scale_tables.py` from two dumps of one league taken at the same moment, one per scale). Both OOTP26 and OOTP27 have one.
 
-TGS is all 20-80 and keeps using the 20-80 models.
+TGS27 is all 20-80 and keeps using the 20-80 models.
 
 ### 3. I want to refresh the models
 
@@ -126,9 +126,9 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 - The rules of the acquisitions page (what counts as a need, the weight of a reliever, which free agents are left out) are in `config/acquisition.toml`. It needs the `finance` folder in the export for the budget space; without it the costs are not checked.
 
 - The age and pro-years limits of each minor league level, and the promotion ladder (the order of the level tables, top level first), are in `config/saves.toml`; the rules of the level moves page (what counts as green, how many key ratings, how old is old for a level) in `config/minors.toml`. Check the ladder order of a new league.
-- The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.
+- The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS27.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.
 
-- Lists are defined in `config/viewer.toml`. Edit it and run `update_all.py --only lists`, or look at one with `outlook_lists.py TGS --list <name>`.
+- Lists are defined in `config/viewer.toml`. Edit it and run `update_all.py --only lists`, or look at one with `outlook_lists.py TGS27 --list <name>`.
 - The viewer reads the csv files; code changes show after a reload (Streamlit offers "Rerun"). A new output should become a step in `STEPS` of `scripts/update_all.py` so that it stays the one command.
 
 ### 6. Setting up another machine

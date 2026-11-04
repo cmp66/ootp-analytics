@@ -31,7 +31,7 @@ ballparks = "ballpark_ratings.csv"
 [Model-Sim.team_names]
 "Athletics Athletics" = "Athletics"
 
-[TGS]
+[TGS27]
 source = "export"
 ratings = "Standard27"
 ballparks = "ballpark_ratings.csv"
@@ -48,35 +48,35 @@ ratings = "Standard27"
 scales = "PBL27"
 ballparks = "ballpark_ratings.csv"
 
-[TGS.levels."AAA"]
+[TGS27.levels."AAA"]
 max_age = 0
 max_pro_years = 0
 
-[TGS.levels."AA"]
+[TGS27.levels."AA"]
 max_age = 0
 max_pro_years = 0
 
-[TGS.levels."A+"]
+[TGS27.levels."A+"]
 max_age = 27
 max_pro_years = 0
 
-[TGS.levels."A-"]
+[TGS27.levels."A-"]
 max_age = 25
 max_pro_years = 0
 
-[TGS.levels."R+"]
+[TGS27.levels."R+"]
 max_age = 23
 max_pro_years = 0
 
-[TGS.levels."R"]
+[TGS27.levels."R"]
 max_age = 21
 max_pro_years = 0
 
-[TGS.levels."INT"]
+[TGS27.levels."INT"]
 max_age = 0
 max_pro_years = 0
 
-[TGS.levels."WL"]
+[TGS27.levels."WL"]
 max_age = 19
 max_pro_years = 0
 ladder = false
@@ -133,7 +133,7 @@ max_pro_years = 0
 max_age = 0
 max_pro_years = 0
 
-[TGS.team_names]
+[TGS27.team_names]
 ANA = "Anaheim Angels"
 ARI = "Arizona Diamondbacks"
 BAL = "Baltimore Orioles"

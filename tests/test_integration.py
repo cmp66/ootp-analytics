@@ -20,7 +20,7 @@ DATA_ROOT = Path(__file__).parent / "data"
 
 SEASONS = [
     ("Model-Sim", 2045, "dump", "Standard27"),
-    ("TGS", 2046, "export", "Standard27"),
+    ("TGS27", 2046, "export", "Standard27"),
 ]
 
 # columns the stat code reads from each player table, whichever export produced it

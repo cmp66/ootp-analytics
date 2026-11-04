@@ -3,7 +3,7 @@ import requests
 from io import StringIO
 import pandas as pd
 
-STATS_PLUS_LEAGUE_NAMES = {"Dugout": "thedugout", "TGS": "tgs", "PBL": "paramount"}
+STATS_PLUS_LEAGUE_NAMES = {"Dugout": "thedugout", "TGS": "tgs", "TGS27": "tgs", "PBL": "paramount"}
 
 STATS_BASE = "https://statsplus.net/"
 DUGOUT_URL = "https://thedugoutsim.com/api/v1/draft/picks?format=csv"

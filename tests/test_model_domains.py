@@ -51,9 +51,9 @@ def test_the_side_pairs_are_among_the_reviewed_features():
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("save, season", [("Model-Sim", 2045), ("TGS", 2046)])
+@pytest.mark.parametrize("save, season", [("Model-Sim", 2045), ("TGS27", 2046)])
 def test_every_reviewed_rating_exists_in_both_sources(tmp_path, monkeypatch, save, season):
-    """The models are trained on dump saves and must be able to score export saves (TGS) too."""
+    """The models are trained on dump saves and must be able to score export saves (TGS27) too."""
     root = tmp_path / "files"
     shutil.copytree(Path(__file__).parent / "data", root)
     monkeypatch.setattr(paths, "FILES_ROOT", root)

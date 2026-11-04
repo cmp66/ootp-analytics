@@ -55,14 +55,14 @@ def test_models_of_one_save_score_another(root, capsys):
         train_models.main(["Model-Sim", "--start", "2046", "--stop", "2050", "--no-cv", "--streams", "baserunning"])
         == 0
     )
-    pipeline.process_season("TGS", 2046)
-    assert predict_values.main(["TGS", "--models-from", "Model-Sim"]) == 0
-    result = pd.read_csv(paths.output_file("TGS", 2046, "predicted-values"))
+    pipeline.process_season("TGS27", 2046)
+    assert predict_values.main(["TGS27", "--models-from", "Model-Sim"]) == 0
+    result = pd.read_csv(paths.output_file("TGS27", 2046, "predicted-values"))
     assert result["baserunning"].notna().sum() > 100
     assert "(Model-Sim) ->" in capsys.readouterr().out
-    assert evaluate_models.main(["TGS", "--models-from", "Model-Sim"]) == 0
+    assert evaluate_models.main(["TGS27", "--models-from", "Model-Sim"]) == 0
     assert "unseen" in capsys.readouterr().out
-    assert evaluate_models.main(["TGS", "--models-from", "Dugout"]) == 2  # other ratings set
+    assert evaluate_models.main(["TGS27", "--models-from", "Dugout"]) == 2  # other ratings set
     assert "models are for ratings" in capsys.readouterr().err
 
 

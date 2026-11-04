@@ -292,7 +292,7 @@ def test_neutral_save_gives_adj_equal_to_plain(files_root):
 def test_real_parks_move_the_adj_stats_and_keep_the_league_balanced(files_root):
     from stats import pipeline
 
-    result = pipeline.process_season("TGS", 2046)
+    result = pipeline.process_season("TGS27", 2046)
     batters, pitchers = result.batting, result.pitching
     assert (batters["OFFAdj"] - batters["OFF"]).abs().max() > 1
     assert batters["wRAAAdj"].sum() == pytest.approx(0, abs=1e-6)

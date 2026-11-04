@@ -1,11 +1,11 @@
 """Process the raw OOTP files of a save into the output folders (replaces dataImport.ipynb).
 
 Usage:
-    python scripts/process_seasons.py TGS                       # latest season only
-    python scripts/process_seasons.py TGS --season 2046         # one season
+    python scripts/process_seasons.py TGS27                       # latest season only
+    python scripts/process_seasons.py TGS27 --season 2046         # one season
     python scripts/process_seasons.py Model-Sim --start 2045 --stop 2050
     python scripts/process_seasons.py Model-Sim --start 2080    # 2080 through the latest season
-    python scripts/process_seasons.py TGS --list                # show the seasons that have data
+    python scripts/process_seasons.py TGS27 --list                # show the seasons that have data
 
 The save name is a folder under files/ and a table in config/saves.toml, which sets the source (dump or export), the
 ratings set and the ballpark file. Output goes to files/<save>/<season>/output/. Run from the repository root.

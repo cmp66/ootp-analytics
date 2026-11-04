@@ -125,8 +125,8 @@ def test_scoring_blends_the_two_sides_with_the_platoon_mix_of_the_hand(trained):
 @pytest.mark.integration
 def test_models_trained_on_a_dump_save_score_an_export_save(trained, tmp_path, monkeypatch):
     root, artifacts = trained
-    pipeline.process_season("TGS", 2046)
-    players = data.read_output("TGS", 2046, "player-data").drop_duplicates("ID").set_index("ID")
+    pipeline.process_season("TGS27", 2046)
+    players = data.read_output("TGS27", 2046, "player-data").drop_duplicates("ID").set_index("ID")
     columns = registry.required_rating_columns(artifacts)
     assert set(columns) <= set(players.columns)
     scored = registry.score(artifacts, players[columns].apply(pd.to_numeric, errors="coerce"))

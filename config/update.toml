@@ -7,7 +7,7 @@
 #   The first save is the one the viewer opens.
 # Add a save here when you start another human league.
 
-[TGS]
+[TGS27]
 models_from = "Model-Sim"
 org = "CLE"  # Cleveland
 

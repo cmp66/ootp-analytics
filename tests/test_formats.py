@@ -117,8 +117,8 @@ def test_trait_bounds_share_the_config_file_with_the_gates(tmp_path, monkeypatch
 @pytest.mark.integration
 def test_the_export_import_keeps_the_categories_next_to_the_old_codes(tmp_path, monkeypatch):
     multi_season_root(tmp_path, monkeypatch)
-    pipeline.process_season("TGS", 2046)
-    frame = pd.read_csv(paths.output_file("TGS", 2046, "player-data"), low_memory=False)
+    pipeline.process_season("TGS27", 2046)
+    frame = pd.read_csv(paths.output_file("TGS27", 2046, "player-data"), low_memory=False)
     for trait in [*formats.TRAITS, formats.PRONE, "AD"]:
         assert f"{trait} cat" in frame.columns
     assert set(frame["WE cat"].dropna()) <= {"L", "N", "H"}

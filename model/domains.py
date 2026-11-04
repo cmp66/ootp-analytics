@@ -93,7 +93,7 @@ BASELINE_FEATURES = {
 # cross-validation on Model-Sim 2046-2086: a rating is kept when dropping it (or its skill, for the vs-right / vs-left
 # pairs) costs weighted R^2, and added when it gains at least 0.002 and 3 standard errors. League constants, derived
 # ratings (MOV, CON), body size, speed (outside baserunning) and age add nothing to the current-value models.
-# Every listed rating also exists in the in-game export (TGS), so the models can score those saves; the batting
+# Every listed rating also exists in the in-game export (TGS27), so the models can score those saves; the batting
 # hit-by-pitch rating (+0.002 R^2) is left out because the export does not have it.
 REVIEWED_FEATURES = {
     BATTING: [

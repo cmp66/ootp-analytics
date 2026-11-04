@@ -1,4 +1,4 @@
-"""Step 6 of plans/10-biz-babip-effect.md: the BIZ tests on TGS 2046 with the park AVG factor.
+"""Step 6 of plans/10-biz-babip-effect.md: the BIZ tests on TGS27 2046 with the park AVG factor.
 
 Export saves have no team column in the stats, so a player's team is his current MLB team (ratings TM).
 Usage: python scripts/analyze_biz_tgs.py
@@ -41,8 +41,8 @@ def ols(d: pd.DataFrame, y: str, xs: list[str], fe: str | None, cluster: str) ->
 
 
 def main() -> None:
-    save = get_save("TGS")
-    ratings, _, _, _, pitching, _, _, fielding, *_ = load_season("TGS", 2046)
+    save = get_save("TGS27")
+    ratings, _, _, _, pitching, _, _, fielding, *_ = load_season("TGS27", 2046)
     ratings = ratings.copy()
     major = ratings["Lev"] == "MLB"
     team_of = ratings["TM"].where(major)
