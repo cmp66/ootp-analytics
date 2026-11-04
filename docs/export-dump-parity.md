@@ -1,6 +1,6 @@
 # Dump and export: what the models need and how it converts
 
-Generated 2026-11-02 by `scripts/check_format_parity.py`. The long training leagues exist only as database dumps; the human leagues only as in-game exports (a dump needs commissioner rights). A model that scores both must use only what both hold.
+Generated 2026-11-03 by `scripts/check_format_parity.py`. The long training leagues exist only as database dumps; the human leagues only as in-game exports (a dump needs commissioner rights). A model that scores both must use only what both hold.
 
 ## Summary
 
@@ -33,71 +33,71 @@ Generated 2026-11-02 by `scripts/check_format_parity.py`. The long training leag
 - Playing time of earlier seasons (a human save has few seasons; the lagged playing-time features need two or more).
 - Entry route of undrafted players: international signings cannot be told from other undrafted entries once they are not new.
 
-## Ratings set Standard26: Model-Sim-26-Std 2099 (dump) against TGS26 2045 (export)
+## Ratings set Standard26: Model-Sim-26-Std 2099 (dump) against Dugout26 2198 (export)
 
-Dump player-data 6507 rows, export 10487 rows.
+Dump player-data 6507 rows, export 13919 rows.
 
 ### Rating and context columns the models read
 
 | Column | In dump | In export | Dump min-max | Export min-max | On the 5-point grid, dump / export |
 |---|---|---|---|---|---:|
-| SPE | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| STE | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| RUN | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| BA vR | yes | yes | 20-80 | 20-75 | 100% / 100% |
-| BA vL | yes | yes | 20-80 | 20-75 | 100% / 100% |
+| SPE | yes | yes | 20-80 | 1-10 | 100% / 7% |
+| STE | yes | yes | 20-80 | 1-10 | 100% / 7% |
+| RUN | yes | yes | 20-80 | 1-10 | 100% / 10% |
+| BA vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
+| BA vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | GAP vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | GAP vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | POW vR | yes | yes | 20-80 | 20-75 | 100% / 100% |
 | POW vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | EYE vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | EYE vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| K vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
+| K vR | yes | yes | 20-80 | 20-75 | 100% / 100% |
 | K vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | B | yes | yes | 1-3 | 1-3 | 0% / 0% |
-| C FRM | yes | yes | 20-75 | 20-80 | 100% / 100% |
-| C ABI | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| IF RNG | yes | yes | 20-75 | 20-80 | 100% / 100% |
-| HT | yes | yes | 173-211 | 172.72-213.36 | 20% / 0% |
-| IF ARM | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| IF ERR | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| OF RNG | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| OF ARM | yes | yes | 20-80 | 20-80 | 100% / 100% |
+| C FRM | yes | yes | 20-75 | 1-10 | 100% / 1% |
+| C ABI | yes | yes | 20-80 | 1-10 | 100% / 1% |
+| IF RNG | yes | yes | 20-75 | 1-10 | 100% / 7% |
+| HT | yes | yes | 173-211 | 172.72-210.82 | 20% / 0% |
+| IF ARM | yes | yes | 20-80 | 1-10 | 100% / 22% |
+| IF ERR | yes | yes | 20-80 | 1-10 | 100% / 6% |
+| OF RNG | yes | yes | 20-80 | 1-10 | 100% / 27% |
+| OF ARM | yes | yes | 20-80 | 1-10 | 100% / 28% |
 | STU vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | STU vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| CON.1 vR | yes | yes | 20-80 | 0-75 | 100% / 100% |
-| CON.1 vL | yes | yes | 20-80 | 0-75 | 100% / 100% |
+| CON.1 vR | yes | yes | 20-80 | 20-65 | 100% / 100% |
+| CON.1 vL | yes | yes | 20-80 | 20-70 | 100% / 100% |
 | PBABIP vR | yes | yes | 20-80 | 20-70 | 100% / 100% |
-| PBABIP vL | yes | yes | 20-80 | 20-70 | 100% / 100% |
+| PBABIP vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | HRR vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | HRR vL | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | T | yes | yes | 1-2 | 1-2 | 0% / 0% |
-| STM | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| PIT | yes | yes | 0-6 | 0-6 | 57% / 56% |
-| C | yes | yes | 0-75 | 0-80 | 100% / 100% |
-| 1B | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| 2B | yes | yes | 0-75 | 0-80 | 100% / 100% |
-| 3B | yes | yes | 0-75 | 0-80 | 100% / 100% |
-| SS | yes | yes | 0-75 | 0-80 | 100% / 100% |
-| LF | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| CF | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| RF | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| C Pot | yes | yes | 0-75 | 0-80 | 100% / 100% |
-| 1B Pot | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| 2B Pot | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| 3B Pot | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| SS Pot | yes | yes | 0-75 | 0-80 | 100% / 100% |
-| LF Pot | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| CF Pot | yes | yes | 0-80 | 0-80 | 100% / 100% |
-| RF Pot | yes | yes | 0-80 | 0-80 | 100% / 100% |
+| STM | yes | yes | 20-80 | 1-10 | 100% / 7% |
+| PIT | yes | yes | 0-6 | 0-6 | 57% / 57% |
+| C | yes | yes | 0-75 | 0-9 | 100% / 92% |
+| 1B | yes | yes | 0-80 | 0-10 | 100% / 85% |
+| 2B | yes | yes | 0-75 | 0-10 | 100% / 87% |
+| 3B | yes | yes | 0-75 | 0-10 | 100% / 88% |
+| SS | yes | yes | 0-75 | 0-10 | 100% / 89% |
+| LF | yes | yes | 0-80 | 0-10 | 100% / 79% |
+| CF | yes | yes | 0-80 | 0-10 | 100% / 88% |
+| RF | yes | yes | 0-80 | 0-10 | 100% / 80% |
+| C Pot | yes | yes | 0-75 | 0-9 | 100% / 93% |
+| 1B Pot | yes | yes | 20-80 | 1-10 | 100% / 17% |
+| 2B Pot | yes | yes | 0-80 | 0-10 | 100% / 79% |
+| 3B Pot | yes | yes | 0-80 | 0-10 | 100% / 68% |
+| SS Pot | yes | yes | 0-75 | 0-10 | 100% / 85% |
+| LF Pot | yes | yes | 0-80 | 0-10 | 100% / 23% |
+| CF Pot | yes | yes | 0-80 | 0-10 | 100% / 53% |
+| RF Pot | yes | yes | 0-80 | 0-10 | 100% / 24% |
 | WE | yes | yes | 1-200 | 40-160 | 21% / 100% |
 | INT | yes | yes | 1-200 | 40-160 | 20% / 100% |
 | LEA | yes | yes | 1-200 | 40-160 | 20% / 100% |
 | LOY | yes | yes | 1-200 | 40-160 | 20% / 100% |
 | FIN | yes | yes | 1-200 | 40-160 | 20% / 100% |
 | Prone | yes | yes | 1-200 | 40-160 | 24% / 100% |
-| Age | yes | yes | 16-44 | 16-43 | 19% / 19% |
-| WT | yes | yes | 154-260 | 150-255 | 21% / 100% |
+| Age | yes | yes | 16-44 | 15-41 | 19% / 17% |
+| WT | yes | yes | 154-260 | 150-260 | 21% / 100% |
 
 ### Traits and proneness: numbers in the dump, categories in the export
 
@@ -105,24 +105,24 @@ Higher proneness is more injury prone (it goes with less playing time). Iron Man
 
 | Trait | Export shares (labels low to high) | Cut points on the dump numbers | Dump mean of each category |
 |---|---|---|---|
-| WE | L 7.9%, N 66.5%, H 25.7% | 59, 141 | L 33, N 103, H 173 |
-| INT | L 12.1%, N 74.7%, H 13.2% | 59, 140 | L 33, N 100, H 166 |
-| LEA | L 15.8%, N 72.8%, H 11.4% | 57, 140 | L 30, N 99, H 162 |
-| LOY | L 14.5%, N 67.9%, H 17.7% | 59, 137 | L 30, N 101, H 166 |
-| FIN | L 18.5%, N 65.2%, H 16.3% | 61, 140 | L 33, N 101, H 169 |
-| Prone | Durable 10.9%, Normal 70.4%, Fragile 18.7% | 34, 120 | Durable 12, Normal 75, Fragile 166 |
+| WE | L 12.5%, N 64.2%, H 23.3% | 59, 141 | L 33, N 103, H 173 |
+| INT | L 12.1%, N 75.4%, H 12.5% | 59, 140 | L 33, N 100, H 166 |
+| LEA | L 15.9%, N 73.6%, H 10.5% | 57, 140 | L 30, N 99, H 162 |
+| LOY | L 14.2%, N 69.6%, H 16.2% | 59, 137 | L 30, N 101, H 166 |
+| FIN | L 17.6%, N 66.2%, H 16.2% | 61, 140 | L 33, N 101, H 169 |
+| Prone | Durable 11.0%, Normal 80.2%, Fragile 8.8% | 34, 120 | Durable 12, Normal 75, Fragile 166 |
 
 ### Level
 
 | Level group | Dump share | Export share |
 |---|---:|---:|
-| A | 31.6% | 19.7% |
-| Rookie | 20.1% | 21.4% |
-| MLB | 15.1% | 7.9% |
-| AAA | 15.0% | 9.4% |
-| AA | 14.8% | 9.1% |
-| other | 3.2% | 9.7% |
-| FA | 0.2% | 22.9% |
+| A | 31.6% | 10.7% |
+| Rookie | 20.1% | 25.6% |
+| MLB | 15.1% | 7.4% |
+| AAA | 15.0% | 10.0% |
+| AA | 14.8% | 9.3% |
+| other | 3.2% | 15.2% |
+| FA | 0.2% | 21.8% |
 
 ### Draft route
 
@@ -135,7 +135,7 @@ Drafted players of 11 sample seasons of Model-Sim-26-Std: 35711. The rule 'colle
 
 ## Ratings set Standard27: Model-Sim 2086 (dump) against TGS 2046 (export)
 
-Dump player-data 10307 rows, export 9605 rows.
+Dump player-data 10307 rows, export 10561 rows.
 
 ### Rating and context columns the models read
 
@@ -143,7 +143,7 @@ Dump player-data 10307 rows, export 9605 rows.
 |---|---|---|---|---|---:|
 | SPE | yes | yes | 20-80 | 20-80 | 100% / 100% |
 | STE | yes | yes | 20-80 | 20-80 | 100% / 100% |
-| RUN | yes | yes | 0-80 | 20-80 | 100% / 100% |
+| RUN | yes | yes | 0-80 | 0-80 | 100% / 100% |
 | BA vR | yes | yes | 20-80 | 20-75 | 100% / 100% |
 | BA vL | yes | yes | 20-80 | 20-75 | 100% / 100% |
 | GAP vR | yes | yes | 20-80 | 20-80 | 100% / 100% |
@@ -196,7 +196,7 @@ Dump player-data 10307 rows, export 9605 rows.
 | LOY | yes | yes | 1-200 | 40-160 | 20% / 100% |
 | FIN | yes | yes | 1-200 | 40-160 | 20% / 100% |
 | Prone | yes | yes | 0-200 | 40-160 | 19% / 100% |
-| Age | yes | yes | 15-45 | 16-41 | 17% / 21% |
+| Age | yes | yes | 15-45 | 16-41 | 17% / 19% |
 | WT | yes | yes | 151-263 | 150-255 | 20% / 100% |
 
 ### Traits and proneness: numbers in the dump, categories in the export
@@ -205,24 +205,24 @@ Higher proneness is more injury prone (it goes with less playing time). Iron Man
 
 | Trait | Export shares (labels low to high) | Cut points on the dump numbers | Dump mean of each category |
 |---|---|---|---|
-| WE | L 7.6%, N 66.6%, H 25.7% | 33, 132 | L 18, N 94, H 169 |
-| INT | L 12.0%, N 74.6%, H 13.4% | 58, 131 | L 33, N 99, H 164 |
-| LEA | L 15.8%, N 72.7%, H 11.5% | 60, 136 | L 34, N 97, H 160 |
-| LOY | L 14.4%, N 67.8%, H 17.8% | 61, 135 | L 31, N 101, H 166 |
-| FIN | L 18.3%, N 65.5%, H 16.2% | 61, 136 | L 32, N 100, H 169 |
-| Prone | Durable 10.9%, Normal 69.9%, Fragile 19.2% | 30, 87 | Durable 9, Normal 61, Fragile 106 |
+| WE | L 7.5%, N 67.3%, H 25.2% | 33, 132 | L 18, N 94, H 169 |
+| INT | L 12.1%, N 74.6%, H 13.3% | 58, 131 | L 33, N 99, H 164 |
+| LEA | L 15.4%, N 73.2%, H 11.4% | 60, 136 | L 34, N 97, H 160 |
+| LOY | L 14.1%, N 68.3%, H 17.6% | 61, 135 | L 31, N 101, H 166 |
+| FIN | L 18.2%, N 65.9%, H 15.9% | 61, 136 | L 32, N 100, H 169 |
+| Prone | Durable 11.0%, Normal 72.0%, Fragile 17.0% | 30, 87 | Durable 9, Normal 61, Fragile 106 |
 
 ### Level
 
 | Level group | Dump share | Export share |
 |---|---:|---:|
-| Rookie | 39.6% | 20.6% |
-| A | 22.4% | 18.7% |
-| AA | 11.8% | 8.3% |
+| Rookie | 39.6% | 19.4% |
+| A | 22.4% | 18.0% |
+| AA | 11.8% | 8.2% |
 | AAA | 9.4% | 8.0% |
-| MLB | 8.9% | 8.1% |
-| other | 7.3% | 10.3% |
-| FA | 0.6% | 26.1% |
+| MLB | 8.9% | 8.4% |
+| other | 7.3% | 9.6% |
+| FA | 0.6% | 28.3% |
 
 ### Draft route
 
