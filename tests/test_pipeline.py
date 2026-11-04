@@ -9,7 +9,7 @@ from stats import pipeline
 from util import importCSV, paths
 
 DATA_ROOT = Path(__file__).parent / "data"
-SEASONS = [("Model-Sim", 2045), ("TGS", 2046)]
+SEASONS = [("Model-Sim", 2045), ("TGS27", 2046)]
 OUTPUT_NAMES = [
     "player-data",
     "team-batting",
@@ -100,6 +100,6 @@ def test_dump_saves_write_pitcher_split_files_that_add_up_to_the_total(files_roo
 
 @pytest.mark.integration
 def test_export_saves_have_no_pitcher_split_files(files_root):
-    result = pipeline.process_season("TGS", 2046)
+    result = pipeline.process_season("TGS27", 2046)
     assert result.pitching_right.empty and result.pitching_left.empty
-    assert not paths.output_file("TGS", 2046, "right-pitching").exists()
+    assert not paths.output_file("TGS27", 2046, "right-pitching").exists()

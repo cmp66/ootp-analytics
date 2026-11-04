@@ -11,7 +11,7 @@ One-button update of the human leagues of `config/update.toml`.
 
 ```
 update_all.py                      # every save, latest season
-update_all.py TGS                  # one save
+update_all.py TGS27                  # one save
 update_all.py --season 2046        # another season
 update_all.py --only outlook lists # some steps (process, values, outlook, lists)
 update_all.py --if-changed         # skip saves whose input files are unchanged
@@ -25,10 +25,10 @@ Runs, per save: `process_seasons`, `predict_values` (with the `models_from` save
 ### outlook_lists.py
 Prints or saves one list of `config/viewer.toml`.
 ```
-outlook_lists.py TGS --lists                                  # list names
-outlook_lists.py TGS --list very_good --slot SS --horizon 3
-outlook_lists.py TGS --list trade_targets --org CLE --slot SP --top 20
-outlook_lists.py TGS --list draft --out draft.csv
+outlook_lists.py TGS27 --lists                                  # list names
+outlook_lists.py TGS27 --list very_good --slot SS --horizon 3
+outlook_lists.py TGS27 --list trade_targets --org CLE --slot SP --top 20
+outlook_lists.py TGS27 --list draft --out draft.csv
 ```
 Options: `--season`, `--org`, `--horizon {1,2,3,5,7,10,99}` (99 = career), `--slot`, `--top`, `--out`. Needs the outlook files of `predict_outlook.py`.
 
@@ -37,8 +37,8 @@ Options: `--season`, `--org`, `--horizon {1,2,3,5,7,10,99}` (99 = career), `--sl
 ### process_seasons.py
 Raw OOTP files to the processed csv files (stats, run values, park adjustment, fielding tiers) in `files/<save>/<season>/output/`.
 ```
-process_seasons.py TGS                       # latest season
-process_seasons.py TGS --season 2046
+process_seasons.py TGS27                       # latest season
+process_seasons.py TGS27 --season 2046
 process_seasons.py Model-Sim --start 2045 --stop 2050
 process_seasons.py Model-Sim --list          # seasons that have data
 ```
@@ -47,14 +47,14 @@ A failing season is reported and the rest still run (exit status 1).
 ### predict_values.py
 Scores the ratings of a season with the value models and writes `<save>-<season>-predicted-values.csv`.
 ```
-predict_values.py TGS --models-from Model-Sim [--season 2046] [--out file.csv]
+predict_values.py TGS27 --models-from Model-Sim [--season 2046] [--out file.csv]
 ```
 Columns: batting / baserunning (runs per 600 PA), pitching (runs per 200 IP), fielding by position (runs per season), plus league-relative `_rel` twins. The ratings set of the models must match the save's.
 
 ### predict_outlook.py
 Scores every player with the outlook models and writes `<save>-<season>-outlook-slots.csv` (one row per player and slot) and `-outlook-players.csv` (one row per player).
 ```
-predict_outlook.py TGS --models-from Model-Sim [--season 2046] [--depth-percentile 0.3]
+predict_outlook.py TGS27 --models-from Model-Sim [--season 2046] [--depth-percentile 0.3]
 ```
 Horizons 1, 5, 7, 10 seasons ahead (the models of 2 and 3 were dropped; older output files may still have them) and the career view (`_h99`). Columns: [outlook-columns.md](outlook-columns.md). About 15 s.
 

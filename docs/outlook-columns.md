@@ -2,7 +2,7 @@
 
 `PYTHONPATH=. python scripts/predict_outlook.py <save> [--season N] [--models-from <save>]` scores every player of a season and writes
 two files next to the other outputs of that season. It works for a dump save and for an in-game export, with the models of the
-same game version (`--models-from Model-Sim-26-Std` for an OOTP 26 league, `--models-from Model-Sim` for TGS). Models and the position
+same game version (`--models-from Model-Sim-26-Std` for an OOTP 26 league, `--models-from Model-Sim` for TGS27). Models and the position
 minimums come from the long CPU leagues (plan 16); all values are **relative to the league that is scored**, so a player is
 compared with that league's average, and the tier chances are rescaled to that league (below).
 

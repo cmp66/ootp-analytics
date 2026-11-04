@@ -2,8 +2,8 @@
 
 Usage:
     python scripts/predict_values.py Model-Sim                       # latest season, models trained on Model-Sim
-    python scripts/predict_values.py TGS --models-from Model-Sim     # TGS ratings, models trained on Model-Sim
-    python scripts/predict_values.py TGS --season 2046 --out value.csv
+    python scripts/predict_values.py TGS27 --models-from Model-Sim     # TGS27 ratings, models trained on Model-Sim
+    python scripts/predict_values.py TGS27 --season 2046 --out value.csv
 
 Output (default files/<save>/<season>/output/<save>-<season>-predicted-values.csv), one row per player with ratings:
 batting_vs_right / _vs_left / batting (runs per 600 PA), baserunning (runs per 600 PA), pitching_fip_* (runs per 200 IP),

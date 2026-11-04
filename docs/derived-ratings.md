@@ -16,7 +16,7 @@ Regenerate with `PYTHONPATH=. python scripts/derived_ratings.py`.
   more on the second component: MOV ≈ 0.7 to 0.75 HRR + 0.25 to 0.3 PBABIP).
 - Every rating is a multiple of 5 (20, 25, ..., 80), so the rounding of the three ratings alone leaves a residual
   of roughly 1.5 to 1.8 points even for an exact formula: CON is as close as that allows, MOV slightly looser.
-- The fitted weights differ a little between saves (MOV: 0.84 / 0.18 in Model-Sim, 0.79 / 0.23 in TGS); 80 / 20 is
+- The fitted weights differ a little between saves (MOV: 0.84 / 0.18 in Model-Sim, 0.79 / 0.23 in TGS27); 80 / 20 is
   the round number inside that range.
 - Practical reading: **contact is half BABIP and half strikeout avoidance; movement is mostly home-run suppression
   with a fifth from BABIP suppression.** A pitcher's value therefore already contains his `PBABIP` twice, once
@@ -32,23 +32,23 @@ the weights to sum to 1. Residual SD is in rating points for the constrained fit
 | Version | Save | Players | Weight of BABIP | Weight of AVK | Intercept | R² | Weights adding to 1 | Residual SD |
 |---|---|---:|---:|---:|---:|---:|---|---:|
 | current (`CON` from `BABIP`, `K's`) | Model-Sim | 437,957 | 0.50 | 0.48 | +0.2 | 0.974 | 51% / 49% | 1.5 |
-| current (`CON` from `BABIP`, `K's`) | TGS | 9,605 | 0.49 | 0.50 | -0.1 | 0.976 | 50% / 50% | 1.6 |
+| current (`CON` from `BABIP`, `K's`) | TGS27 | 9,605 | 0.49 | 0.50 | -0.1 | 0.976 | 50% / 50% | 1.6 |
 | vs right-handed pitching (`CON vR` from `BA vR`, `K vR`) | Model-Sim | 437,957 | 0.50 | 0.49 | +0.1 | 0.974 | 51% / 49% | 1.5 |
-| vs right-handed pitching (`CON vR` from `BA vR`, `K vR`) | TGS | 9,605 | 0.49 | 0.50 | -0.1 | 0.976 | 49% / 51% | 1.6 |
+| vs right-handed pitching (`CON vR` from `BA vR`, `K vR`) | TGS27 | 9,605 | 0.49 | 0.50 | -0.1 | 0.976 | 49% / 51% | 1.6 |
 | vs left-handed pitching (`CON vL` from `BA vL`, `K vL`) | Model-Sim | 437,957 | 0.50 | 0.49 | +0.1 | 0.974 | 51% / 49% | 1.5 |
-| vs left-handed pitching (`CON vL` from `BA vL`, `K vL`) | TGS | 9,605 | 0.50 | 0.50 | -0.1 | 0.977 | 50% / 50% | 1.6 |
+| vs left-handed pitching (`CON vL` from `BA vL`, `K vL`) | TGS27 | 9,605 | 0.50 | 0.50 | -0.1 | 0.977 | 50% / 50% | 1.6 |
 | potential (`CON P` from `BA P`, `K P`) | Model-Sim | 437,957 | 0.52 | 0.47 | +0.1 | 0.982 | 52% / 48% | 1.8 |
-| potential (`CON P` from `BA P`, `K P`) | TGS | 9,605 | 0.52 | 0.49 | -0.5 | 0.981 | 52% / 48% | 1.7 |
+| potential (`CON P` from `BA P`, `K P`) | TGS27 | 9,605 | 0.52 | 0.49 | -0.5 | 0.981 | 52% / 48% | 1.7 |
 
 ### Pitching: MOV from HRR and PBABIP
 
 | Version | Save | Players | Weight of HRR | Weight of PBABIP | Intercept | R² | Weights adding to 1 | Residual SD |
 |---|---|---:|---:|---:|---:|---:|---|---:|
 | current (`MOV` from `HRR`, `PBABIP`) | Model-Sim | 437,957 | 0.84 | 0.18 | -1.0 | 0.934 | 84% / 16% | 2.3 |
-| current (`MOV` from `HRR`, `PBABIP`) | TGS | 9,605 | 0.79 | 0.23 | -1.0 | 0.974 | 81% / 19% | 1.6 |
+| current (`MOV` from `HRR`, `PBABIP`) | TGS27 | 9,605 | 0.79 | 0.23 | -1.0 | 0.974 | 81% / 19% | 1.6 |
 | vs right-handed batters (`MOV vR` from `HRR vR`, `PBABIP vR`) | Model-Sim | 437,957 | 0.84 | 0.19 | -1.0 | 0.938 | 83% / 17% | 2.2 |
-| vs right-handed batters (`MOV vR` from `HRR vR`, `PBABIP vR`) | TGS | 9,605 | 0.78 | 0.24 | -1.0 | 0.975 | 81% / 19% | 1.6 |
+| vs right-handed batters (`MOV vR` from `HRR vR`, `PBABIP vR`) | TGS27 | 9,605 | 0.78 | 0.24 | -1.0 | 0.975 | 81% / 19% | 1.6 |
 | vs left-handed batters (`MOV vL` from `HRR vL`, `PBABIP vL`) | Model-Sim | 437,957 | 0.84 | 0.18 | -1.0 | 0.935 | 84% / 16% | 2.2 |
-| vs left-handed batters (`MOV vL` from `HRR vL`, `PBABIP vL`) | TGS | 9,605 | 0.78 | 0.23 | -0.9 | 0.973 | 81% / 19% | 1.6 |
+| vs left-handed batters (`MOV vL` from `HRR vL`, `PBABIP vL`) | TGS27 | 9,605 | 0.78 | 0.23 | -0.9 | 0.973 | 81% / 19% | 1.6 |
 | potential (`MOV P` from `HRR P`, `PBABIP P`) | Model-Sim | 437,957 | 0.73 | 0.24 | +0.9 | 0.971 | 75% / 25% | 2.0 |
-| potential (`MOV P` from `HRR P`, `PBABIP P`) | TGS | 9,605 | 0.71 | 0.29 | -0.3 | 0.974 | 70% / 30% | 1.8 |
+| potential (`MOV P` from `HRR P`, `PBABIP P`) | TGS27 | 9,605 | 0.71 | 0.29 | -0.3 | 0.974 | 70% / 30% | 1.8 |

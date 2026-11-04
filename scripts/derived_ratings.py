@@ -87,7 +87,7 @@ def section(title: str, rows: list, saves: dict, first_name: str, second_name: s
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("saves", nargs="*", default=["Model-Sim", "TGS"])
+    parser.add_argument("saves", nargs="*", default=["Model-Sim", "TGS27"])
     parser.add_argument("--out", default="docs/derived-ratings.md")
     args = parser.parse_args()
     columns = {c for rows in (BATTING, PITCHING) for _, d, a, b in rows for c in (d, a, b)}
@@ -117,7 +117,7 @@ def main() -> int:
         "  more on the second component: MOV ≈ 0.7 to 0.75 HRR + 0.25 to 0.3 PBABIP).",
         "- Every rating is a multiple of 5 (20, 25, ..., 80), so the rounding of the three ratings alone leaves a residual",
         "  of roughly 1.5 to 1.8 points even for an exact formula: CON is as close as that allows, MOV slightly looser.",
-        "- The fitted weights differ a little between saves (MOV: 0.84 / 0.18 in Model-Sim, 0.79 / 0.23 in TGS); 80 / 20 is",
+        "- The fitted weights differ a little between saves (MOV: 0.84 / 0.18 in Model-Sim, 0.79 / 0.23 in TGS27); 80 / 20 is",
         "  the round number inside that range.",
         "- Practical reading: **contact is half BABIP and half strikeout avoidance; movement is mostly home-run suppression",
         "  with a fifth from BABIP suppression.** A pitcher's value therefore already contains his `PBABIP` twice, once",

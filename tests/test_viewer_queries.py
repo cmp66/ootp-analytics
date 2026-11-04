@@ -129,7 +129,7 @@ def test_export_pool_flags_use_the_scouting_category_and_the_age_of_the_internat
             "SctCat": ["International", "International", "Amateur", "Major", "Minor"],
         }
     )
-    flags = queries.add_pool_flags(frame, "TGS").set_index("ID")
+    flags = queries.add_pool_flags(frame, "TGS27").set_index("ID")
     assert flags.loc[1, "is_iafa"] and not flags.loc[2, "is_iafa"]  # a 24-year-old foreign professional is a free agent
     assert flags.loc[3, "is_draft"] and not flags.loc[3, "is_free_agent"]
     assert flags.loc[2, "is_free_agent"] and flags.loc[5, "is_free_agent"] and not flags.loc[4, "is_free_agent"]
@@ -143,7 +143,7 @@ def test_export_pool_flags_use_the_scouting_category_and_the_age_of_the_internat
 
 
 def test_the_list_script_prints_the_names_and_reports_bad_requests(capsys):
-    assert outlook_lists.main(["TGS", "--lists"]) == 0
+    assert outlook_lists.main(["TGS27", "--lists"]) == 0
     assert "very_good" in capsys.readouterr().out
-    assert outlook_lists.main(["TGS", "--list", "nope"]) == 2
+    assert outlook_lists.main(["TGS27", "--list", "nope"]) == 2
     assert "unknown list" in capsys.readouterr().err

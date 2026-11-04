@@ -116,7 +116,7 @@ def test_a_model_set_is_named_by_ratings_and_profile_and_the_league_names_its_pr
     assert scales.model_set("Standard27") == "Standard27"
     assert scales.model_set("Standard27", "PBL27") == "Standard27@PBL27"
     saves = load_saves()
-    assert saves["TGS"].scales is None and saves["PBL27"].scales == "PBL27" and saves["Dugout26"].scales == "Dugout26"
+    assert saves["TGS27"].scales is None and saves["PBL27"].scales == "PBL27" and saves["Dugout26"].scales == "Dugout26"
 
 
 def test_training_on_a_mix_of_scales_needs_a_league_that_has_1_10_ratings():

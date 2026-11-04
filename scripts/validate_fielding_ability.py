@@ -1,10 +1,10 @@
 """Stage 3 of plans/11-fielding-ability.md: do the fielding columns isolate the fielder?
 
-Runs the real fielding code (no files written) on every Model-Sim dump season and on TGS 2046 and reports, for the
+Runs the real fielding code (no files written) on every Model-Sim dump season and on TGS27 2046 and reports, for the
 old and new make-rate definitions and the volume basis:
   - R^2 of the fielder's own range rating,
   - year-to-year correlation for the same player at the same position (Model-Sim),
-  - bias t-values for the staff K rate / pbabip / GB rating (Model-Sim) and park AVG (TGS).
+  - bias t-values for the staff K rate / pbabip / GB rating (Model-Sim) and park AVG (TGS27).
 
 Needs plans/data/biz-team-seasons.csv (scripts/analyze_biz_babip.py).
 Usage: PYTHONPATH=. python scripts/validate_fielding_ability.py
@@ -88,8 +88,8 @@ def model_sim() -> None:
 
 
 def tgs() -> None:
-    save = get_save("TGS")
-    out, ratings = run("TGS", 2046)
+    save = get_save("TGS27")
+    out, ratings = run("TGS27", 2046)
     team = ratings.reindex(out["ID"])
     major = (team["Lev"] == "MLB").to_numpy()
     tm = team["TM"].where(major).to_numpy()

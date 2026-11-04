@@ -1,7 +1,7 @@
 """Neutral-park event rates of every player of a season, for the park adjustment of the viewer (model/park.py).
 
-Usage: PYTHONPATH=. python scripts/predict_park.py TGS                       # latest season, models trained on the save's
-ratings set PYTHONPATH=. python scripts/predict_park.py TGS --season 2046 --models-from Model-Sim
+Usage: PYTHONPATH=. python scripts/predict_park.py TGS27                       # latest season, models trained on the save's
+ratings set PYTHONPATH=. python scripts/predict_park.py TGS27 --season 2046 --models-from Model-Sim
 
 Writes <save>-<season>-park-rates.csv next to the other outputs: one row per player with all the ratings: ID, the share of his
 plate appearances from the left side (`left_share`) and his neutral-park rate per PA of home runs (HR), doubles (DOUBLE),
@@ -28,7 +28,7 @@ def switch_left_share(save: str, season: int) -> float:
     try:
         right = data.read_output(save, season, "right-hitting")["PA"].sum()
         left = data.read_output(save, season, "left-hitting")["PA"].sum()
-    except (FileNotFoundError, KeyError):  # an export has no split statistics: the usual share of a league
+    except FileNotFoundError, KeyError:  # an export has no split statistics: the usual share of a league
         return 0.72
     return float(right / (right + left)) if right + left > 0 else 0.72
 

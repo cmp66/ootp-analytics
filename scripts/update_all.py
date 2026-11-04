@@ -2,10 +2,10 @@
 
 Usage:
     PYTHONPATH=. python scripts/update_all.py                  # every save of config/update.toml, latest season
-    PYTHONPATH=. python scripts/update_all.py TGS              # one save
+    PYTHONPATH=. python scripts/update_all.py TGS27              # one save
     PYTHONPATH=. python scripts/update_all.py --if-changed     # skip saves whose input files are unchanged
     PYTHONPATH=. python scripts/update_all.py --steps          # show the steps and exit
-    PYTHONPATH=. python scripts/update_all.py TGS --only outlook lists --season 2046
+    PYTHONPATH=. python scripts/update_all.py TGS27 --only outlook lists --season 2046
 
 For each save the steps run in order (a failed step stops that save, the other saves still run):
     process   processed output files of the season (scripts/process_seasons.py)
