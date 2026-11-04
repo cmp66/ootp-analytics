@@ -22,12 +22,13 @@ from viewer.screens import org_view  # noqa: E402
 
 BOX_TITLES = {
     "LF": "Left Field", "CF": "Center Field", "RF": "Right Field", "3B": "Third Base", "SS": "Shortstop",
-    "2B": "Second Base", "1B": "First Base", "C": "Catcher", "SP": "Starting Rotation", "RP": "Bullpen",
+    "2B": "Second Base", "1B": "First Base", "C": "Catcher", "DH": "Designated Hitter",
+    "SP": "Starting Rotation", "RP": "Bullpen",
 }  # fmt: skip
 # where the box of a position sits on the field: (centre x %, top %), after the OOTP chart
 BOX_PLACES = {
     "LF": (22, 17), "CF": (52, 14), "RF": (82, 17), "SS": (40, 42), "2B": (65, 42), "3B": (14, 46), "1B": (89, 46),
-    "SP": (20, 65), "C": (52, 70), "RP": (81, 64),
+    "SP": (20, 65), "C": (52, 70), "RP": (81, 64), "DH": (38, 87),
 }  # fmt: skip
 CHART_HEIGHT = 1150  # pixels
 

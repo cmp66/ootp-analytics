@@ -662,3 +662,27 @@ def test_a_player_of_the_depth_chart_can_be_opened_from_the_list_below_the_filte
     assert len(box.options) > 20 and box.options[0] == "Choose a player..."
     box.select(box.options[1]).run()
     assert not app.exception and app.session_state["depth_generation"] == 1  # the list is reset after the dialog opens
+
+
+def test_the_depth_chart_of_the_mlb_roster_has_the_same_hitters_in_the_same_places_as_the_acquisitions_page():
+    from viewer import acquire, depth
+
+    save, frame = depth_frame()
+    org = load_update_config()[save]["org"]
+    options = depth.show_options(frame, org)
+    assert "MLB" in options and depth.show_label("MLB") == "MLB roster" and "DH" in depth.CHART_SLOTS
+    chart = depth.depth_chart(frame, org, "MLB")
+    starters = acquire.needs(frame, org, acquire.load_settings())
+    for slot in acquire.LINEUP:
+        starter = starters[starters["place"] == slot]["ID"].iloc[0]
+        top = chart[slot]["ID"].iloc[0] if len(chart[slot]) else float("nan")
+        assert (pd.isna(starter) and pd.isna(top)) or starter == top, slot  # one lineup, two views
+
+
+def test_the_acquisition_needs_say_where_each_starter_is_listed():
+    from viewer import acquire
+
+    save, frame = depth_frame()
+    org = load_update_config()[save]["org"]
+    needs = acquire.needs(frame, org, acquire.load_settings())
+    assert "Listed" in needs.columns and needs.loc[needs["place"] == "SS", "Listed"].notna().all()

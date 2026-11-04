@@ -23,10 +23,11 @@ from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
-    "Place": 60, "Player": 150, "Age": 50, "Value": 62, "Park": 56, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50, "Source": 90,
+    "Place": 60, "Player": 150, "Listed": 60, "Age": 50, "Value": 62, "Park": 56, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50,
+    "Source": 90,
     "From": 60, "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
 }  # fmt: skip
-TEXT_COLUMNS = ("Place", "Player", "Need", "Source", "From", "Deal", "Sign", "Yrs", "Best option", "Option")
+TEXT_COLUMNS = ("Place", "Player", "Listed", "Need", "Source", "From", "Deal", "Sign", "Yrs", "Best option", "Option")
 
 
 @st.cache_data(show_spinner="Loading the player files...")
@@ -84,7 +85,8 @@ def needs_table(needs: pd.DataFrame, pool: pd.DataFrame, budget: float, settings
     out = pd.DataFrame(
         {
             "ID": needs["ID"], "slot": needs["slot"],
-            "Place": needs["place"], "Player": needs["Player"], "Age": needs["Age"], "Value": needs["value"],
+            "Place": needs["place"], "Player": needs["Player"], "Listed": needs["Listed"], "Age": needs["Age"],
+            "Value": needs["value"],
             **({"Park": needs["park"]} if "park" in needs else {}), "Pct": needs["pct"] * 100, "Target": needs["target"],
             "Gap": needs["gap"],
             "Need": np.where(needs["need"], "NEED", ""), "Best option": best,

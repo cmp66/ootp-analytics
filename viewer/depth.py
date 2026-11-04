@@ -14,7 +14,8 @@ from scipy.optimize import linear_sum_assignment
 
 from viewer import queries
 
-CHART_SLOTS = ["LF", "CF", "RF", "3B", "SS", "2B", "1B", "C", "SP", "RP"]
+FIELD_SLOTS = ["LF", "CF", "RF", "3B", "SS", "2B", "1B", "C", "SP", "RP"]  # the positions of the game's depth chart
+CHART_SLOTS = [*FIELD_SLOTS[:-2], "DH", *FIELD_SLOTS[-2:]]  # the chart of the viewer also has the designated hitter
 HITTER_SLOTS = [slot for slot in CHART_SLOTS if slot not in ("SP", "RP")]
 PITCHER_SLOTS = {"SP": 5, "RP": 5}  # places per pass, so two passes give the ten of each box
 DEPTH_HITTERS = 5
@@ -22,7 +23,7 @@ DEPTH_PITCHERS = 10
 WHOLE, MINORS = "Entire organization", "Minor leagues"
 SHOW = (WHOLE, MINORS)  # and, after these, the level (team) codes of show_options
 LEVEL_ORDER = ["AAA", "AA", "A+", "A", "A-", "R+", "R", "Rookie", "INT", "WL"]  # the levels of the files, top to bottom
-LEVEL_LABELS = {"INT": "International Complex"}
+LEVEL_LABELS = {"INT": "International Complex", "MLB": "MLB roster"}
 RANKED_BY = ("Current", "Ceiling (10 years)", "Floor (10 years)")
 HANDS = {1: "R", 2: "L"}  # the throwing hand codes of the files
 
@@ -40,7 +41,12 @@ def show_options(frame: pd.DataFrame, org: str) -> list[str]:
     """The parts of an organization the chart can show: all of it, its minor leagues, and each level (team) it has players at."""
     levels = set(queries.select_pool(frame, "org", org)["team_level"]) - {"MLB", "FA", "other"}
     known = [level for level in LEVEL_ORDER if level in levels]
-    return [*SHOW, *known, *sorted(levels - set(known))]
+    return [
+        *SHOW,
+        "MLB",
+        *known,
+        *sorted(levels - set(known)),
+    ]  # MLB: the roster alone, as the acquisitions page sees it
 
 
 def limit_flags(rows: pd.DataFrame, limits: dict) -> list[str]:
