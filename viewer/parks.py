@@ -16,7 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from model.park import SWITCH
+from model.converters import SWITCH
 from stats import parks
 from util import paths
 from util.config import get_save

@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 
 from model import artifact, data, domains
+from model.converters import SWITCH
 from model.artifact import Artifact
 from model.metrics import summarize
 from model.train import fit_table, make_model
@@ -21,7 +22,6 @@ EVENTS = {"HR": ("HR", "ParkHR"), "DOUBLE": ("DOUBLE", "ParkD"), "TRIPLE": ("TRI
 FEATURES = list(dict.fromkeys([*domains.REVIEWED_FEATURES[domains.BATTING], "SPE", "STE", "RUN"]))
 FOLDER = "park"
 MIN_PA = domains.MIN_PA
-SWITCH = 3  # the value of the batting hand column for a switch hitter
 
 
 def event_table(save: str, seasons, features=FEATURES, min_pa: int = MIN_PA) -> pd.DataFrame:
