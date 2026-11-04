@@ -16,12 +16,11 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
-from scripts.update_all import load_update_config  # noqa: E402
-from util import paths  # noqa: E402
+from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
 from model import scales  # noqa: E402
-from viewer import league, minors, overview, queries  # noqa: E402
+from viewer import data_cache, league, minors, overview  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
@@ -35,10 +34,8 @@ TEXT_COLUMNS = ("Player", "Pos", "Tier", "Move", "To", "Reason", "Blocked")
 ORDER = {minors.MUST: 0, minors.UP: 1, minors.DOWN: 2, "": 3}
 
 
-@st.cache_data(show_spinner="Loading the player files...")
 def load(save: str, season: int):
-    ratings = pd.read_csv(paths.output_file(save, season, "player-data"), low_memory=False)
-    return queries.load_outlook(save, season), ratings
+    return data_cache.outlook(save, season), data_cache.player_data(save, season)
 
 
 def rules_from_page(base: minors.Rules) -> minors.Rules:

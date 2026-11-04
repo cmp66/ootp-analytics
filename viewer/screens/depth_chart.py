@@ -14,10 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
-from scripts.update_all import load_update_config  # noqa: E402
+from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
-from viewer import depth, league, overview, queries  # noqa: E402
+from viewer import data_cache, depth, league, overview  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 BOX_TITLES = {
@@ -85,9 +85,8 @@ def chart_html(chart: dict) -> str:
     return f'<div class="chart"><div class="field"></div><div class="dirt"></div>{boxes}</div>'
 
 
-@st.cache_data(show_spinner="Loading the player files...")
 def load(save: str, season: int):
-    return queries.load_outlook(save, season)
+    return data_cache.outlook(save, season)
 
 
 def main() -> None:

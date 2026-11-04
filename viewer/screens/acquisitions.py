@@ -16,9 +16,9 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
-from scripts.update_all import load_update_config  # noqa: E402
+from util.update_config import load_update_config  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
-from viewer import acquire, league, queries  # noqa: E402
+from viewer import acquire, data_cache, league  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
@@ -30,12 +30,11 @@ WIDTHS = {
 TEXT_COLUMNS = ("Place", "Player", "Listed", "Need", "Source", "From", "Deal", "Sign", "Yrs", "Best option", "Option")
 
 
-@st.cache_data(show_spinner="Loading the player files...")
 def load(save: str, season: int):
-    return queries.load_outlook(save, season), queries.load_finances(save, season)
+    return data_cache.outlook(save, season), data_cache.finances(save, season)
 
 
-@st.cache_data(show_spinner="Working out the rosters...")
+@st.cache_data(show_spinner="Working out the rosters...", max_entries=4, ttl=3600)
 def compute(save: str, season: int, org: str, settings: acquire.Settings, park_on: bool = False):
     """The needs and the candidates. With the park adjustment every team's starters are valued in their own park (the fair
     comparison) and the candidates, wherever they come from, in the park of `org`."""
