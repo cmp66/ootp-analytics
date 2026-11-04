@@ -686,3 +686,51 @@ def test_the_acquisition_needs_say_where_each_starter_is_listed():
     org = load_update_config()[save]["org"]
     needs = acquire.needs(frame, org, acquire.load_settings())
     assert "Listed" in needs.columns and needs.loc[needs["place"] == "SS", "Listed"].notna().all()
+
+
+def platoon_frame():
+    """Four hitters at two positions: the right-handed hitter is the better of the two against left-handed pitchers."""
+    rows = []
+    for player, slot, now, right, left, bats in (
+        (1, "LF", 5.0, 8.0, -4.0, 2),  # lefty: better against right-handers
+        (2, "LF", 4.0, 0.0, 12.0, 1),  # righty: better against left-handers
+        (3, "RF", 3.0, 3.0, 3.0, 3),
+        (4, "RF", 1.0, 1.0, 1.0, 3),
+    ):
+        rows.append(
+            {
+                "ID": player, "slot": slot, "org": "ORG", "level_name": "MLB", "team_level": "MLB", "First Name": "P",
+                "Last Name": str(player), "Age": 27, "level": 1,
+                "is_free_agent": False, "is_iafa": False, "is_draft": False, "T": 1, "B": bats,
+                "value_now": now, "value_vs_right": right, "value_vs_left": left,
+            }
+        )  # fmt: skip
+    return pd.DataFrame(rows)
+
+
+def test_the_lineup_against_each_side_picks_the_better_hitter():
+    from viewer import depth
+
+    frame = platoon_frame()
+    assert depth.ranking_column(frame, "Current", "left") == "value_vs_left"
+    with pytest.raises(ValueError):
+        depth.ranking_column(frame, "Floor (10 years)", "left")  # the projections have no split
+    with pytest.raises(ValueError):
+        depth.ranking_column(frame.drop(columns="value_vs_left"), "Current", "left")
+    right = depth.depth_chart(frame, "ORG", "MLB", side="right")
+    left = depth.depth_chart(frame, "ORG", "MLB", side="left")
+    assert right["LF"]["ID"].iloc[0] == 1 and left["LF"]["ID"].iloc[0] == 2
+    assert right["LF"]["Value"].iloc[0] == 8.0 and left["LF"]["Value"].iloc[0] == 12.0
+    assert depth.depth_chart(frame, "ORG", "MLB")["LF"]["ID"].iloc[0] == 1  # the overall lineup starts the lefty
+
+
+def test_depth_chart_page_offers_the_overall_lineup_and_the_two_sides():
+    app = AppTest.from_file(DEPTH, default_timeout=120).run()
+    assert not app.exception
+    lineup = next(box for box in app.selectbox if box.label == "Lineup")
+    assert list(lineup.options) == ["Lineup: Overall", "Lineup: vs RHP", "Lineup: vs LHP"]
+    for choice in ("vs RHP", "vs LHP"):
+        lineup.select(choice).run()
+        assert not app.exception
+    app.selectbox[3].select("Floor (10 years)").run()  # the projections have no split: back to the overall chart
+    assert not app.exception

@@ -26,6 +26,8 @@ LEVEL_ORDER = ["AAA", "AA", "A+", "A", "A-", "R+", "R", "Rookie", "INT", "WL"]  
 LEVEL_LABELS = {"INT": "International Complex", "MLB": "MLB roster"}
 RANKED_BY = ("Current", "Ceiling (10 years)", "Floor (10 years)")
 HANDS = {1: "R", 2: "L"}  # the throwing hand codes of the files
+SIDE_LABELS = {"right": "vs RHP", "left": "vs LHP"}  # the lineups against a right- or left-handed starting pitcher
+SIDE_CHOICES = ("Overall", *SIDE_LABELS.values())
 
 
 def _tidy(name: str) -> str:
@@ -65,11 +67,20 @@ def limit_flags(rows: pd.DataFrame, limits: dict) -> list[str]:
     return flags
 
 
-def ranking_column(frame: pd.DataFrame, ranked_by: str) -> str:
+def ranking_column(frame: pd.DataFrame, ranked_by: str, side: str | None = None) -> str:
     """The column a ranking uses: the value now, or the 90th / 10th percentile of his best season within the next 10 (the career
-    view; the 10-season horizon for outlook files made before it)."""
+    view; the 10-season horizon for outlook files made before it). With `side` ("right" or "left": the pitcher faced) the value
+    now against that kind of pitcher; the projections have no split."""
     if ranked_by not in RANKED_BY:
         raise ValueError(f"unknown ranking {ranked_by!r}; known: {RANKED_BY}")
+    if side is not None:
+        if side not in SIDE_LABELS:
+            raise ValueError(f"unknown side {side!r}; known: {tuple(SIDE_LABELS)}")
+        if ranked_by != "Current":
+            raise ValueError("the lineups against right- and left-handed pitchers are ranked by the current value only")
+        if f"value_vs_{side}" not in frame.columns:
+            raise ValueError("the predicted-values file of the season has no batting splits: run update_all.py")
+        return f"value_vs_{side}"
     if ranked_by == "Current":
         return "value_now"
     source = "ceiling" if ranked_by.startswith("Ceiling") else "floor"
@@ -121,27 +132,21 @@ def fill(pool: pd.DataFrame, column: str, places: dict[str, int], depth: int) ->
     return order
 
 
-def depth_chart(
-    frame: pd.DataFrame, org: str, show: str = WHOLE, ranked_by: str = RANKED_BY[0], limits: dict | None = None
-) -> dict[str, pd.DataFrame]:
-    """Slot -> its players in depth order (the starter first); columns ID, Player, Lev, Value (the ranking value at the slot) and
-    Flag (the limits of his level he exceeds; `limits` is the `levels` of the save's config: level -> LevelLimits).
-
-    `show`: the whole organization, its minor leagues, or one level (team) of show_options.
-    """
+def _pool(frame: pd.DataFrame, org: str, show: str) -> pd.DataFrame:
+    """The chart slots of the players of the part of the organization shown."""
     if show not in show_options(frame, org):
         raise ValueError(f"unknown choice {show!r}; known: {show_options(frame, org)}")
-    column = ranking_column(frame, ranked_by)
     pool = queries.select_pool(frame, "org", org)
-    pool = pool[pool["slot"].isin(CHART_SLOTS)].dropna(subset=[column])
+    pool = pool[pool["slot"].isin(CHART_SLOTS)]
     if show == MINORS:
         pool = pool[pool["level_name"] != "MLB"]
     elif show != WHOLE:
         pool = pool[pool["team_level"] == show]
-    hitters = fill(pool, column, dict.fromkeys(HITTER_SLOTS, 1), DEPTH_HITTERS)
-    placed = {player for ids in hitters.values() for player in ids}
-    pitchers = fill(pool[~pool["ID"].isin(placed)], column, PITCHER_SLOTS, DEPTH_PITCHERS // PITCHER_SLOTS["SP"])
-    order = hitters | pitchers
+    return pool
+
+
+def _chart(pool: pd.DataFrame, order: dict[str, list[int]], columns: dict[str, str], limits: dict | None) -> dict:
+    """Slot -> its table (ID, Player, Lev, Value, Flag) for the player IDs of `order`; `columns`: the value column per slot."""
     chart = {}
     for slot in CHART_SLOTS:
         rows = pool[pool["slot"] == slot].drop_duplicates("ID").set_index("ID").reindex(order[slot])
@@ -153,8 +158,36 @@ def depth_chart(
                 "ID": rows.index.to_numpy(),
                 "Player": names.to_numpy(),
                 "Lev": rows["team_level"].to_numpy(),
-                "Value": rows[column].to_numpy(),
+                "Value": rows[columns[slot]].to_numpy(),
                 "Flag": limit_flags(rows, limits or {}),
             }
         )
     return chart
+
+
+def depth_chart(
+    frame: pd.DataFrame,
+    org: str,
+    show: str = WHOLE,
+    ranked_by: str = RANKED_BY[0],
+    limits: dict | None = None,
+    side: str | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Slot -> its players in depth order (the starter first); columns ID, Player, Lev, Value (the ranking value at the slot) and
+    Flag (the limits of his level he exceeds; `limits` is the `levels` of the save's config: level -> LevelLimits).
+
+    `show`: the whole organization, its minor leagues, or one level (team) of show_options. `side`: "right" or "left" for the
+    lineup against a right- or left-handed starting pitcher (the hitters' values against that side, ranked by the current value
+    only); the pitchers are one list whatever the side.
+    """
+    column = ranking_column(frame, ranked_by, side)
+    pitching = ranking_column(frame, ranked_by)
+    pool = _pool(frame, org, show)
+    pitcher = pool["slot"].isin(PITCHER_SLOTS)
+    hitting = pool[~pitcher].dropna(subset=[column])
+    pool = pd.concat([hitting, pool[pitcher].dropna(subset=[pitching])])
+    hitters = fill(pool, column, dict.fromkeys(HITTER_SLOTS, 1), DEPTH_HITTERS)
+    placed = {player for ids in hitters.values() for player in ids}
+    pitchers = fill(pool[~pool["ID"].isin(placed)], pitching, PITCHER_SLOTS, DEPTH_PITCHERS // PITCHER_SLOTS["SP"])
+    columns = {slot: pitching if slot in PITCHER_SLOTS else column for slot in CHART_SLOTS}
+    return _chart(pool, hitters | pitchers, columns, limits)
