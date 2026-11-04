@@ -159,7 +159,15 @@ def main() -> None:
             settings.ready_percentile,
             0.05,
         )
-    settings = replace(settings, ready_percentile=ready)
+        potential = st.slider(
+            "High potential from ceiling percentile (ceiling among the league's minor leaguers at his position; "
+            "a rebuilding team may draft him although he is not ready)",
+            0.5,
+            1.0,
+            settings.potential_percentile,
+            0.01,
+        )
+    settings = replace(settings, ready_percentile=ready, potential_percentile=potential)
     rules = minors.load_rules()
     version = scales.version_of(get_save(save).ratings)
     table = rule5.player_table(frame, org, settings, rules, version)
@@ -172,8 +180,10 @@ def main() -> None:
             [
                 f"**{org}** {save} {season}: draft eligible players of your organization (the R5 flag of the export).",
                 "Protect = a prospect with development left whose ceiling would start for your MLB team and who is ready for the",
-                "majors, a top prospect, or a player who would start now.",
-                "Low risk = a prospect who is not ready (a team that drafts him must keep him on its 26-man roster all season).",
+                "majors, a top prospect, a prospect with high potential (a rebuilding team drafts on potential and does not mind",
+                "the roster spot), or a player who would start now.",
+                "Low risk = a prospect who is not ready and has no such potential (a team that drafts him must keep him on its",
+                "26-man roster all season).",
                 "Expose = the rest. The 40-man roster counts the players on it today; a free agent you sign needs a slot too.",
                 "Click a player for his ratings.",
             ]

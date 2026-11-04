@@ -25,6 +25,7 @@ class Settings:
     size: int = 40
     column: str = "ON40"
     ready_percentile: float = 0.20
+    potential_percentile: float = 0.90
 
 
 def load_settings(path: Path = RULE5_CONFIG) -> Settings:
@@ -107,12 +108,15 @@ def recommend(table: pd.DataFrame, settings: Settings) -> pd.DataFrame:
     upside = eligible["Upside"].fillna(-1) > 0  # his ceiling would start there
     top = eligible["Tier"] == minors.TOP_PROSPECT
     prospect = eligible["focus"] & (upside | top)  # a top prospect is worth protecting wherever he plays
-    protect = useful | (prospect & (ready | top))
+    # a team that is rebuilding does not mind a roster spot wasted on a player who is not ready: it drafts on potential
+    potential = eligible["focus"] & (eligible["ceiling_pct"].fillna(0) >= settings.potential_percentile)
+    protect = useful | (prospect & (ready | top)) | potential
     low_risk = prospect & ~protect
     eligible["Action"] = np.where(protect, PROTECT, np.where(low_risk, LOW_RISK, EXPOSE))
     why = pd.Series("", index=eligible.index)
     why[prospect & ready] = "prospect and ready for the majors"
     why[prospect & top] = "top prospect"
+    why[potential & ~ready & ~top] = "high potential: a rebuilding team could take him without playing him"
     why[useful] = "would start over a player of the MLB lineup" + np.where(prospect[useful], " and is a prospect", "")
     why[low_risk] = "prospect but not ready for the majors: unlikely to be picked"
     why[~protect & ~low_risk] = np.where(
