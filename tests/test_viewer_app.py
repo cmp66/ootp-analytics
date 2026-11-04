@@ -622,3 +622,43 @@ def test_an_exact_tie_between_assignments_is_decided_by_the_position_a_player_is
     # a real difference in value still beats the preference
     better = pd.DataFrame({"SS": [8.0, -17.5], "2B": [12.0, -14.5]}, index=pd.Index([1, 2], name="ID"))
     assert sorted(depth.assign_pass(better, {"SS": 1, "2B": 1}, listed)) == [(1, "2B"), (2, "SS")]
+
+
+def test_the_lists_carry_the_player_id_for_the_screens_but_not_for_the_excel_report():
+    import io
+
+    import openpyxl
+
+    from viewer import queries, report
+
+    save = next(iter(load_update_config()))
+    frame = queries.load_outlook(save, available_seasons(save)[-1])
+    pool = queries.apply_filters(queries.select_pool(frame, "mlb"), include_depth=False)
+    spec = report.ReportSpec("Test", "rank_score", 3, [], top=5, top_per_position=3)
+    plain = report.ordered_list(pool, spec)
+    with_id = report.ordered_list(pool, spec, with_id=True)
+    assert (
+        "ID" not in plain.columns
+        and with_id["ID"].is_unique
+        and list(with_id.drop(columns="ID").columns) == list(plain.columns)
+    )
+    blocks = report.position_blocks(pool, spec, with_id=True)
+    assert all("ID" in block.columns for block in blocks.values())
+    book = openpyxl.load_workbook(io.BytesIO(report.write_excel(with_id, with_id, blocks, spec)))
+    headers = {cell.value for row in book["Ordered list"].iter_rows(min_row=1, max_row=4) for cell in row}
+    assert "ID" not in headers and "key" in headers
+
+
+def test_the_explorer_and_the_acquisition_tables_keep_the_player_id_to_open_the_ratings_page():
+    app = AppTest.from_file(str(SCREENS / "explorer.py"), default_timeout=240).run()
+    assert not app.exception and "ID" in app.dataframe[0].value.columns
+    app = AppTest.from_file(str(SCREENS / "acquisitions.py"), default_timeout=240).run()
+    assert not app.exception and {"ID", "slot", "Place"} <= set(app.dataframe[0].value.columns)
+
+
+def test_a_player_of_the_depth_chart_can_be_opened_from_the_list_below_the_filters():
+    app = AppTest.from_file(DEPTH, default_timeout=240).run()
+    box = next(s for s in app.selectbox if s.label == "Open a player's ratings")
+    assert len(box.options) > 20 and box.options[0] == "Choose a player..."
+    box.select(box.options[1]).run()
+    assert not app.exception and app.session_state["depth_generation"] == 1  # the list is reset after the dialog opens
