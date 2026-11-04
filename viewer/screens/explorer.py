@@ -16,6 +16,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 from scripts.update_all import load_update_config  # noqa: E402
 from util.seasons import available_seasons  # noqa: E402
 from viewer import league, queries, report  # noqa: E402
+from viewer.screens import org_view  # noqa: E402
 
 METRICS = {
     "p_top10": "Chance of top 10",
@@ -48,9 +49,24 @@ def load(save: str, season: int) -> pd.DataFrame:
     return queries.load_outlook(save, season)
 
 
-def show(frame: pd.DataFrame) -> None:
+def show(frame: pd.DataFrame, key: str, slot: str | None = None):
+    """A list; returns (ID, slot, name) of the player clicked, if any (`slot` for a position table, which has no slot column)."""
     config_columns = {c: st.column_config.NumberColumn(format=f) for c, f in COLUMN_FORMATS.items() if c in frame}
-    st.dataframe(frame, hide_index=True, width="stretch", column_config=config_columns)
+    event = st.dataframe(
+        frame,
+        hide_index=True,
+        width="stretch",
+        column_config=config_columns,
+        column_order=[c for c in frame.columns if c != "ID"],
+        on_select="rerun",
+        selection_mode="single-cell",
+        key=key,
+    )
+    picked = event.selection.cells
+    if not picked:
+        return None
+    row = frame.iloc[int(picked[0][0])]
+    return int(row["ID"]), str(row["slot"] if "slot" in frame else slot), f"{row['First Name']} {row['Last Name']}"
 
 
 def filter_lines(
@@ -146,27 +162,38 @@ def main() -> None:
         top=int(top),
         top_per_position=int(per_position),
     )
-    ordered = report.ordered_list(pool, report_spec)
+    ordered = report.ordered_list(pool, report_spec, with_id=True)
     if ordered.empty:
         st.warning(
             "No players match. In an export the draft class and the IAFA prospects are only present before the draft."
         )
         return
-    blocks = report.position_blocks(pool, report_spec)
+    blocks = report.position_blocks(pool, report_spec, with_id=True)
     lowest = report.ordered_list(pool, report_spec, lowest=True)
     with st.expander("What the filters select", expanded=False):
         for label, text in report_spec.filters:
             st.write(f"**{label}:** {text}")
     list_tab, position_tab = st.tabs(["Ordered list", "By position"])
+    generation = st.session_state.setdefault(
+        "explorer_generation", 0
+    )  # a new key clears the row selection of every table
+    picked = None
     with list_tab:
-        show(ordered)
+        picked = show(ordered, f"explorer-{name}-list-{generation}")
         st.download_button(
-            "Download csv", ordered.to_csv(index=False), file_name=f"{save}-{season}-{name}.csv", mime="text/csv"
+            "Download csv",
+            ordered.drop(columns=["ID"]).to_csv(index=False),
+            file_name=f"{save}-{season}-{name}.csv",
+            mime="text/csv",
         )
     with position_tab:
         for slot in blocks:
             st.subheader(f"{slot} ({len(pool[pool['slot'] == slot])} players)")
-            show(blocks[slot])
+            picked = picked or show(blocks[slot], f"explorer-{name}-{slot}-{generation}", slot)
+    if picked:
+        st.session_state["explorer_generation"] = generation + 1
+        player_id, slot, player_name = picked
+        org_view.player_dialog(save, season, player_id, slot, player_name, f"{save} {season}, {slot}")
     st.download_button(
         "Download Excel report",
         report.write_excel(ordered, lowest, blocks, report_spec),

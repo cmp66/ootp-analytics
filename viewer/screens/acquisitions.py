@@ -83,6 +83,7 @@ def needs_table(needs: pd.DataFrame, pool: pd.DataFrame, budget: float, settings
         best.append(option_text(found.iloc[0]) if row["need"] and len(found) else "")
     out = pd.DataFrame(
         {
+            "ID": needs["ID"], "slot": needs["slot"],
             "Place": needs["place"], "Player": needs["Player"], "Age": needs["Age"], "Value": needs["value"],
             **({"Park": needs["park"]} if "park" in needs else {}), "Pct": needs["pct"] * 100, "Target": needs["target"],
             "Gap": needs["gap"],
@@ -193,14 +194,12 @@ def main() -> None:
         "weighted by the place."
     )
     table = needs_table(needs, pool, budget, settings)
+    generation = st.session_state.setdefault(
+        "acquire_generation", 0
+    )  # a new key clears the row selection of every table
+    picked = None
     st.subheader("Where the roster needs an upgrade")
-    st.dataframe(
-        style_needs(table), hide_index=True, height=min(len(table), 22) * (ROW_HEIGHT - 1) + 38, row_height=ROW_HEIGHT - 1,
-        column_config={
-            c: (st.column_config.TextColumn if c in TEXT_COLUMNS else st.column_config.NumberColumn)(width=WIDTHS.get(c, 60))
-            for c in table.columns
-        },
-    )  # fmt: skip
+    picked = show(table, style_needs(table), f"acquire-needs-{save}-{org}-{generation}", height_rows=22)
 
     st.subheader("Best set of acquisitions within the budget space")
     everywhere = st.checkbox("Also upgrade places that are not a need")
@@ -212,9 +211,7 @@ def main() -> None:
     else:
         view = candidate_view(chosen)
         view.insert(0, "Place", chosen["Place"])
-        st.dataframe(
-            style_candidates(view), hide_index=True, column_order=[c for c in view.columns if c not in ("ID", "slot")]
-        )
+        picked = picked or show(view, style_candidates(view), f"acquire-package-{save}-{org}-{everywhere}-{generation}")
         spent = chosen["Cost"].sum()
         left = budget - spent if pd.notna(budget) else np.nan
         st.caption(
@@ -239,12 +236,13 @@ def main() -> None:
         st.write("No candidate adds enough at this place with these choices.")
     else:
         view = candidate_view(found.head(40))
-        generation = st.session_state.setdefault("acquire_generation", 0)
-        clicked = show(view, style_candidates(view), f"acquire-{save}-{org}-{place}-{sources}-{within}-{generation}")
-        if clicked:
-            st.session_state["acquire_generation"] = generation + 1
-            player_id, slot, name = clicked
-            org_view.player_dialog(save, season, player_id, slot, name, f"{org}, candidate for {place}")
+        picked = picked or show(
+            view, style_candidates(view), f"acquire-{save}-{org}-{place}-{sources}-{within}-{generation}"
+        )
+    if picked:
+        st.session_state["acquire_generation"] = generation + 1
+        player_id, slot, name = picked
+        org_view.player_dialog(save, season, player_id, slot, name, f"{org}, {slot}")
 
 
 main()

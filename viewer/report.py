@@ -23,7 +23,7 @@ class ReportSpec:
     top_per_position: int = 25
 
 
-def ordered_list(pool: pd.DataFrame, spec: ReportSpec, lowest: bool = False) -> pd.DataFrame:
+def ordered_list(pool: pd.DataFrame, spec: ReportSpec, lowest: bool = False, with_id: bool = False) -> pd.DataFrame:
     """Each player once, at his best position (the chosen ones when the filters name positions); `lowest` reverses the order."""
     if not lowest:
         rows = queries.tier_list(pool, spec.metric, spec.horizon, spec.top, by_player=True)
@@ -31,10 +31,10 @@ def ordered_list(pool: pd.DataFrame, spec: ReportSpec, lowest: bool = False) -> 
         ranked = pool.assign(key=queries.metric_column(spec.metric, spec.horizon, pool).to_numpy())
         ranked = ranked.sort_values(["key", f"rank_score_h{spec.horizon}"])
         rows = ranked.drop_duplicates("ID").head(spec.top).reset_index(drop=True)
-    return queries.display_table(rows, spec.horizon)
+    return queries.display_table(rows, spec.horizon, with_id)
 
 
-def position_blocks(pool: pd.DataFrame, spec: ReportSpec) -> dict[str, pd.DataFrame]:
+def position_blocks(pool: pd.DataFrame, spec: ReportSpec, with_id: bool = False) -> dict[str, pd.DataFrame]:
     """One table per position that has players, in the usual order: a player appears at every position he qualifies for."""
     blocks = {}
     for slot in queries.SLOT_ORDER:
@@ -42,7 +42,7 @@ def position_blocks(pool: pd.DataFrame, spec: ReportSpec) -> dict[str, pd.DataFr
         if part.empty:
             continue
         rows = queries.tier_list(part, spec.metric, spec.horizon, spec.top_per_position)
-        blocks[slot] = queries.display_table(rows, spec.horizon).drop(columns=["slot"], errors="ignore")
+        blocks[slot] = queries.display_table(rows, spec.horizon, with_id).drop(columns=["slot"], errors="ignore")
     return blocks
 
 
@@ -64,6 +64,7 @@ def write_excel(
             return len(spec.filters) + 2
 
         def put(sheet, frame: pd.DataFrame, row: int, col: int) -> int:
+            frame = frame.drop(columns=["ID"], errors="ignore")  # the player ID is for the screens
             for j, name in enumerate(frame.columns):
                 sheet.write(row, col + j, name, header)
                 width = max(

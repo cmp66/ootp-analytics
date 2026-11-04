@@ -140,7 +140,24 @@ def main() -> None:
             "Floor (10 years)": "Ranked by the floor: the 10th percentile of his best season within the next 10.",
         }[ranking]
     )
+    # the chart is drawn as html, which cannot be clicked: a list of its players opens the ratings page of one
+    players = {
+        f"{slot}: {row.Player} ({row.Lev})": (int(row.ID), slot, row.Player)
+        for slot, table in chart.items()
+        for row in table.itertuples()
+    }
+    generation = st.session_state.setdefault("depth_generation", 0)  # a new key clears the choice
+    chosen = st.columns([3, 7])[0].selectbox(
+        "Open a player's ratings",
+        [None, *players],
+        format_func=lambda c: "Choose a player..." if c is None else c,
+        key=f"depth-open-{save}-{org}-{generation}",
+    )
     st.html(chart_html(chart))
+    if chosen:
+        st.session_state["depth_generation"] = generation + 1
+        player_id, slot, name = players[chosen]
+        org_view.player_dialog(save, season, player_id, slot, name, f"{org}, {slot}")
 
 
 main()

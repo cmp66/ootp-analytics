@@ -223,8 +223,9 @@ SHOWN = [
 ]  # fmt: skip
 
 
-def display_table(rows: pd.DataFrame, horizon: int) -> pd.DataFrame:
-    """The columns of a list with the horizon's columns named plainly."""
+def display_table(rows: pd.DataFrame, horizon: int, with_id: bool = False) -> pd.DataFrame:
+    """The columns of a list with the horizon's columns named plainly; `with_id` adds the player ID (the screens use it to open a
+    player's ratings, the Excel report leaves it out)."""
     out = pd.DataFrame(index=rows.index)
     for column in SHOWN:
         for source in (column, f"{column}_h{horizon}"):
@@ -232,6 +233,8 @@ def display_table(rows: pd.DataFrame, horizon: int) -> pd.DataFrame:
                 out[column] = rows[source]
                 break
     out.insert(0, "key", rows["key"].round(3))
+    if with_id:
+        out.insert(1, "ID", rows["ID"])
     return out
 
 
