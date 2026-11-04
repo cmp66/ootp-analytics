@@ -101,7 +101,7 @@ def prospect_info(frame: pd.DataFrame) -> pd.DataFrame:
     floor = depth.ranking_column(frame, "Floor (10 years)")
     chance = ceiling.replace("ceiling", "p_top50")
     rows = frame[
-        frame["slot"].isin(depth.CHART_SLOTS) & ~frame["org"].isin(["FA", "nan", ""]) & (frame["team_level"] != TOP)
+        frame["slot"].isin(depth.FIELD_SLOTS) & ~frame["org"].isin(["FA", "nan", ""]) & (frame["team_level"] != TOP)
     ]
     rows = rows.assign(
         ceiling_pct=rows.groupby("slot")[ceiling].rank(pct=True), floor_pct=rows.groupby("slot")[floor].rank(pct=True)
@@ -122,7 +122,7 @@ def prospect_info(frame: pd.DataFrame) -> pd.DataFrame:
 def league_players(frame: pd.DataFrame, ratings: pd.DataFrame, rules: Rules) -> pd.DataFrame:
     """One row per player who belongs to an organization: ID, org, team_level, Age, PROY, pitcher, his best slot (by value now),
     value now, name, and the key ratings of both kinds."""
-    rows = frame[frame["slot"].isin(depth.CHART_SLOTS)].copy()
+    rows = frame[frame["slot"].isin(depth.FIELD_SLOTS)].copy()
     rows["standing"] = rows.groupby("slot")["value_now"].rank(
         pct=True
     )  # his position is where he stands highest in the league

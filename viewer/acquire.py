@@ -117,6 +117,7 @@ def needs(frame: pd.DataFrame, org: str, settings: Settings, column: str = "valu
     people = mlb_players(frame).drop_duplicates("ID").set_index("ID")
     mine["Player"] = mine["ID"].map(lambda i: _name(people.loc[i]) if pd.notna(i) else "(nobody)")
     mine["Age"] = mine["ID"].map(people["Age"])
+    mine["Listed"] = mine["ID"].map(people["LPOS"]) if "LPOS" in people else ""  # the position he is listed at
     order = {p: n for n, p in enumerate(places(settings))}
     return mine.sort_values(
         ["need", "weighted_gap", "place"], ascending=[False, False, True], key=_key(order)
@@ -156,7 +157,7 @@ def candidate_pool(
     waivers = members & (frame["org"] != str(org)) & waiv
     free = frame["is_free_agent"] & ~waiv
     rows = frame[internal | waivers | free].dropna(subset=[column]).copy()
-    rows = rows[rows["slot"].isin(depth.CHART_SLOTS + ["DH"])]
+    rows = rows[rows["slot"].isin(depth.CHART_SLOTS)]
     rows["Source"] = np.where(internal[rows.index], INTERNAL, np.where(waivers[rows.index], WAIVERS, FREE_AGENT))
     rows["From"] = np.where(
         rows["Source"] == FREE_AGENT, "FA", np.where(rows["Source"] == INTERNAL, rows["team_level"], rows["org"])
