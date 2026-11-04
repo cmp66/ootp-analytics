@@ -1,10 +1,10 @@
 """Print or save one of the player lists of config/viewer.toml for a season (plan 16, stage 5).
 
 Usage:
-    PYTHONPATH=. python scripts/outlook_lists.py TGS26 --list very_good --slot SS --horizon 3
-    PYTHONPATH=. python scripts/outlook_lists.py TGS26 --list trade_targets --org CWS --slot SP --top 20
-    PYTHONPATH=. python scripts/outlook_lists.py TGS26 --list draft --out draft.csv
-    PYTHONPATH=. python scripts/outlook_lists.py TGS26 --lists                  # the list names
+    PYTHONPATH=. python scripts/outlook_lists.py Dugout26 --list very_good --slot SS --horizon 3
+    PYTHONPATH=. python scripts/outlook_lists.py Dugout26 --list trade_targets --org CIN --slot SP --top 20
+    PYTHONPATH=. python scripts/outlook_lists.py Dugout26 --list draft --out draft.csv
+    PYTHONPATH=. python scripts/outlook_lists.py Dugout26 --lists                  # the list names
 
 Needs the outlook files of scripts/predict_outlook.py for the season. `--org` is the organization in the save's own notation
 (the team abbreviation in an export, the organization number in a dump).

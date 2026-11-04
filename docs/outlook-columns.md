@@ -2,7 +2,7 @@
 
 `PYTHONPATH=. python scripts/predict_outlook.py <save> [--season N] [--models-from <save>]` scores every player of a season and writes
 two files next to the other outputs of that season. It works for a dump save and for an in-game export, with the models of the
-same game version (`--models-from Model-Sim-26-Std` for TGS26, `--models-from Model-Sim` for TGS). Models and the position
+same game version (`--models-from Model-Sim-26-Std` for an OOTP 26 league, `--models-from Model-Sim` for TGS). Models and the position
 minimums come from the long CPU leagues (plan 16); all values are **relative to the league that is scored**, so a player is
 compared with that league's average, and the tier chances are rescaled to that league (below).
 
@@ -54,7 +54,7 @@ is left as it is (missing time costs nothing against the average). `injury_cost_
 
 ## Two points about leagues
 - **Tier chances are made league-relative in two ways.** The classifiers learned the value scale of the CPU leagues; in a human league the top
-  end is lower (the 10th-best starter in TGS26 is worth 11.9 runs against 20.1 in the matching CPU league), which made raw chances too small
+  end is lower (the 10th-best starter in a human OOTP 26 league (the old TGS26) is worth 11.9 runs against 20.1 in the matching CPU league), which made raw chances too small
   there. (1) For each slot, tier and horizon the classifier's chances are rescaled to add up to the number of future top players already in
   the league (measured in the training league, scaled by the number of teams); (2) the other half of the chance is read from the player's value
   distribution against the league's own rank-10 / rank-50 value at the slot. The average of the two beat either alone on held-out seasons in both

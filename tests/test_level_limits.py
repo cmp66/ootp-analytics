@@ -25,7 +25,7 @@ def test_bad_level_limits_are_refused(tmp_path):
 
 
 def test_the_shipped_config_lists_every_level_of_the_human_leagues():
-    for name in ("TGS", "TGS26"):
+    for name in ("TGS",):
         levels = load_saves()[name].levels
         assert set(levels) >= {"AAA", "AA", "A+", "A-", "R+", "R", "INT"}
         assert all(isinstance(limit, LevelLimits) for limit in levels.values())

@@ -20,7 +20,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 ```
 
 - **Training leagues** (`Model-Sim`, `Model-Sim-26-Std`) are long computer-only leagues exported as database dumps. The models are trained on them, one set per game version (the *ratings set*: `Standard27` = OOTP 27, `Standard26` = OOTP 26).
-- **Human leagues** (`TGS` = OOTP 27, `TGS26` = OOTP 26) are in-game exports. They are never trained on; they are scored with the models of the same game version (`models_from` in `config/update.toml`).
+- **Human leagues** (`TGS` = OOTP 27, `Dugout26` = OOTP 26, `PBL27` = OOTP 27; each with its own scale mix) are in-game exports. They are never trained on; they are scored with the models of the same game version (`models_from` in `config/update.toml`).
 - **Trained models are in S3** (bucket `ootp-models`, pushed and pulled with `sync_models.py`), so a new machine gets them with one command instead of training. Nothing under `files/` is in git.
 
 ## Scripts in one line each
@@ -87,7 +87,7 @@ If a step fails, the summary at the end of the run names it and the exit status 
 3. Set `scales = "<league>"` for the league in `config/saves.toml` and `models_from` in `config/update.toml` as usual, then run workflow 1. The outlook models stay the 20-80 ones: the league's 1-10 ratings are given to them as the 20-80 value expected for each.
 4. A game version needs its conversion table in `config/rating-scales/` once (`build_scale_tables.py` from two dumps of one league taken at the same moment, one per scale). Both OOTP26 and OOTP27 have one.
 
-TGS and TGS26 are all 20-80 and keep using the 20-80 models.
+TGS is all 20-80 and keeps using the 20-80 models.
 
 ### 3. I want to refresh the models
 

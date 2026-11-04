@@ -4,7 +4,7 @@ Usage:
     python scripts/evaluate_models.py Model-Sim                           # every model on the seasons it was trained on
     python scripts/evaluate_models.py Model-Sim --start 2081 --stop 2086  # seasons the models never saw (train with --stop 2080)
     python scripts/evaluate_models.py Model-Sim --streams batting --calibration
-    python scripts/evaluate_models.py TGS26 --models-from Model-Sim-26-Std   # another save's outcomes, same ratings set
+    python scripts/evaluate_models.py Dugout26 --models-from Model-Sim-26-Std   # another save's outcomes, same ratings set
 
 Prints, for each artifact, the scores stored at training time (player-grouped cross-validation and hold-out, honest)
 and the scores on the seasons asked for (in-sample when those seasons were trained on, marked "in-sample"). Stacked

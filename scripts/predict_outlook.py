@@ -2,7 +2,7 @@
 
 Usage:
     PYTHONPATH=. python scripts/predict_outlook.py Model-Sim                       # latest season, models trained on Model-Sim
-    PYTHONPATH=. python scripts/predict_outlook.py TGS26 --models-from Model-Sim-26-Std
+    PYTHONPATH=. python scripts/predict_outlook.py Dugout26 --models-from Model-Sim-26-Std
     PYTHONPATH=. python scripts/predict_outlook.py TGS --season 2046 --models-from Model-Sim --depth-percentile 0.3
 
 Writes two csv files next to the other outputs of the season: <save>-<season>-outlook-slots.csv (one row per player and ranked

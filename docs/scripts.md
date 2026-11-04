@@ -104,7 +104,7 @@ Scores trained value models against real outcomes.
 ```
 evaluate_models.py Model-Sim --calibration
 evaluate_models.py Model-Sim --start 2081 --stop 2086      # seasons the models never saw (train with --stop 2080)
-evaluate_models.py TGS26 --models-from Model-Sim-26-Std
+evaluate_models.py Dugout26 --models-from Model-Sim-26-Std
 ```
 Prints the scores stored at training (honest) and the scores on the seasons asked for (marked in-sample when trained on).
 

@@ -36,11 +36,6 @@ source = "export"
 ratings = "Standard27"
 ballparks = "ballpark_ratings.csv"
 
-[TGS26]
-source = "export"
-ratings = "Standard26"
-ballparks = "ballpark_ratings.csv"
-
 [Dugout26]
 source = "export"
 ratings = "Standard26"
@@ -82,39 +77,6 @@ max_age = 0
 max_pro_years = 0
 
 [TGS.levels."WL"]
-max_age = 19
-max_pro_years = 0
-ladder = false
-
-[TGS26.levels."AAA"]
-max_age = 0
-max_pro_years = 0
-
-[TGS26.levels."AA"]
-max_age = 0
-max_pro_years = 0
-
-[TGS26.levels."A+"]
-max_age = 27
-max_pro_years = 0
-
-[TGS26.levels."A-"]
-max_age = 25
-max_pro_years = 0
-
-[TGS26.levels."R+"]
-max_age = 23
-max_pro_years = 0
-
-[TGS26.levels."R"]
-max_age = 21
-max_pro_years = 0
-
-[TGS26.levels."INT"]
-max_age = 0
-max_pro_years = 0
-
-[TGS26.levels."WL"]
 max_age = 19
 max_pro_years = 0
 ladder = false
@@ -201,36 +163,6 @@ TEX = "Texas Rangers"
 TOR = "Toronto Blue Jays"
 WAS = "Washington Nationals"
 
-
-[TGS26.team_names]
-ANA = "Anaheim Angels"
-ARI = "Arizona Diamondbacks"
-BAL = "Baltimore Orioles"
-BOS = "Boston Red Sox"
-CHC = "Chicago Cubs"
-CIN = "Cincinnati Reds"
-CLE = "Cleveland Guardians"
-COL = "Colorado Rockies"
-CWS = "Chicago White Sox"
-FLA = "Florida Marlins"
-HOU = "Houston Astros"
-KCM = "Kansas City Monarchs"
-KCR = "Kansas City Royals"
-LAD = "Los Angeles Dodgers"
-MIL = "Milwaukee Brewers"
-MIN = "Minnesota Twins"
-MON = "Montreal Expos"
-NYM = "New York Mets"
-NYY = "New York Yankees"
-OAK = "Oakland Athletics"
-PHI = "Philadelphia Phillies"
-PIT = "Pittsburgh Pirates"
-SD = "San Diego Padres"
-STL = "St. Louis Cardinals"
-TB = "Tampa Bay Devil Rays"
-TEX = "Texas Rangers"
-TOR = "Toronto Blue Jays"
-WAS = "Washington Nationals"
 
 [PBL]
 source = "export"
