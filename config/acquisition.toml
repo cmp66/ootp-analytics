@@ -29,6 +29,14 @@ non_need_factor = 0.5      # an upgrade of a place that is not a need counts thi
 [weights]                  # what a run of value at the place counts for (hitters and starting pitchers 1)
 RP = 0.35
 
+[popularity.local]         # boost of the expected impact of a player whose LOCAL popularity is this level: the local market, fan interest
+"V.Pop" = 0.10             # (a tiebreaker, not a reason to sign a weak player: it multiplies the impact, which is small for a player
+"Ex.Pop." = 0.20           # who adds little)
+
+[popularity.national]      # NATIONAL popularity: awards and all-star votes, much less than the local one; the two boosts add up
+"V.Pop" = 0.02
+"Ex.Pop." = 0.04
+
 [signing]                  # the chance that a free agent signs with you, by his `Sign` level (the demands can change before he does)
 "Very Easy" = 0.95
 Easy = 0.85

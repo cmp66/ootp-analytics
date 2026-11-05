@@ -39,6 +39,10 @@ class Settings:
     multiyear_years: int = 3
     block_weight: float = 0.5  # what a year of a ready prospect kept out of the lineup by a signing counts against it
     non_need_factor: float = 0.5  # an upgrade of a place that is not a need counts this much
+    # boost of the expected impact for a very / extremely popular player: local popularity is what counts (the local market,
+    # fan interest), national popularity (awards, all-star votes) counts for much less
+    popularity_local: tuple = (("vpop", 0.10), ("expop", 0.20))
+    popularity_national: tuple = (("vpop", 0.02), ("expop", 0.04))
     sign_chance: tuple = (
         ("Very Easy", 0.95), ("Easy", 0.85), ("Normal", 0.7), ("Hard", 0.45), ("Extremely Hard", 0.2), ("Impossible", 0.0),
     )  # fmt: skip
@@ -57,12 +61,39 @@ def load_settings(path: Path = ACQUISITION_CONFIG) -> Settings:
         values["hard_to_sign"] = tuple(values["hard_to_sign"])
     if "weights" in raw:
         values["weights"] = tuple(sorted(raw["weights"].items()))
+    for kind in ("local", "national"):
+        if kind in raw.get("popularity", {}):
+            values[f"popularity_{kind}"] = tuple((_pop_key(k), v) for k, v in raw["popularity"][kind].items())
     if "signing" in raw:
         values["sign_chance"] = tuple(raw["signing"].items())
     unknown = set(values) - set(Settings.__dataclass_fields__)
     if unknown:
         raise ValueError(f"{path}: unknown settings {sorted(unknown)}")
     return replace(Settings(), **values)
+
+
+POPULARITY = ("unkn", "insig", "fair", "known", "pop", "vpop", "expop")  # the game's levels, lowest first
+POPULARITY_LABELS = {"vpop": "V.Pop", "expop": "Ex.Pop", "pop": "Pop"}
+
+
+def _pop_key(text) -> str:
+    """A popularity text of the export ("V.Pop", "Ex.Pop.", "Unkn.") as a key of POPULARITY."""
+    return str(text).lower().replace(".", "").replace(" ", "")
+
+
+def popularity(rows: pd.DataFrame) -> pd.DataFrame:
+    """A player's local and national popularity as keys of POPULARITY (unknown for an export without the columns)."""
+    return pd.DataFrame(
+        {
+            kind: (
+                rows[column].map(_pop_key).where(lambda keys: keys.isin(POPULARITY), "unkn")
+                if column in rows
+                else "unkn"
+            )
+            for kind, column in (("local", "Loc. Pop."), ("national", "Nat. Pop."))
+        },
+        index=rows.index,
+    )
 
 
 def kind_of(place: str) -> str:
@@ -191,9 +222,24 @@ def candidate_pool(
     rows["Years"] = rows["YL"] if "YL" in rows else ""
     rows = rows[~(fa & rows["Sign"].isin(settings.hard_to_sign))]
     rows["Player"] = rows.apply(_name, axis=1)
+    rows[["PopLocal", "PopNational"]] = popularity(rows)
     for n in range(1, YEARS):
         rows[f"y{n}"] = _ahead(rows, n, column)
-    keep = ["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign", "Years", column]
+    keep = [
+        "ID",
+        "slot",
+        "Player",
+        "Age",
+        "Source",
+        "From",
+        "Deal",
+        "Cost",
+        "Sign",
+        "Years",
+        "PopLocal",
+        "PopNational",
+        column,
+    ]
     keep += [f"y{n}" for n in range(1, YEARS)]
     if "park_effect" in rows:
         keep.append("park_effect")
@@ -297,7 +343,9 @@ def priority_list(
     """The acquisitions in the order to try them: for each place the candidate with the largest expected impact, best first, at
     most one per place and each candidate once; rows with Place, Player, Source, Cost (a year), Years, Commit, Impact (runs
     over the contract, against the starter and what the organization's own prospects will be), Chance (he signs), Expected,
-    Context (the pipeline at the place), Verdict, Spend (Within the budget space above `min_budget`, or Over) and Fallbacks.
+    PopLocal / PopNational (his popularity: a very / extremely popular player gets a boost because he draws fans, mostly
+    the local one), Context (the
+    pipeline at the place), Verdict, Spend (Within the budget space above `min_budget`, or Over) and Fallbacks.
 
     A year in which a signing keeps a ready prospect out of the lineup counts against it (`block_weight`); an upgrade of a place
     that is not a need counts `non_need_factor`. Verdict: Hole (nothing of our own that reaches the target within two years),
@@ -325,14 +373,22 @@ def priority_list(
         verdict = "Hole" if ready is None else ("Bridge" if ready == 1 else "Soon")
         if ready is None and not need["need"]:
             verdict = "Fill"
-        out = cands[["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign"]].copy()
+        out = cands[
+            ["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign", "PopLocal", "PopNational"]
+        ].copy()
         out["Place"] = need["place"]
         out["Years"] = length
         out["Commit"] = out["Cost"] * length
         out["Impact"] = impact
         out["PerYear"] = impact / length
         out["Chance"] = chance
-        out["Expected"] = impact * chance
+        boost = (
+            1
+            + cands["PopLocal"].map(dict(settings.popularity_local)).fillna(0.0).to_numpy()
+            + cands["PopNational"].map(dict(settings.popularity_national)).fillna(0.0).to_numpy()
+        )
+        out["Boost"] = boost
+        out["Expected"] = impact * chance * boost
         out["Context"] = who
         out["Verdict"] = verdict
         out["Need"] = bool(need["need"])

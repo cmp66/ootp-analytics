@@ -24,7 +24,7 @@ A human league save (`source = "export"` in `config/saves.toml`) lives in `files
 
 - **Finance and statistics are updated only periodically.** A page that shows older finance or statistics than the ratings is normal, not a mistake in the update.
 - **The player lists must hold every level.** The MLB list and every minor league list have to be in `ratings/`. An export with the MLB only makes the minor league pages empty. If a page looks empty at AAA / R, first check that the minor league lists are there.
-- **Columns the pages read** (add them to the export view if they are missing): `R5` (draft eligible) and `ON40` (on the 40-man roster) for the Rule 5 page, `OY` (options used), `WAIV` (on waivers), `DFA`, `DEM` (a free agent's one-year demand; for IAFA and draft players the signing bonus), `Sign` (signability), `SLR` and `YL` (contract), `PROY` (pro years, for the level limits). A demand of 0 means a minor league deal. After adding a column, re-export the player lists and run `update_all.py`.
+- **Columns the pages read** (add them to the export view if they are missing): `R5` (draft eligible) and `ON40` (on the 40-man roster) for the Rule 5 page, `OY` (options used), `WAIV` (on waivers), `DFA`, `DEM` (a free agent's one-year demand; for IAFA and draft players the signing bonus), `Sign` (signability), `SLR` and `YL` (contract), `PROY` (pro years, for the level limits), `Nat. Pop.` and `Loc. Pop.` (popularity, for the acquisitions priority list; values Unkn., Insig., Fair, Known, Pop., V.Pop, Ex.Pop.). A demand of 0 means a minor league deal. After adding a column, re-export the player lists and run `update_all.py`.
 
 ## Everyday: new ratings files
 

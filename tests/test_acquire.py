@@ -190,3 +190,39 @@ def test_the_list_keeps_the_minimum_budget_skips_what_does_not_fit_and_discounts
         row["Impact"] * 0.7
     )
     assert acquire.Settings().chance("unknown level") == 1.0
+
+
+def test_local_popularity_boosts_a_player_much_more_than_national_popularity():
+    rows = pd.DataFrame(
+        {
+            "Nat. Pop.": ["Unkn.", "Pop.", "V.Pop", "Ex.Pop.", "bogus"],
+            "Loc. Pop.": ["V.Pop", "Pop.", "Unkn.", "Fair", None],
+        }
+    )
+    found = acquire.popularity(rows)
+    assert list(found["local"]) == ["vpop", "pop", "unkn", "fair", "unkn"]
+    assert list(found["national"]) == ["unkn", "pop", "vpop", "expop", "unkn"]
+    assert list(acquire.popularity(pd.DataFrame({"x": [1]})).iloc[0]) == [
+        "unkn",
+        "unkn",
+    ]  # an export without the columns
+    settings = acquire.load_settings()
+    assert dict(settings.popularity_local)["expop"] > 4 * dict(settings.popularity_national)["expop"]
+
+    def with_pop(local, national, **changes):
+        frame = league_frame()
+        frame["Nat. Pop."] = "Unkn."
+        frame["Loc. Pop."] = "Unkn."
+        frame.loc[frame["ID"] == 900, ["Loc. Pop.", "Nat. Pop."]] = [local, national]
+        needs = acquire.needs(frame, "MINE", SETTINGS)
+        pool = acquire.candidate_pool(frame, "MINE", needs, SETTINGS)
+        found = acquire.priority_list(
+            frame, needs, pool, 5e6, acquire.Settings(bullpen=2, min_budget=0, **changes)
+        )  # the $30m one is out
+        return found[found["Place"] == "C"].iloc[0]
+
+    plain, local, national = with_pop("Unkn.", "Unkn."), with_pop("Ex.Pop.", "Unkn."), with_pop("Unkn.", "Ex.Pop.")
+    assert plain["Player"] == "F P900" and plain["Boost"] == 1.0
+    assert local["Boost"] == pytest.approx(1.20) and national["Boost"] == pytest.approx(1.04)
+    assert with_pop("Ex.Pop.", "V.Pop")["Boost"] == pytest.approx(1.22)  # the two add up
+    assert local["Expected"] == pytest.approx(plain["Expected"] * 1.20)

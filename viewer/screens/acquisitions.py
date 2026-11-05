@@ -26,7 +26,7 @@ WIDTHS = {
     "Place": 60, "Player": 150, "Listed": 60, "Age": 50, "Value": 62, "Park": 56, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50,
     "Source": 90, "Years": 50, "Commit $m": 78, "Impact": 62, "Per yr": 56, "Chance": 62, "Expected": 72,
     "Verdict": 70, "Context": 210,
-    "Spend": 70,
+    "Spend": 70, "Local pop": 70, "Nat. pop": 66,
     "Fallbacks": 330,
     "From": 60, "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
 }  # fmt: skip
@@ -38,6 +38,8 @@ TEXT_COLUMNS = (
     "Source",
     "From",
     "Deal",
+    "Local pop",
+    "Nat. pop",
     "Sign",
     "Yrs",
     "Best option",
@@ -144,7 +146,9 @@ def priority_view(found: pd.DataFrame) -> pd.DataFrame:
         {
             "ID": found["ID"], "slot": found["slot"], "Place": found["Place"], "Player": found["Player"], "Age": found["Age"],
             "Source": found["Source"], "Deal": found["Deal"], "Cost $m": found["Cost"] / 1e6, "Years": found["Years"],
-            "Commit $m": found["Commit"] / 1e6, "Sign": found["Sign"], "Impact": found["Impact"],
+            "Commit $m": found["Commit"] / 1e6, "Sign": found["Sign"],
+            "Local pop": found["PopLocal"].map(acquire.POPULARITY_LABELS).fillna(""),
+            "Nat. pop": found["PopNational"].map(acquire.POPULARITY_LABELS).fillna(""), "Impact": found["Impact"],
             "Per yr": found["PerYear"], "Chance": found["Chance"] * 100,
             "Expected": found["Expected"], "Verdict": found["Verdict"], "Context": found["Context"], "Spend": found["Spend"],
             "Fallbacks": found["Fallbacks"],
@@ -269,7 +273,9 @@ def main() -> None:
         "the starter and against what your own prospects at the place will be worth in one and two years; a "
         "year in which he would keep a ready prospect out of the lineup counts against him. Per yr = Impact "
         "divided by the years. Expected = Impact "
-        "x the chance he signs (his signability; the demand can change). Verdict: Hole = nothing of your own "
+        "x the chance he signs (his signability; the demand can change), raised for a very / extremely popular player "
+        "(Local pop counts most, the local market; Nat. pop, awards and all-star votes, a little; the boosts are in the "
+        "config). Verdict: Hole = nothing of your own "
         "reaches the target within two years, a long deal is fine; Bridge / Soon = a prospect reaches it in "
         "one / two years, so prefer a short deal; Fill = a place that is no need. Spend: Within = inside the "
         f"budget space and leaves {money(settings.min_budget)} of it, Over = would take it under that, after the ones "
