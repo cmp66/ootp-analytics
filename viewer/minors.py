@@ -48,6 +48,22 @@ class Rules:
         ("OOTP27", 25),
     )  # the last age at which ratings still grow, by game version
     develop_pitchers: tuple = (("OOTP26", 26), ("OOTP27", 26))
+    starters: int = 6  # starting pitchers wanted at every minor league level
+    pitcher_slack: int = 1  # a level may have this many pitchers more or fewer than its target
+    position_gap: float = 2.0  # runs a hitter must gain at another position for his listed position to be called wrong
+    mlb_season: int = 26  # the active roster of the majors in the season and the playoffs
+    mlb_offseason: int = 40
+    mlb_spring: int = 60
+    mlb_pitchers: int = (
+        13  # pitchers wanted on the active roster in the season (the offseason and spring have no target)
+    )
+    mlb_starters: int = 5  # of them starting pitchers; the rest relievers (a starter may be the long reliever)
+    max_option_years: int = (
+        3  # option years a player has; with all used (OPT) and none this season (OY) he needs waivers
+    )
+    mlb_floor: float = (
+        0.35  # where a player stands among the league's major leaguers of his kind to be promoted for his value
+    )
 
     def keys(self, pitcher: bool) -> tuple:
         return self.pitchers if pitcher else self.hitters
@@ -66,6 +82,8 @@ class Rules:
 def load_rules(path: Path = MINORS_CONFIG) -> Rules:
     raw = tomllib.loads(path.read_text()) if path.exists() else {}
     values = dict(raw.get("rules", {}))
+    for key, value in raw.get("mlb", {}).items():
+        values[key if key == "max_option_years" else f"mlb_{key}"] = value
     for kind in ("hitters", "pitchers"):
         if kind in raw.get("ratings", {}):
             values[kind] = tuple(raw["ratings"][kind])
@@ -128,9 +146,9 @@ def league_players(frame: pd.DataFrame, ratings: pd.DataFrame, rules: Rules) -> 
     )  # his position is where he stands highest in the league
     best = rows.sort_values("standing", ascending=False, kind="stable").drop_duplicates("ID")
     best = best[~best["org"].isin(["FA", "nan", ""])]
-    columns = ["ID", "org", "team_level", "Age", "slot", "value_now", "First Name", "Last Name"] + (
-        ["PROY"] if "PROY" in best else []
-    )
+    columns = ["ID", "org", "team_level", "Age", "slot", "value_now", "First Name", "Last Name"] + [
+        c for c in ("PROY", "LPOS", "ON40", "ACT", "OY", "OPT") if c in best
+    ]
     out = best[columns].copy()
     if "PROY" not in out:
         out["PROY"] = np.nan
@@ -176,6 +194,9 @@ def manage(
             above = rungs[rungs.index(level) - 1] if rungs.index(level) > 0 else TOP
             above_peers = players[(players["pitcher"] == pitcher) & (players["team_level"] == above)]
             below = rungs[rungs.index(level) + 1] if rungs.index(level) + 1 < len(rungs) else None
+            below = (
+                None if below and levels[below].no_demotion else below
+            )  # placed there automatically: nobody goes down to it
             out = group.copy()
             for key in keys:
                 out[f"pct_{key}"] = percentile(group[key], peers[key].to_numpy(dtype=float))
@@ -194,7 +215,9 @@ def manage(
     decided = table.apply(lambda r: _decide(r, levels, rules), axis=1, result_type="expand")
     table[["Move", "To", "Reason", "Blocked"]] = decided
     table["Player"] = (table["First Name"].astype(str) + " " + table["Last Name"].astype(str)).map(depth._tidy)
-    table = table.rename(columns={"slot": "Pos", "PROY": "Pro", "team_level": "Level", "value_now": "Value"})
+    table = table.rename(
+        columns={"slot": "Pos", "PROY": "Pro", "team_level": "Level", "value_now": "Value", "LPOS": "Listed"}
+    )
     return table.drop(columns=["First Name", "Last Name", "org", "above", "below", "keys"])
 
 

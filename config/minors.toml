@@ -28,6 +28,9 @@ red = 0.25                # mean percentile at or below which a player is weak f
 average = 0.50            # mean percentile a player has to reach to be moved up for being old for the level
 prospect = 0.80           # ceiling percentile among the league's minor leaguers at the position
 top_prospect = 0.95
+starters = 6              # starting pitchers wanted at every minor league level
+pitcher_slack = 1         # a level may have one pitcher more or fewer than its `pitchers` target (config/saves.toml)
+position_gap = 2.0        # runs: a hitter listed at a position where another one would add this much is flagged
 min_green_hitters = 4     # of the six key ratings
 min_green_pitchers = 2    # of the three key ratings
 next_floor = 0.35         # mean percentile at the next level a player needs to be moved up there
@@ -38,3 +41,14 @@ old_for_level = 0.75      # age percentile among the players of the level from w
 # 25 for hitters (+0.1 at 25, 0.0 at 26) and at 26 for pitchers (+0.4 at 26, +0.1 at 27 in OOTP27; +0.2 at 26, -0.1 at 27 in OOTP26).
 hitters = { OOTP26 = 25, OOTP27 = 25 }
 pitchers = { OOTP26 = 26, OOTP27 = 26 }
+
+[mlb]   # the active roster of the majors and what the level moves page keeps there (the page asks which phase it is)
+season = 26             # regular season and playoffs
+offseason = 40
+spring = 60             # spring training
+pitchers = 13           # on the active roster in the season; no target in the offseason or spring training
+starters = 5            # of those: starting pitchers (the other 8 are relievers; a starter in the bullpen is the long reliever)
+max_option_years = 3    # option years a player has. The first demotion of a season uses one (OPT counts them, OY the demotions this
+                        # season): with OPT at 3 and OY at 0 he cannot be sent down without waivers (he is DFA'd); with OY of 1 or more,
+                        # or OPT below 3, he can. Without the OPT column in the export there is no information and he can.
+floor = 0.35            # a player of the minors is promoted for his value only from this standing among the league's major leaguers

@@ -3,6 +3,9 @@
 #   models_from: save whose trained models score this save (same ratings set); default: the save itself.
 #   org:         your organization (team abbreviation in an export), for the lists that compare with your roster
 #                (trade_targets, my_depth, fa_for_my_roster). Without it those lists are skipped.
+#   phase:       where the league is in the season: "season" (regular season and playoffs, 26 on the active roster), "offseason"
+#                (40) or "spring" (spring training, 60). The level moves page starts at it (and lets you change it); change it
+#                here as the game moves on. Without it the page guesses from the teams' active rosters.
 #   steps:       optional list of steps to run (default: all). See `python scripts/update_all.py --steps`.
 #   The first save is the one the viewer opens.
 # Add a save here when you start another human league.
@@ -10,13 +13,16 @@
 [TGS27]
 models_from = "Model-Sim"
 org = "CLE"  # Cleveland
+phase = "spring"
 
 # Dugout26 (batting and pitching 20-80; speed, stamina and fielding 1-10) and PBL27 (everything 1-10) are scored with models trained
 # on ratings turned to their mix of scales (the `scales` key of config/saves.toml; scripts/train_models.py --scales).
 [Dugout26]
 models_from = "Model-Sim-26-Std"
 org = "CIN"  # Cincinnati
+phase = "season"
 
 [PBL27]
 models_from = "Model-Sim"
 org = "TOR"  # Toronto
+phase = "offseason"

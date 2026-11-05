@@ -13,12 +13,21 @@ SOURCES = ("dump", "export")
 @dataclass(frozen=True)
 class LevelLimits:
     """The limits of a minor league level (0 = no limit): a player older than `max_age` or with more than `max_pro_years` years of
-    professional experience does not belong at the level. The order of the level tables of a save is its promotion ladder, top
-    level first."""
+    professional experience does not belong at the level, and it holds at most `max_players` players, `pitchers` of them pitchers.
+    The order of the level tables of a save is its promotion ladder, top level first."""
 
     max_age: int = 0
     max_pro_years: int = 0
     ladder: bool = True  # False: not a rung of the promotion ladder (the minor league management page leaves it alone)
+    max_players: int = (
+        0  # the most players the level can hold (0 = no limit); the level moves page keeps the roster within it
+    )
+    no_demotion: bool = (
+        False  # players are placed here automatically (the international complex): nobody is demoted into it
+    )
+    pitchers: int = (
+        0  # how many of them should be pitchers (0 = no target); the level moves page allows one more or fewer
+    )
 
 
 @dataclass(frozen=True)
@@ -52,14 +61,23 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
             raise ValueError(f"Save {name}: home_share must be between 0 and 1, got {home_share}")
         levels = {}
         for level, limits in values.get("levels", {}).items():
-            unknown = set(limits) - {"max_age", "max_pro_years", "ladder"}
+            unknown = set(limits) - {"max_age", "max_pro_years", "ladder", "max_players", "pitchers", "no_demotion"}
             if unknown:
                 raise ValueError(f"Save {name}, level {level}: unknown keys {sorted(unknown)}")
             levels[level] = LevelLimits(
-                **{key: int(value) for key, value in limits.items() if key != "ladder"},
+                **{key: int(value) for key, value in limits.items() if key not in ("ladder", "no_demotion")},
                 ladder=bool(limits.get("ladder", True)),
+                no_demotion=bool(limits.get("no_demotion", False)),
             )
-            if min(levels[level].max_age, levels[level].max_pro_years) < 0:
+            if (
+                min(
+                    levels[level].max_age,
+                    levels[level].max_pro_years,
+                    levels[level].max_players,
+                    levels[level].pitchers,
+                )
+                < 0
+            ):
                 raise ValueError(f"Save {name}, level {level}: limits cannot be negative (0 = no limit)")
         saves[name] = SaveConfig(
             name=name,

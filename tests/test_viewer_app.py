@@ -538,11 +538,14 @@ def test_the_management_page_lists_the_moves_of_every_league_and_survives_a_leag
         pytest.skip("the league has no minor leaguers on the ladder (an export without the minor league lists)")
     assert len(app.dataframe) >= 4
     assert any("to move" in s.value for s in app.subheader)
+    assert {"Now", "After", "Max", "Pitchers after", "SP after"} <= set(
+        app.dataframe[0].value.columns
+    )  # the roster summary
     first, others = other_leagues_with_files()
     if others:
         app.selectbox[0].select(others[0]).run()
         assert not app.exception
-    app.checkbox[0].check().run()
+    app.selectbox[1].select(app.selectbox[1].options[-1]).run()  # another organization
     assert not app.exception
 
 
