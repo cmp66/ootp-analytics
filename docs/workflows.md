@@ -1,6 +1,22 @@
 # Overview and common workflows
 
-What the project does, what each script is for in one line, and the steps for the jobs you do repeatedly. The options of every script are in [scripts.md](scripts.md). Run everything from the repository root with `PYTHONPATH=.` (and the `ootp-analytics` virtualenv active).
+What the project does and the steps for the jobs you do repeatedly. Run everything from the repository root with `PYTHONPATH=.` (and the `ootp-analytics` virtualenv active). The options of every script are in [scripts.md](scripts.md).
+
+## I want to ...
+
+| I want to ... | Read |
+| --- | --- |
+| Load a new export and look at it | [updating-data.md](updating-data.md); workflow 1 below |
+| Show the new data on the server | [updating-data.md](updating-data.md), "Getting it to the viewer on the server" (`deploy/push_data.sh`) |
+| Change code and get it to the server | [updating-code.md](updating-code.md) (`deploy/deploy.sh`) |
+| Start a new league, or a league with 1-10 ratings | Workflows 2 and 2b |
+| Retrain the models, or support a new game version | Workflows 3 and 4 |
+| Change a threshold of a screen | [configuration.md](configuration.md); workflow 5 |
+| Understand what a screen shows | [viewer.md](viewer.md) |
+| Set up another machine or the server | Workflows 6 and 8; [deploy/README.md](../deploy/README.md) |
+| Check that nothing broke | Workflow 7 |
+| Find a script or a helper module | [scripts.md](scripts.md), [utilities.md](utilities.md) |
+| Know how the numbers are made | [processing.md](processing.md), [models.md](models.md) |
 
 ## How the pieces fit
 
@@ -31,7 +47,9 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 | --- | --- |
 | `update_all.py` | One button: process, value, outlook-score and list every human league after new ratings files. |
 | `sync_models.py` | Pushes the trained models to the S3 bucket (with history) or pulls them onto another machine. |
-| `run_viewer.py` | Starts the viewer (org overview, minor leagues, draft, IAFA, explorer) at http://localhost:8501. |
+| `sync_files.py` | The same for the league files (raw exports, the viewer's processed files, the training dumps). |
+| `deploy/push_data.sh`, `deploy/deploy.sh` | New data to the viewer server; new code to the viewer server. |
+| `run_viewer.py` | Starts the viewer (organization overview, minor leagues, draft, IAFA, depth chart, level moves, acquisitions, Rule 5, explorer) at http://localhost:8501. |
 | `outlook_lists.py` | Prints or saves one list of `config/viewer.toml` (very good, good, ranking, draft, IAFA, free agents, trade targets, ...). |
 
 **The pipeline steps** (what `update_all.py` calls; run them alone for a training league or one step)
@@ -121,9 +139,10 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 
 ### 5. I changed the lists or the viewer
 
+- Screens are described in [viewer.md](viewer.md), all settings in [configuration.md](configuration.md).
 - The Rule 5 page needs the `R5` (draft eligible) flag of the player list export and, for an exact 40-man, the `ON40` flag (column name in `config/rule5.toml`); re-export the player lists after enabling them, then run `update_all.py`.
 
-- The rules of the acquisitions page (what counts as a need, the weight of a reliever, which free agents are left out) are in `config/acquisition.toml`. It needs the `finance` folder in the export for the budget space; without it the costs are not checked.
+- The rules of the acquisitions page (what counts as a need, the weight of a reliever, which free agents are left out) are in `config/acquisition.toml`. It needs the `finance` folder in the export for the budget space; without it the costs are not checked. The priority list at the top of the page orders the acquisitions by expected impact: runs over the contract (up to three years) against the starter and against what the organization's own prospects will be worth in one and two years (a ready prospect makes a long deal a bridge, a hole makes it worth it), times the chance a free agent signs (`[signing]`), and never takes the budget space under `min_budget` (default $10m, kept for the draft and IAFA); a free agent asking $8m or more (`multiyear_demand`) is assumed to want three years.
 
 - The age and pro-years limits of each minor league level, and the promotion ladder (the order of the level tables, top level first), are in `config/saves.toml`; the rules of the level moves page (what counts as green, how many key ratings, how old is old for a level) in `config/minors.toml`. Check the ladder order of a new league.
 - The age and pro-years limits of each minor league level are in `config/saves.toml` (`[TGS27.levels."AA"]`, `max_age`, `max_pro_years`; 0 = no limit). The depth chart marks players over them; reload the page after editing.
@@ -141,11 +160,11 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 
 ### 7. Checking that nothing broke
 
-`python -m pytest` (about 3 minutes) and `flake8 --max-line-length 130 viewer model scripts tests`. After retraining, also read the evaluation reports in `docs/outlook-model-evaluation-*.md` and compare with the previous ones in git.
+`python -m pytest` (about 3 minutes) and `flake8 --max-line-length 130 viewer model scripts tests` (and `black --check`; see [updating-code.md](updating-code.md)). After retraining, also read the evaluation reports in `docs/outlook-model-evaluation-*.md` and compare with the previous ones in git.
 
 ### 8. The viewer on a server
 
-The viewer runs in a container on a small server (about 350 MB of memory; `deploy/`). It reads only the processed files of the latest season of each human league: after `update_all.py`, `python scripts/sync_files.py push --set viewer`; the server pulls them (`deploy/refresh.sh`, also on a schedule). Setup, nginx and S3 access: [deploy/README.md](../deploy/README.md). `tests/test_viewer_memory.py` keeps every page inside the memory budget: a new screen should load its data through `viewer/data_cache.py`, never with its own cache, and must not change the shared frame.
+The viewer runs in a container on a small server (about 350 MB of memory; `deploy/`). It reads only the processed files of the latest season of each human league. New data: after `update_all.py`, `deploy/push_data.sh` (pushes the `viewer` set to S3 and has the server pull it and restart). New code: `deploy/deploy.sh`. Setup, nginx and S3 access: [deploy/README.md](../deploy/README.md). `tests/test_viewer_memory.py` keeps every page inside the memory budget: a new screen should load its data through `viewer/data_cache.py`, never with its own cache, and must not change the shared frame.
 
 ## Where things are written
 
@@ -157,4 +176,4 @@ The viewer runs in a container on a small server (about 350 MB of memory; `deplo
 | Value models | `files/models/<save>/<ratings>/*.joblib` (not in git; in S3 `ootp-models`) |
 | Outlook models | `files/models/<save>/<ratings>/outlook/*.joblib` (not in git; in S3) |
 | Evaluation and diagnostics reports | `docs/` |
-| Settings | `config/saves.toml`, `config/update.toml`, `config/viewer.toml`, `config/outlook.toml` |
+| Settings | `config/*.toml`, all described in [configuration.md](configuration.md) |

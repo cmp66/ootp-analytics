@@ -1,3 +1,5 @@
+"""Which seasons a save has (available_seasons, served_seasons) and which of them a script should process (select_seasons)."""
+
 from util import paths
 from util.config import get_save
 

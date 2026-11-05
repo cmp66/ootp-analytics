@@ -1,3 +1,5 @@
+"""Helpers that keep pandas frames from fragmenting (consolidate, add_constant_columns, numeric_columns)."""
+
 from pandas import DataFrame, concat
 
 

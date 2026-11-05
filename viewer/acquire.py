@@ -19,6 +19,7 @@ from viewer import depth
 ACQUISITION_CONFIG = Path(__file__).resolve().parent.parent / "config" / "acquisition.toml"
 LINEUP = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH"]
 ROTATION = 5
+YEARS = 3  # the years looked at for a contract and the pipeline: now, in one year, in two
 INTERNAL, WAIVERS, FREE_AGENT = "Internal", "Waivers", "Free agent"
 SOURCES = (INTERNAL, WAIVERS, FREE_AGENT)
 
@@ -31,6 +32,19 @@ class Settings:
     min_gain: float = 1.0
     hard_to_sign: tuple = ("Impossible",)
     weights: tuple = (("RP", 0.35),)
+    min_budget: float = (
+        10_000_000  # the budget space the priority list leaves untouched (draft, international signings ...)
+    )
+    multiyear_demand: float = 8_000_000  # a free agent asking at least this much wants more than a year
+    multiyear_years: int = 3
+    block_weight: float = 0.5  # what a year of a ready prospect kept out of the lineup by a signing counts against it
+    non_need_factor: float = 0.5  # an upgrade of a place that is not a need counts this much
+    sign_chance: tuple = (
+        ("Very Easy", 0.95), ("Easy", 0.85), ("Normal", 0.7), ("Hard", 0.45), ("Extremely Hard", 0.2), ("Impossible", 0.0),
+    )  # fmt: skip
+
+    def chance(self, sign) -> float:
+        return dict(self.sign_chance).get(str(sign), 1.0)
 
     def weight(self, slot: str) -> float:
         return dict(self.weights).get(kind_of(slot), 1.0)
@@ -43,6 +57,8 @@ def load_settings(path: Path = ACQUISITION_CONFIG) -> Settings:
         values["hard_to_sign"] = tuple(values["hard_to_sign"])
     if "weights" in raw:
         values["weights"] = tuple(sorted(raw["weights"].items()))
+    if "signing" in raw:
+        values["sign_chance"] = tuple(raw["signing"].items())
     unknown = set(values) - set(Settings.__dataclass_fields__)
     if unknown:
         raise ValueError(f"{path}: unknown settings {sorted(unknown)}")
@@ -175,10 +191,22 @@ def candidate_pool(
     rows["Years"] = rows["YL"] if "YL" in rows else ""
     rows = rows[~(fa & rows["Sign"].isin(settings.hard_to_sign))]
     rows["Player"] = rows.apply(_name, axis=1)
+    for n in range(1, YEARS):
+        rows[f"y{n}"] = _ahead(rows, n, column)
     keep = ["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign", "Years", column]
+    keep += [f"y{n}" for n in range(1, YEARS)]
     if "park_effect" in rows:
         keep.append("park_effect")
     return rows[keep].rename(columns={column: "value", "park_effect": "park"}).reset_index(drop=True)
+
+
+def _ahead(rows: pd.DataFrame, years: int, column: str) -> pd.Series:
+    """The value `years` ahead on the scale of `column` (the park adjusted value keeps its park shift); without the horizon
+    columns the value now."""
+    ahead = f"value_h{years}"
+    if ahead not in rows:
+        return rows[column]
+    return (rows[ahead] + (rows[column] - rows["value_now"])).fillna(rows[column])
 
 
 def options(pool: pd.DataFrame, need: pd.Series, settings: Settings) -> pd.DataFrame:
@@ -218,3 +246,125 @@ def budget_space(finances: pd.DataFrame | None, org: str) -> float:
         return np.nan
     row = finances.loc[finances["Team"] == str(org), "BudgetSpace"]
     return float(row.iloc[0]) if len(row) else np.nan
+
+
+def _curves(frame: pd.DataFrame, column: str) -> dict:
+    """(ID, slot) -> the value now, in one year, in two years (the last known value when a horizon is missing)."""
+    people = frame.drop_duplicates(["ID", "slot"]).copy()
+    for n in range(1, YEARS):
+        people[f"y{n}"] = _ahead(people, n, column)
+    people["y0"] = people[column]
+    values = people[[f"y{n}" for n in range(YEARS)]].to_numpy(dtype=float)
+    return {(i, s): v for i, s, v in zip(people["ID"], people["slot"], values)}
+
+
+def _contract_years(row: pd.Series, settings: Settings) -> int:
+    """How long the deal runs: a free agent who asks a lot wants several years, a claimed player keeps his contract, an own
+    player stays."""
+    if row["Source"] == FREE_AGENT:
+        wants = row["Deal"] == "MLB" and row["Cost"] >= settings.multiyear_demand
+        return min(settings.multiyear_years, YEARS) if wants else 1
+    if row["Source"] == WAIVERS:
+        left = pd.to_numeric(pd.Series([row["Years"]]), errors="coerce").iloc[0]
+        return int(min(max(left if pd.notna(left) else 1, 1), YEARS))
+    return YEARS
+
+
+def _pipeline(internal: pd.DataFrame, slot: str, target: float) -> tuple[np.ndarray, int | None, str]:
+    """What the organization's own players (not starters) at a slot will be worth in one and two years: the best value of each
+    year (index 0 is not counted: those players are candidates now), the first year one of them reaches `target` and his name.
+    """
+    mine = internal[internal["slot"] == slot]
+    curve = np.full(YEARS, -np.inf)
+    for n in range(1, YEARS):
+        if len(mine) and mine[f"y{n}"].notna().any():
+            curve[n] = mine[f"y{n}"].max()
+    for n in range(1, YEARS):
+        if curve[n] >= target:
+            best = mine.loc[mine[f"y{n}"].idxmax()]
+            return curve, n, f"{best['Player']} ({best['From']}) in {n} yr"
+    return curve, None, ""
+
+
+def priority_list(
+    frame: pd.DataFrame,
+    needs: pd.DataFrame,
+    pool: pd.DataFrame,
+    budget: float,
+    settings: Settings,
+    column: str = "value_now",
+) -> pd.DataFrame:
+    """The acquisitions in the order to try them: for each place the candidate with the largest expected impact, best first, at
+    most one per place and each candidate once; rows with Place, Player, Source, Cost (a year), Years, Commit, Impact (runs
+    over the contract, against the starter and what the organization's own prospects will be), Chance (he signs), Expected,
+    Context (the pipeline at the place), Verdict, Spend (Within the budget space above `min_budget`, or Over) and Fallbacks.
+
+    A year in which a signing keeps a ready prospect out of the lineup counts against it (`block_weight`); an upgrade of a place
+    that is not a need counts `non_need_factor`. Verdict: Hole (nothing of our own that reaches the target within two years),
+    Soon / Bridge (a prospect reaches the target in two / one year: a short deal), Fill (the starter is weak, nobody coming).
+    """
+    curves = _curves(frame, column)
+    internal = pool[pool["Source"] == INTERNAL]
+    rows = []
+    for _, need in needs.iterrows():
+        cands = pool[pool["slot"] == need["slot"]]
+        if cands.empty:
+            continue
+        start = curves.get((need["ID"], need["slot"])) if pd.notna(need["ID"]) else None
+        start = np.full(YEARS, need["value"]) if start is None else np.where(np.isnan(start), need["value"], start)
+        pipe, ready, who = _pipeline(internal, need["slot"], need["target"])
+        base = np.maximum(start, pipe)
+        grid = cands[["value", *[f"y{n}" for n in range(1, YEARS)]]].to_numpy(dtype=float)
+        gain = np.clip(grid - base, 0, None)
+        block = np.where(np.isfinite(pipe), np.clip(pipe - grid, 0, None), 0.0)
+        length = np.array([_contract_years(r, settings) for _, r in cands.iterrows()])
+        inside = np.arange(YEARS)[None, :] < length[:, None]
+        impact = ((gain - settings.block_weight * block) * inside).sum(axis=1) * settings.weight(need["place"])
+        impact *= 1.0 if need["need"] else settings.non_need_factor
+        chance = np.where(cands["Source"] == FREE_AGENT, cands["Sign"].map(settings.chance).fillna(1.0), 1.0)
+        verdict = "Hole" if ready is None else ("Bridge" if ready == 1 else "Soon")
+        if ready is None and not need["need"]:
+            verdict = "Fill"
+        out = cands[["ID", "slot", "Player", "Age", "Source", "From", "Deal", "Cost", "Sign"]].copy()
+        out["Place"] = need["place"]
+        out["Years"] = length
+        out["Commit"] = out["Cost"] * length
+        out["Impact"] = impact
+        out["PerYear"] = impact / length
+        out["Chance"] = chance
+        out["Expected"] = impact * chance
+        out["Context"] = who
+        out["Verdict"] = verdict
+        out["Need"] = bool(need["need"])
+        rows.append(out)
+    if not rows:
+        return pd.DataFrame()
+    every = pd.concat(rows, ignore_index=True)
+    room = budget if pd.notna(budget) else np.inf
+    every = every[(every["Expected"] >= settings.min_gain) & (every["Cost"] <= room - settings.min_budget)].sort_values(
+        "Expected", ascending=False, kind="stable"
+    )
+    chosen, used_places, used_people = [], set(), set()
+    for index, row in every.iterrows():
+        if row["Place"] in used_places or row["ID"] in used_people:
+            continue
+        chosen.append(index)
+        used_places.add(row["Place"])
+        used_people.add(row["ID"])
+    top = every.loc[chosen].copy()
+    top["Fallbacks"] = [
+        ", ".join(
+            f"{r['Player']} ({r['Expected']:.1f})"
+            for _, r in every[(every["Place"] == row["Place"]) & ~every["ID"].isin(used_people)].head(2).iterrows()
+        )
+        for _, row in top.iterrows()
+    ]
+    spent, status = 0.0, []
+    for cost in top[
+        "Cost"
+    ]:  # in order; a deal that would take the budget space under the minimum is skipped, cheaper ones after it still can
+        fits = spent + cost <= room - settings.min_budget
+        status.append("Within" if fits else "Over")
+        spent += cost if fits else 0.0
+    top["Spend"] = status
+    return top.reset_index(drop=True)

@@ -1,3 +1,5 @@
+"""The saves of config/saves.toml as SaveConfig objects (load_saves, get_save) and PROJECT_ROOT."""
+
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path

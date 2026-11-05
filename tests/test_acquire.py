@@ -154,3 +154,39 @@ def test_settings_come_from_the_config_file(tmp_path):
     config.write_text("[rules]\nbudget = 1\n")
     with pytest.raises(ValueError):
         acquire.load_settings(config)
+
+
+def priorities(prospect_later: float, budget: float = 1e9, settings: acquire.Settings = SETTINGS) -> pd.DataFrame:
+    """The priority list of MINE for the league frame; its AAA catcher (6 now) is worth `prospect_later` later."""
+    frame = league_frame()
+    frame["value_h1"] = frame["value_h2"] = frame["value_now"]
+    frame.loc[frame["ID"] == 904, ["value_h1", "value_h2"]] = prospect_later
+    needs = acquire.needs(frame, "MINE", settings)
+    pool = acquire.candidate_pool(frame, "MINE", needs, settings)
+    return acquire.priority_list(frame, needs, pool, budget, settings)
+
+
+def test_a_hole_at_the_place_makes_the_long_contract_the_priority():
+    found = priorities(prospect_later=0.0).set_index("Place")
+    assert (
+        found.loc["C", "Verdict"] == "Hole" and found.loc["C", "Player"] == "F P901"
+    )  # 12 for three years beats 10 for one
+    assert found.loc["C", "PerYear"] == pytest.approx(found.loc["C", "Impact"] / 3)
+    assert found.loc["C", "Years"] == 3 and found.loc["C", "Commit"] == 3 * found.loc["C", "Cost"]
+
+
+def test_a_prospect_who_will_be_ready_makes_the_long_contract_a_bridge_for_a_short_one():
+    found = priorities(prospect_later=20.0).set_index("Place")
+    assert found.loc["C", "Verdict"] == "Bridge" and "P904" in found.loc["C", "Context"]
+    assert found.loc["C", "Player"] == "F P900" and found.loc["C", "Years"] == 1  # the one year deal does not block him
+
+
+def test_the_list_keeps_the_minimum_budget_skips_what_does_not_fit_and_discounts_the_free_agents_who_may_not_sign():
+    found = priorities(0.0, budget=12.5e6, settings=acquire.Settings(bullpen=2, min_budget=10e6)).set_index("Place")
+    assert found.loc["C", "Spend"] == "Within"  # $2m of $12.5m leaves the $10m
+    assert found.loc["C", "Player"] == "F P900"  # the $30m deal does not fit the space and the next best is listed
+    row = found.loc["C"]
+    assert row["Chance"] == acquire.Settings().chance("Normal") and row["Expected"] == pytest.approx(
+        row["Impact"] * 0.7
+    )
+    assert acquire.Settings().chance("unknown level") == 1.0

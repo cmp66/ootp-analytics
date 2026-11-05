@@ -1,3 +1,5 @@
+"""Where the files of a save are: raw season folders, ratings, finance, dumps and the processed output files."""
+
 from pathlib import Path
 
 from util.config import PROJECT_ROOT
