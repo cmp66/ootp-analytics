@@ -45,6 +45,18 @@ sync_notes.py list                  # the stored sets
 ```
 A pull never deletes (unless `--mirror`) and leaves a local file alone that differs from the stored one and is newer than the set, so work done on this machine after the last push is not overwritten. The Claude Code folder of a project is named after its path, so the sets land in the right folder on a machine with another path.
 
+### copy_exports.py
+Copies the files of a new OOTP export into the latest season folder of each save of `config/update.toml` (or the saves named).
+```
+copy_exports.py                 # TGS27, Dugout26, PBL27
+copy_exports.py Dugout26        # one save
+copy_exports.py --dry-run       # say what would be copied
+```
+`files/exports/<save>` is a symlink to the `import_export` folder of the save in the game folder (the path differs per machine; not in git). The files wanted are the ones already in `files/<save>/<season>/ratings/` and `finance/`; other files in the export folder (extra lists, `.ootp`, park info) are ignored, and a new list has to be put in the season folder once by hand before it is picked up.
+- **ratings:** the files are one export, so all of them must be newer than the copy (modified time) or none. All newer: copied. None newer: nothing to do. A mix, a file missing from the export folder, or a file without `ID` or with `B` or `T` twice (the view shows both the text and the code version): nothing is copied for that save, the problems are listed and the exit status is 1.
+- **finance:** exported now and then, so a file that is not newer (or not in the export folder) is skipped without a problem. It is also left alone when the ratings files have problems.
+Copies keep the modified time of the export, so running it twice copies nothing the second time. It does not run the update: follow it with `update_all.py`.
+
 ### setup_machine.py
 Sets up another machine to develop and run the project (workflow 6 of [workflows.md](workflows.md)): `setup_machine.py --install cpu` (or `cuda`, `xpu`) installs the libraries with `uv pip install`, checks that they import and that the S3 bucket answers, runs `sync_models.py pull`, `sync_files.py pull` and `sync_notes.py pull`, then `update_all.py`. Needs `git clone`, Python 3.14, `uv`, `aws configure` and the machine's IP in the bucket policy first.
 ```
