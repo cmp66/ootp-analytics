@@ -1,4 +1,4 @@
-"""The minor league management page: which players of an organization should move up or down a level.
+"""The minor league management page: the moves of an organization by level (promote, demote, DFA or release, wrong position).
 
 Follows how the game's ratings relative to a level are read: a key rating that is green among the players of the level (all
 organizations) is a player who dominates it. See config/minors.toml for the rules and viewer/minors.py for the logic; the age and
@@ -11,7 +11,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
@@ -20,18 +19,17 @@ from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
 from model import scales  # noqa: E402
-from viewer import data_cache, league, minors, overview  # noqa: E402
+from viewer import data_cache, league, minors, overview, roster  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
-    "Player": 150, "Pos": 50, "Age": 50, "Pro": 50, "Tier": 105, "Win": 50, "Ceil": 56, "Floor": 56, "Top-50 %": 70, "Move": 90,
-    "To": 60, "Reason": 420, "Blocked": 190,
+    "Player": 150, "Pos": 50, "Age": 50, "Pro": 50, "Tier": 105, "Win": 50, "Ceil": 56, "Floor": 56, "Top-50 %": 70, "Green": 56,
+    "Mean %": 66, "Opt": 70, "To": 60, "Reason": 520, "Listed": 60, "Better": 60, "Gain": 56,
 }  # fmt: skip
 MOVE_COLORS = {minors.UP: "#2e9e57", minors.DOWN: "#d6453d", minors.MUST: "#e08a1e"}
 TIER_COLORS = {minors.TOP_PROSPECT: "#2e9e57", minors.PROSPECT: "#5aa469"}
-TEXT_COLUMNS = ("Player", "Pos", "Tier", "Move", "To", "Reason", "Blocked")
-ORDER = {minors.MUST: 0, minors.UP: 1, minors.DOWN: 2, "": 3}
+TEXT_COLUMNS = ("Player", "Pos", "Tier", "To", "Reason", "Listed", "Better", "Green", "Opt")
 
 
 def load(save: str, season: int):
@@ -78,62 +76,162 @@ def rules_from_page(base: minors.Rules) -> minors.Rules:
             help="Needed to move up a player for being old for the level",
         )
         red = third.slider("Weak for the level: mean percentile at most", 0.05, 0.45, base.red, 0.05)
+        starters = first.slider("Starting pitchers wanted at every level", 3, 10, base.starters)
+        slack = second.slider("Pitchers more or fewer than the level's target", 0, 3, base.pitcher_slack)
+        gap = third.slider(
+            "Position flagged when another one adds (runs)", 0.0, 10.0, base.position_gap, 0.5,
+            help="A hitter whose listed position differs from where the level's best lineup plays him",
+        )  # fmt: skip
     return replace(
         base, green=green, min_green_hitters=hitters, min_green_pitchers=pitchers, next_floor=floor, old_for_level=old,
         average=average, red=red, prospect=prospect, top_prospect=max(prospect, base.top_prospect),
+        starters=starters, pitcher_slack=slack, position_gap=gap,
     )  # fmt: skip
 
 
-def styled(frame: pd.DataFrame, rules: minors.Rules, keys: list[str]):
-    """Percentiles as whole numbers: green from the rule, red for the bottom quarter; the move and the tier in their colors."""
-    labels = [minors.LABELS[k] for k in keys]
-    formats = {c: "{:.0f}" for c in labels} | {"Ceil": "{:.1f}", "Floor": "{:.1f}", "Top-50 %": "{:.0f}"}
-    style = frame.style.format(formats, na_rep="")
+ACTION_COLORS = {
+    roster.PROMOTE: "#2e9e57", roster.DEMOTE: "#d6453d", roster.DFA: "#9b1c1c", roster.RELEASE: "#9b1c1c",
+    roster.DFA_OR_RELEASE: "#9b1c1c",
+}  # fmt: skip
+SECTIONS = (  # title, the actions of the section
+    ("Promote", (roster.PROMOTE,)),
+    ("Demote", (roster.DEMOTE,)),
+    ("DFA or release", (roster.DFA, roster.RELEASE, roster.DFA_OR_RELEASE)),
+)
 
-    def percentile_style(v):
-        if pd.notna(v) and v >= rules.green * 100:
-            return "color: #2e9e57; font-weight: 700"
-        return "color: #d6453d" if pd.notna(v) and v <= rules.red * 100 else ""
 
-    style = style.map(percentile_style, subset=labels)
-    style = style.map(
-        lambda v: f"color: {TIER_COLORS[v]}; font-weight: 700" if v in TIER_COLORS else "", subset=["Tier"]
+def styled(frame: pd.DataFrame):
+    """Whole numbers for the percentiles and the ceiling columns with one decimal; the tier and the action in their colors."""
+    style = frame.style.format(
+        {
+            "Ceil": "{:.1f}",
+            "Floor": "{:.1f}",
+            "Top-50 %": "{:.0f}",
+            "Mean %": "{:.0f}",
+            "Gain": "{:.1f}",
+            "Age": "{:.0f}",
+        },
+        na_rep="",
     )
-    return style.map(
-        lambda v: f"color: {MOVE_COLORS[v]}; font-weight: 700" if v in MOVE_COLORS else "", subset=["Move"]
-    )
+    for column, colors in (("Tier", TIER_COLORS), ("Action", ACTION_COLORS)):
+        if column in frame:
+            style = style.map(lambda v, c=colors: f"color: {c[v]}; font-weight: 700" if v in c else "", subset=[column])
+    return style
 
 
-def level_table(table: pd.DataFrame, keys: list[str]) -> pd.DataFrame:
-    """The columns of the page for the players of one level and kind: must-move players first, then the moves of prospects with a
-    window left (the best ceilings first), then the rest; the key ratings as percentiles (0 to 100)."""
-    out = table.copy()
-    for key in keys:
-        out[minors.LABELS[key]] = out[f"pct_{key}"] * 100
-    out = out.rename(columns={"Window": "Win", "Top50": "Top-50 %"})
-    out["_order"] = np.where(out["Move"] == minors.MUST, 0, np.where(out["focus"], 1, 2)) * 10 + out["Move"].map(ORDER)
-    out = out.sort_values(["_order", "ceiling_pct", "mean"], ascending=[True, False, False]).drop(columns="_order")
-    columns = ["ID", "Player", "Pos", "Age", "Pro", "Tier", "Win", "Ceil", "Floor", "Top-50 %"]
-    columns += [minors.LABELS[k] for k in keys] + ["Move", "To", "Reason", "Blocked"]
+def move_table(group: pd.DataFrame) -> pd.DataFrame:
+    """The columns of a list of moves, the best prospects first (the moves of the prospects with development left matter most)."""
+    out = group.drop(
+        columns=["To", "Reason"]
+    ).copy()  # the wishes of the ratings; the plan's destination and reason follow
+    out["Pos"] = out["Listed"] if "Listed" in out else out["Pos"]
+    out["Green"] = out["green"].astype(int).astype(str) + "/" + out["pitcher"].map({True: "3", False: "6"})
+    out["Mean %"] = out["mean"] * 100
+    if "OPT" in out:  # option years used of 3, and the demotions this season (the players of the majors)
+        out["Opt"] = [
+            f"{int(o)}/3, {int(y) if pd.notna(y) else 0}x" if pd.notna(o) and level == minors.TOP else ""
+            for o, y, level in zip(out["OPT"], out["OY"], out["Level"])
+        ]
+    out = out.rename(columns={"Window": "Win", "Top50": "Top-50 %", "Dest": "To", "Why": "Reason"})
+    out["To"] = out["To"].where(out["To"] != "", "out")
+    out = out.sort_values(["focus", "ceiling_pct"], ascending=[False, False])
+    columns = [
+        "ID",
+        "Player",
+        "Pos",
+        "Age",
+        "Pro",
+        "Tier",
+        "Win",
+        "Ceil",
+        "Floor",
+        "Top-50 %",
+        "Green",
+        "Mean %",
+        *(["Opt"] if "Opt" in out and (out["Opt"] != "").any() else []),
+        "To",
+        "Reason",
+    ]
     return out[columns].reset_index(drop=True)
 
 
-def show(frame: pd.DataFrame, keys: list[str], rules: minors.Rules, key: str):
+def position_table(group: pd.DataFrame) -> pd.DataFrame:
+    return group.rename(columns={"Better": "Better", "Why": "Reason"})[
+        ["ID", "Player", "Age", "Listed", "Better", "Gain", "Reason"]
+    ].reset_index(drop=True)
+
+
+def show(frame: pd.DataFrame, key: str):
     shown = [c for c in frame.columns if c != "ID"]
     config = {
-        c: (
-            st.column_config.TextColumn
-            if c in ("Player", "Pos", "Move", "To", "Reason", "Blocked")
-            else st.column_config.NumberColumn
-        )(width=WIDTHS.get(c, 56))
+        c: (st.column_config.TextColumn if c in TEXT_COLUMNS else st.column_config.NumberColumn)(
+            width=WIDTHS.get(c, 56)
+        )
         for c in shown
     }
     event = st.dataframe(
-        styled(frame, rules, keys), hide_index=True, column_order=shown, height=min(len(frame), 14) * ROW_HEIGHT + 38,
+        styled(frame), hide_index=True, column_order=shown, height=min(len(frame), 14) * ROW_HEIGHT + 38,
         row_height=ROW_HEIGHT - 1, on_select="rerun", selection_mode="single-cell", key=key, column_config=config,
     )  # fmt: skip
     picked = event.selection.cells
     return int(frame["ID"].iloc[int(picked[0][0])]) if picked else None
+
+
+@st.cache_data(show_spinner="Working out the moves...", max_entries=4, ttl=3600)
+def planned(save: str, season: int, org: str, rules: minors.Rules, version: str, mlb_limit: int) -> roster.Plan:
+    frame, ratings = load(save, season)
+    levels = get_save(save).levels
+    mlb = roster.mlb_table(frame, ratings, org, rules, version)
+    peers = roster.mlb_peers(frame, ratings, rules)
+    table = minors.manage(frame, ratings, org, levels, rules, version)
+    return roster.plan(table, frame, levels, rules, mlb, mlb_limit, peers)
+
+
+def choose_mlb_limit(frame: pd.DataFrame, rules: minors.Rules, key: str, phase: str | None = None) -> int:
+    """The phase of the season, which sets the active roster of the majors (26, 40 or 60). Starts at the `phase` of the league
+    in config/update.toml, else at what the league's teams have on their active rosters."""
+    phases = {
+        f"Season and playoffs ({rules.mlb_season})": rules.mlb_season,
+        f"Offseason ({rules.mlb_offseason})": rules.mlb_offseason,
+        f"Spring training ({rules.mlb_spring})": rules.mlb_spring,
+    }
+    configured = {"season": rules.mlb_season, "offseason": rules.mlb_offseason, "spring": rules.mlb_spring}.get(
+        phase or ""
+    )
+    detected = roster.detect_limit(frame, rules)
+    start = configured or detected
+    index = list(phases.values()).index(start) if start in phases.values() else 0
+    label = st.radio("MLB active roster", list(phases), index=index, horizontal=True, key=key)
+    if configured:
+        st.caption(f"Starts at the phase of the league in config/update.toml ({phase}).")
+    else:
+        st.caption(
+            f"Guessed from the teams' active rosters: {detected}."
+            if detected
+            else "No active roster flag (ACT) in the export."
+        )
+    return phases[label]
+
+
+NEEDS = {  # what a level needs to field a team (viewer/roster.py), by summary column
+    "Catchers": lambda row: roster.NEEDS["C"], "Infielders": lambda row: roster.NEEDS["IF"],
+    "Outfielders": lambda row: roster.NEEDS["OF"], "Can start": lambda row: row["Wanted SP"],
+}  # fmt: skip
+
+
+def style_summary(summary: pd.DataFrame, slack: int):
+    def over(row):
+        limit = row["Max"]
+        pitchers = row["Target"]
+        return [
+            "color: #d6453d; font-weight: 700" if c == "After" and limit and row["After"] > limit else
+            "color: #e08a1e; font-weight: 700" if c == "Pitchers after" and pitchers and abs(row[c] - pitchers) > slack else
+            "color: #e08a1e; font-weight: 700" if c == "SP after" and row[c] != row["Wanted SP"] else
+            "color: #d6453d; font-weight: 700" if c in NEEDS and row[c] < NEEDS[c](row) else ""
+            for c in row.index
+        ]  # fmt: skip
+
+    return summary.style.apply(over, axis=1)
 
 
 def main() -> None:
@@ -167,67 +265,63 @@ def main() -> None:
         return
     rules = rules_from_page(minors.load_rules())
     version = scales.version_of(get_save(save).ratings)
-    table = minors.manage(frame, ratings, org, levels, rules, version)
+    mlb_limit = choose_mlb_limit(frame, rules, f"mlb-phase-{save}", config[save].get("phase"))
+    result = planned(save, season, org, rules, version, mlb_limit)
+    table = result.players
     if table.empty:
         st.info(f"{org} has no minor leaguers on the ladder.")
         return
     prospect_share, top_share = 1 - rules.prospect, 1 - rules.top_prospect
+    has_limits = any(limits.max_players for limits in levels.values())
     sentences = [
         f"**{org}** {save} {season}: the focus is the development of the better players while they can still improve.",
         f"A prospect has a ceiling in the top {prospect_share:.0%} of the league's minor leaguers "
-        f"(top {top_share:.0%}: top prospect).",
-        "Win = seasons of development left.",
-        "Key ratings are compared with the players of each level in all organizations (percentile; "
-        f"green from {rules.green:.0%}).",
-        "Up = dominates the level and has a chance at the next one (a prospect with development left needs one green "
-        "rating less) or is old for the level.",
-        "Down = weak for the level.",
-        "Must move = over the age or pro-years limit.",
-        "A move is only listed to a level whose limits he meets (Blocked tells when it is not). Click a player for his ratings.",
+        f"(top {top_share:.0%}: top prospect). Win = seasons of development left.",
+        "Key ratings are compared with the players of each level in all organizations "
+        f"(percentile; green from {rules.green:.0%}; Green = how many of the key ratings).",
+        "Promote = dominates the level and has a chance at the next one (a prospect with development left needs one green "
+        "rating less) or is old for the level, or is over the age or pro-years limit. Demote = weak for the level.",
+        "Every move respects the limits of the levels (age, pro years, the most players, the pitchers of a level within "
+        f"{rules.pitcher_slack} of its target): a level that is too full sends its fillers down, and a player no level can take "
+        "is DFA (on the 40-man roster) or released, the one with the least reason to be kept first.",
+        "Listed position = the best lineup of the level (one per position, the most total value) plays him elsewhere; "
+        f"a level wants {rules.starters} starting pitchers, relievers who belong in the rotation are flagged.",
+        "Click a player for his ratings.",
     ]
     st.caption(" ".join(sentences))
-    show_filler = st.checkbox("Also show the moves of depth players and of players past their window")
-    everyone = st.checkbox("Also show players with no move")
+    if not has_limits:
+        st.info(
+            "The levels have no roster limits yet: set `max_players` and `pitchers` per level in config/saves.toml."
+        )
     ladder = minors.ladder(levels)
-    present = [lv for lv in ladder if lv in set(table["Level"])]
-    wanted = (table["Move"] == minors.MUST) | (table["focus"] & (table["Move"] != ""))
-    wanted = wanted | ((table["Move"] != "") if show_filler else False)
-
-    def count(mask) -> pd.Series:
-        return table[mask].groupby("Level")["ID"].count()
-
-    focus, moves = table["focus"], table["Move"]
-    summary = pd.DataFrame(
-        {
-            "Players": count(table["ID"].notna()),
-            "Prospects": count(focus),
-            "Up": count(focus & (moves == minors.UP)),
-            "Down": count(focus & (moves == minors.DOWN)),
-            "Must move": count(moves == minors.MUST),
-            "Filler moves": count(~focus & moves.isin([minors.UP, minors.DOWN])),
-        }
-    )
-    summary = summary.reindex(present).fillna(0).astype(int)
-    st.dataframe(summary, height=min(len(summary), 10) * 35 + 38)
+    present = [lv for lv in [minors.TOP, *ladder] if lv in set(table["Level"])]
+    st.dataframe(style_summary(result.summary, rules.pitcher_slack), height=min(len(result.summary), 10) * 35 + 38)
     generation = st.session_state.setdefault("minors_generation", 0)
     picked = None
     for level in present:
-        part = table[table["Level"] == level]
-        st.subheader(f"{level}: {len(part)} players, {int(wanted[part.index].sum())} to move")
-        for pitcher, kind in ((False, "Hitters"), (True, "Pitchers")):
-            group = part[part["pitcher"] == pitcher]
-            group = group if everyone else group[wanted[group.index]]
+        here = table[table["Level"] == level]
+        st.subheader(f"{level}: {len(here)} players, {int((here['Action'] != '').sum())} to move")
+        shown_any = False
+        for title, actions in SECTIONS:
+            group = here[here["Action"].isin(actions)]
             if group.empty:
                 continue
-            keys = [k for k in rules.keys(pitcher) if f"pct_{k}" in group.columns]
-            shown = level_table(group, keys)
-            st.markdown(f"**{kind}**")
-            clicked = show(
-                shown, keys, rules, f"minors-{save}-{org}-{level}-{kind}-{everyone}-{show_filler}-{generation}"
-            )
+            shown_any = True
+            st.markdown(f"**{title}** ({len(group)})")
+            clicked = show(move_table(group), f"minors-{save}-{org}-{level}-{title}-{generation}")
             if clicked and not picked:
                 row = group.loc[group["ID"] == clicked].iloc[0]
                 picked = (clicked, row["Pos"], row["Player"], level)
+        wrong = result.positions[result.positions["Level"] == level]
+        if not wrong.empty:
+            shown_any = True
+            st.markdown(f"**Listed at a position that is not their best** ({len(wrong)})")
+            clicked = show(position_table(wrong), f"minors-{save}-{org}-{level}-position-{generation}")
+            if clicked and not picked:
+                row = here.loc[here["ID"] == clicked].iloc[0]
+                picked = (clicked, row["Pos"], row["Player"], level)
+        if not shown_any:
+            st.write("No moves.")
     if picked:
         st.session_state["minors_generation"] = generation + 1
         player_id, slot, name, level = picked

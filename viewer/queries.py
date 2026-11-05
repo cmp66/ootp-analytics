@@ -46,7 +46,9 @@ IDENTITY_COLUMNS = [
     "SECY",  # the years on the secondary roster
     "R5",  # eligible for the Rule 5 draft (a flag the export has when the league enables it)
     "ON40",  # on the 40-man (secondary) roster, in the exports that have the flag; OY: the option years used
-    "OY",
+    "OY",  # times he was optioned this season; OPT: the option years he has used (of 3), in the exports that have it
+    "OPT",
+    "ACT",  # on the active (game day) roster: 26 in the season, 40 in the offseason, 60 in spring training
     "WAIV",  # the exports of 2046 on: on waivers (Yes), designated for assignment (DFA), what a free agent asks (DEM, a year),
     "DFA",  # how willing he is to sign (Sign) and the contract now (SLR, years left YL)
     "DEM",
