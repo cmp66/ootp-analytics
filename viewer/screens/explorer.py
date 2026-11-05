@@ -13,9 +13,9 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
-from scripts.update_all import load_update_config  # noqa: E402
-from util.seasons import available_seasons  # noqa: E402
-from viewer import league, queries, report  # noqa: E402
+from util.update_config import load_update_config  # noqa: E402
+from util.seasons import served_seasons  # noqa: E402
+from viewer import data_cache, league, queries, report  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 METRICS = {
@@ -44,9 +44,8 @@ COLUMN_FORMATS = {
 }  # fmt: skip
 
 
-@st.cache_data(show_spinner="Loading the player files...")
 def load(save: str, season: int) -> pd.DataFrame:
-    return queries.load_outlook(save, season)
+    return data_cache.outlook(save, season)
 
 
 def show(frame: pd.DataFrame, key: str, slot: str | None = None):
@@ -95,7 +94,7 @@ def main() -> None:
         pass
     st.sidebar.title("Player lists")
     save = league.choose_save(config, st.sidebar, key="league-explorer")
-    seasons = available_seasons(save)
+    seasons = served_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
         return

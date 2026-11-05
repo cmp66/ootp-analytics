@@ -97,6 +97,18 @@ sync_models.py push --dry-run        # say what would be transferred (also for p
 ```
 Syncs every `.joblib` under `files/models/<save>/` (not the legacy `.pt` files). Each file is stored once under `blobs/<sha256>`; each push writes `manifests/<time>-<git commit>.json` listing the files of that set, so unchanged files are never uploaded twice and any earlier set can be pulled. Nothing is deleted from the bucket. A first full push is about 228 MB.
 
+### sync_files.py
+Stores the league files in the same S3 bucket and fetches them on another machine (same design as `sync_models.py`: files stored once under `blobs/<sha256>`, a dated manifest per push, a pull only downloads what differs and never deletes).
+```
+sync_files.py push                    # the raw files of the human leagues (ratings, statistics, finance, ballparks): about 22 MB
+sync_files.py pull                    # on another machine
+sync_files.py push --set viewer       # what the viewer server needs: the processed files of the latest season (about 160 MB)
+sync_files.py pull --set viewer
+sync_files.py push --set training     # the dumps of the training leagues; very large (16 GB), only when you need to retrain elsewhere
+sync_files.py list --set raw          # the stored sets, newest first
+```
+The processed `output` folders are left out of `raw` (`update_all.py` makes them again). Each set has its own history (`files-raw`, `files-viewer`, `files-training` manifests). The machine has to be allowed by the bucket policy. The viewer on a server: [deploy/README.md](../deploy/README.md).
+
 ## Checks and reports
 
 ### evaluate_models.py

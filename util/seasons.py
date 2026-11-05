@@ -52,3 +52,17 @@ def select_seasons(
     if missing:
         raise ValueError(f"seasons without data in {start} to {stop}: {missing}")
     return chosen
+
+
+def served_seasons(save_name: str) -> list[int]:
+    """The seasons the viewer can show: those with raw data (available_seasons) and those whose processed outlook files are
+    there, which is all a server that only has the outputs of scripts/sync_files.py (the `viewer` set) holds."""
+    found = set(available_seasons(save_name))
+    base = paths.save_dir(save_name)
+    if base.is_dir():
+        found |= {
+            int(p.name)
+            for p in base.iterdir()
+            if p.is_dir() and p.name.isdigit() and paths.output_file(save_name, int(p.name), "outlook-slots").exists()
+        }
+    return sorted(found)

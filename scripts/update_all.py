@@ -21,7 +21,6 @@ import argparse
 import json
 import sys
 import time
-import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -32,10 +31,10 @@ from model import park, scales  # noqa: E402
 from scripts import outlook_lists, predict_outlook, predict_park, predict_values, process_seasons  # noqa: E402
 from util import paths  # noqa: E402
 from util.config import get_save  # noqa: E402
+from util.update_config import UPDATE_CONFIG, load_update_config  # noqa: E402,F401
 from util.seasons import available_seasons  # noqa: E402
 from viewer import queries  # noqa: E402
 
-UPDATE_CONFIG = Path(__file__).resolve().parent.parent / "config" / "update.toml"
 STAMP = "update-stamp.json"
 
 
@@ -103,11 +102,6 @@ STEPS = [
     Step("outlook", "outlook scores: floor, ceiling, tier chances, injury cost", _outlook),
     Step("lists", "the lists of config/viewer.toml as csv files", _lists),
 ]
-
-
-def load_update_config(path: Path = UPDATE_CONFIG) -> dict[str, dict]:
-    with open(path, "rb") as f:
-        return tomllib.load(f)
 
 
 def input_signature(save: str, season: int) -> dict[str, list]:

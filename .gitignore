@@ -182,3 +182,4 @@ plans/
 # test fixtures are tracked even though they sit under ignored folder names
 !tests/data/
 !tests/data/**/dumps/
+.vscode/

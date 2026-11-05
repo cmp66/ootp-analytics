@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from model.outlook_scoring import QUANTILE_LEVELS, exceed_probability  # noqa: F401
+from model.quantiles import QUANTILE_LEVELS, exceed_probability  # noqa: F401
 from util import paths
 from util.config import PROJECT_ROOT, get_save
 

@@ -42,7 +42,7 @@ def park_toggle(container, team: str | None, key: str, available: bool = True) -
     return chosen and usable
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=4)
 def park_context(save: str, season: int):
     """The park context of a league (viewer/parks.py), None when it has no park data."""
     from viewer import parks

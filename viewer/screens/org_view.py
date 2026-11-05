@@ -15,10 +15,9 @@ import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
-from scripts.update_all import load_update_config  # noqa: E402
-from util import paths  # noqa: E402
-from util.seasons import available_seasons  # noqa: E402
-from viewer import league, overview, player_card, queries  # noqa: E402
+from util.update_config import load_update_config  # noqa: E402
+from util.seasons import served_seasons  # noqa: E402
+from viewer import data_cache, league, overview, player_card  # noqa: E402
 
 ROW_HEIGHT = 21  # pixels of a table row; lower it if the screen does not fit
 HEADER_HEIGHT = 36
@@ -139,18 +138,9 @@ def show(
     return int(frame["ID"].iloc[position]), str(frame["Slot"].iloc[position])
 
 
-@st.cache_data(show_spinner=False)
-def load_ratings(save: str, season: int) -> pd.DataFrame:
-    return (
-        pd.read_csv(paths.output_file(save, season, "player-data"), low_memory=False)
-        .drop_duplicates("ID")
-        .set_index("ID")
-    )
-
-
 @st.dialog("Player ratings", width="large", on_dismiss="rerun")
 def player_dialog(save: str, season: int, player_id: int, slot: str, name: str, extra: str) -> None:
-    row = load_ratings(save, season).loc[player_id]
+    row = data_cache.player_row(save, season, player_id)
     st.markdown(f"### {player_card.full_name(row, name)}")
     st.html(player_card.card_html(row, slot, f"{extra} - ratings on the 20-80 scale"))
 
@@ -182,18 +172,14 @@ def render(page: str = "org") -> None:
     st.html(STYLE)
     league_column, first, *links = st.columns([0.9, 1.2, *LINK_WIDTHS], vertical_alignment="center")
     save = league.choose_save(config, league_column, key=f"league-{page}")
-    seasons = available_seasons(save)
+    seasons = served_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
         return
     season = seasons[-1]
 
-    @st.cache_data(show_spinner="Loading the player files...")
-    def load(save_name: str, season_number: int):
-        return queries.load_outlook(save_name, season_number)
-
     try:
-        frame = load(save, season)
+        frame = data_cache.outlook(save, season)
     except FileNotFoundError:
         st.error(f"{save} {season} has no outlook files yet: run `python scripts/update_all.py {save}`.")
         return

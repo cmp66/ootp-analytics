@@ -17,10 +17,10 @@ import streamlit as st  # noqa: E402
 from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from model import scales  # noqa: E402
-from scripts.update_all import load_update_config  # noqa: E402
+from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
-from util.seasons import available_seasons  # noqa: E402
-from viewer import acquire, league, minors, queries, rule5  # noqa: E402
+from util.seasons import served_seasons  # noqa: E402
+from viewer import acquire, data_cache, league, minors, rule5  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
@@ -33,9 +33,8 @@ TEXT_COLUMNS = ("Player", "Pos", "Level", "Tier", "Action", "Why", "Years", "Fro
 ACTION_COLORS = {rule5.PROTECT: "#2e9e57", rule5.LOW_RISK: "#b8860b", rule5.EXPOSE: "#8a8f99"}
 
 
-@st.cache_data(show_spinner="Loading the player files...")
 def load(save: str, season: int):
-    return queries.load_outlook(save, season)
+    return data_cache.outlook(save, season)
 
 
 def money(value) -> str:
@@ -144,7 +143,7 @@ def main() -> None:
     st.html(org_view.STYLE)
     league_column, first, *links = st.columns([0.9, 1.2, *org_view.LINK_WIDTHS], vertical_alignment="center")
     save = league.choose_save(config, league_column, key="league-rule5")
-    seasons = available_seasons(save)
+    seasons = served_seasons(save)
     if not seasons:
         st.error(f"No seasons with data for {save}.")
         return
