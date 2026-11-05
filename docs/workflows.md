@@ -13,7 +13,7 @@ What the project does and the steps for the jobs you do repeatedly. Run everythi
 | Retrain the models, or support a new game version | Workflows 3 and 4 |
 | Change a threshold of a screen | [configuration.md](configuration.md); workflow 5 |
 | Understand what a screen shows | [viewer.md](viewer.md) |
-| Set up another machine or the server | Workflows 6 and 8; [deploy/README.md](../deploy/README.md) |
+| Set up another machine or the server | Workflow 6 (`scripts/setup_machine.py`) and 8; [deploy/README.md](../deploy/README.md) |
 | Check that nothing broke | Workflow 7 |
 | Find a script or a helper module | [scripts.md](scripts.md), [utilities.md](utilities.md) |
 | Know how the numbers are made | [processing.md](processing.md), [models.md](models.md) |
@@ -47,6 +47,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 | --- | --- |
 | `update_all.py` | One button: process, value, outlook-score and list every human league after new ratings files. |
 | `sync_models.py` | Pushes the trained models to the S3 bucket (with history) or pulls them onto another machine. |
+| `setup_machine.py` | Sets up another machine: libraries, models and files from S3, the update. |
 | `sync_files.py` | The same for the league files (raw exports, the viewer's processed files, the training dumps). |
 | `deploy/push_data.sh`, `deploy/deploy.sh` | New data to the viewer server; new code to the viewer server. |
 | `run_viewer.py` | Starts the viewer (organization overview, minor leagues, draft, IAFA, depth chart, level moves, acquisitions, Rule 5, explorer) at http://localhost:8501. |
@@ -152,11 +153,13 @@ Run the training scripts with nothing else heavy going on: they use the CPU full
 
 ### 6. Setting up another machine
 
-1. `git clone` the repository and check out the branch.
-2. Create the Python 3.14 environment and install the requirements file of the hardware (see the README, Setup), and run `aws configure` with the credentials that may use the bucket.
-3. `python scripts/sync_models.py pull` downloads the latest model set into `files/models/` (`--version <name>` for an earlier one). The models are pickles written by scikit-learn, PyTorch and friends: use the versions of the requirements file, or an artifact may fail to load. If one does, retrain (workflow 3).
-4. Get the raw files: `python scripts/sync_files.py pull` (the human leagues: ratings and statistics exports, finance, ballparks; run `sync_files.py push` on the machine that has them first, and after each new export). The training leagues are only needed to retrain or process them: `sync_files.py pull --set training` (16 GB) or copy them. The processed outputs are made again by `update_all.py`. `files/` is not in git. The bucket policy has to allow the new machine's IP address.
-5. `update_all.py`, then `run_viewer.py`. `python -m pytest` runs without the raw files.
+By hand it is five things; `scripts/setup_machine.py` does the last four in order and stops at the first that fails.
+
+1. **Before the script** (it cannot do these): `git clone` the repository and check out the branch; install Python 3.14 (pyenv virtualenv `ootp-analytics`) and `uv`; install the AWS CLI credentials with `aws configure` (the keys that may use the bucket `ootp-models`); and add the machine's public IP address to the bucket policy (the bucket answers only to allowed addresses).
+2. **The script:** `python scripts/setup_machine.py --install cpu` (or `cuda`, `xpu`, see the README, Setup, for the hardware). It installs the libraries, checks that they import and that the bucket answers, pulls the trained models (`sync_models.py pull`) and the raw files of the human leagues (`sync_files.py pull`), and runs `update_all.py` so that the processed files exist. `--test` also runs the test suite, `--training` also pulls the dumps of the training leagues (16 GB, only to retrain here), `--dry-run` shows what it would do. Run it again at any time: it only downloads what differs and deletes nothing.
+3. **Start the viewer:** `python scripts/run_viewer.py`.
+
+The models are pickles written by scikit-learn, PyTorch and friends: the requirements file pins the versions, or an artifact may fail to load. If one does, retrain (workflow 3). The raw files come from the machine that has the exports: run `sync_files.py push` there first, and after each new export. `files/` is not in git. A machine that only develops can skip the training set and the models if it never scores (the tests run without the raw files).
 
 ### 7. Checking that nothing broke
 

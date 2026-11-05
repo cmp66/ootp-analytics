@@ -34,6 +34,8 @@ Python 3.14 (pyenv virtualenv `ootp-analytics`). Install the requirements file m
 
 The device is chosen at runtime by `util/device.py` (CUDA, then XPU, then CPU). Set `OOTP_DEVICE=cpu` (or `cuda`, `xpu`) to override.
 
+On another machine `python scripts/setup_machine.py --install cpu` does this and gets the models and the league files from S3 (see [docs/workflows.md](docs/workflows.md), workflow 6).
+
 To update, edit `requirements.in` (shared) or `requirements-<hw>.in` and recompile, e.g.:
 
 `uv pip compile requirements-cpu.in -o requirements-cpu.txt --index-strategy unsafe-best-match`
