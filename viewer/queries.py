@@ -57,6 +57,8 @@ IDENTITY_COLUMNS = [
     "YL",
     "Nat. Pop.",  # popularity (national and local): Unkn., Insig., Fair, Known, Pop., V.Pop, Ex.Pop.
     "Loc. Pop.",
+    "INJ",  # injured now (Yes) and how long he has left (Left: "one week", "2-3 months", "?"), in the exports that have them
+    "Left",
 ]
 IAFA_MAX_AGE = 19  # SctCat "International" also holds foreign professionals; the IAFA prospects are the young ones
 SLOT_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH", "SP", "RP"]

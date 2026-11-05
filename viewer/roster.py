@@ -35,6 +35,30 @@ PROMOTE, DEMOTE, DFA, RELEASE, DFA_OR_RELEASE = "Promote", "Demote", "DFA", "Rel
 HITTER_POSITIONS = ("C", "1B", "2B", "3B", "SS", "LF", "CF", "RF")
 LINEUP = (*HITTER_POSITIONS, "DH")
 INFIELD, OUTFIELD = ("1B", "2B", "3B", "SS"), ("LF", "CF", "RF")
+COVER_INFIELD = (
+    "2B",
+    "3B",
+    "SS",
+)  # a first baseman covers first base only: he is not one of the infielders a team needs
+CAPABLE_VALUE = (
+    0.0  # hand tuned: runs of value at a position from which a player counts as able to cover it (catchers: any)
+)
+BAT_FIRST_GAP = (
+    10.0  # hand tuned: runs by which a player's bat (1B or DH) must beat his best field position to make him a bat
+)
+MLB_PITCHER_SLACK = (
+    0  # the majors carry exactly 13 pitchers and 13 hitters in the season (the minors may be one over or under)
+)
+SWITCH_BONUS = (
+    1.0  # hand tuned: what a switch hitter is worth on top (utility points; 30 = the best major leaguer): he faces the
+)
+# weaker side of every pitcher, but how much depends on his weak side, which is not known here
+SIDE_BALANCE = (
+    1  # the bat-only hitters of the majors: at most this many more left-handed bats than right-handed ones, or reverse
+)
+SIDE_PENALTY = 15.0  # hand tuned: per bat beyond that
+BAT_ONLY_MAX = 3  # hand tuned: hitters of the majors who cover no position (a first baseman and a DH platoon of two)
+BAT_ONLY_PENALTY = 20.0  # per bat-only hitter beyond that: a full-time DH moves one of the platoon down
 NEEDS = {"C": 2, "IF": 5, "OF": 4}  # what every level (the majors too) must have to field a team, by listed position
 COVER_PENALTY = (
     40.0  # per player short of that: more than any move that is not wanted, less than breaking a roster maximum
@@ -126,6 +150,64 @@ def _options(row: pd.Series, rungs: list[str], levels: dict[str, LevelLimits], r
     return options
 
 
+def capability(table: pd.DataFrame, frame: pd.DataFrame) -> dict[str, np.ndarray]:
+    """Which players of the table can cover a group of positions, by what they can defend and not by the position the game lists
+    (a left fielder who cannot field is a DH; a player whose bat beats his best position by `BAT_FIRST_GAP` runs is a bat first
+    and covers nothing, whatever else he can play): C (he has a value as a catcher; catchers are all below the others), IF
+    (value of at least `CAPABLE_VALUE` at 2B, 3B or SS) and OF (at LF, CF or RF), several at once for a utility man, and BAT, a
+    hitter who covers none of them (first basemen and designated hitters, who play by their bat). A player the outlook has no
+    position value for is placed by his listed position."""
+    values = frame.loc[frame["slot"].isin(HITTER_POSITIONS), ["ID", "slot", "value_now"]]
+    able = {
+        "C": set(values.loc[values["slot"] == "C", "ID"]),
+        "IF": set(values.loc[values["slot"].isin(COVER_INFIELD) & (values["value_now"] >= CAPABLE_VALUE), "ID"]),
+        "OF": set(values.loc[values["slot"].isin(OUTFIELD) & (values["value_now"] >= CAPABLE_VALUE), "ID"]),
+    }
+    best_field = values[values["slot"].isin([*COVER_INFIELD, *OUTFIELD])].groupby("ID")["value_now"].max()
+    best_bat = values[values["slot"].isin(["1B", "DH"])].groupby("ID")["value_now"].max()
+    bat_first = set(best_bat.index[(best_bat - best_field.reindex(best_bat.index)) > BAT_FIRST_GAP])
+    for group in ("IF", "OF"):
+        able[group] -= bat_first  # a first baseman who could also play right field covers right field in no real sense
+    known = set(frame["ID"])
+    listed = table["Listed"].map(_role) if "Listed" in table else pd.Series("", index=table.index)
+    out = {
+        group: np.array([(i in able[group]) if i in known else role == group for i, role in zip(table["ID"], listed)])
+        for group in able
+    }
+    hitter = ~table["pitcher"].to_numpy(dtype=bool)
+    out = {group: able_ & hitter for group, able_ in out.items()}
+    out["BAT"] = hitter & ~(out["C"] | out["IF"] | out["OF"])
+    return out
+
+
+def batting_sides(table: pd.DataFrame, frame: pd.DataFrame) -> np.ndarray:
+    """+1 for a left-handed bat, -1 for a right-handed one, 0 for a switch hitter (or when the export has no `B`): the bat-only
+    hitters of the majors should not lean to one side, since a platoon at DH needs one of each."""
+    if "B" not in frame:
+        return np.zeros(len(table))
+    side = frame.drop_duplicates("ID").set_index("ID")["B"]
+    return table["ID"].map(side).map({1: -1.0, 2: 1.0, 3: 0.0}).fillna(0.0).to_numpy()
+
+
+def switch_hitters(table: pd.DataFrame, frame: pd.DataFrame) -> np.ndarray:
+    if "B" not in frame:
+        return np.zeros(len(table), dtype=bool)
+    return table["ID"].map(frame.drop_duplicates("ID").set_index("ID")["B"]).eq(3).to_numpy()
+
+
+def held(table: pd.DataFrame) -> np.ndarray:
+    """The players who are injured now (`INJ` of the export is Yes): they are not moved, up or down, until an export says they are
+    well again, and they do not count as cover for a position. Without the column nobody is held."""
+    if "INJ" not in table:
+        return np.zeros(len(table), dtype=bool)
+    return rule5.flagged(table["INJ"]).to_numpy(dtype=bool)
+
+
+def injury_text(row: pd.Series) -> str:
+    left = str(row.get("Left", "")).strip()
+    return f"injured ({left if left not in ('', 'nan', '-') else 'time left unknown'}): not moved until he is well"
+
+
 def _number(value) -> float:
     number = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
     return float(number) if pd.notna(number) else 0.0
@@ -154,7 +236,15 @@ def option_text(row: pd.Series, rules: minors.Rules) -> str:
 
 
 def _solve_majors(
-    table: pd.DataFrame, rungs: list[str], levels: dict[str, LevelLimits], rules: minors.Rules, can_start: np.ndarray
+    table: pd.DataFrame,
+    rungs: list[str],
+    levels: dict[str, LevelLimits],
+    rules: minors.Rules,
+    can_start: np.ndarray,
+    injured: np.ndarray | None = None,
+    covers: dict[str, np.ndarray] | None = None,
+    sides: np.ndarray | None = None,
+    switch: np.ndarray | None = None,
 ) -> dict[int, str | None]:
     """Who plays in the majors: the active roster goes to the best players the organization has. The candidates are the active
     roster and the players of the level below; a player is worth `MLB_UTILITY` times where his current value stands among the
@@ -165,18 +255,25 @@ def _solve_majors(
     Returns row -> destination (the top level, the level below or None for out) for the rows of those two levels."""
     top, farm = rungs[0], (rungs[1] if len(rungs) > 1 else None)
     limits = levels[top]
+    injured = np.zeros(len(table), dtype=bool) if injured is None else injured
+    sides = np.zeros(len(table)) if sides is None else sides
+    bonus = SWITCH_BONUS * (
+        np.zeros(len(table)) if switch is None else switch
+    )  # a switch hitter is worth a little more
     entries, sizes = [], {}
     for i, row in table.iterrows():
         pct = row["mlb_pct"] if pd.notna(row["mlb_pct"]) else 0.0
-        if row["Level"] == top:
-            entries.append((i, top, MLB_UTILITY * pct))
+        if injured[i] and row["Level"] in (top, farm):  # stays where he is
+            entries.append((i, row["Level"], MLB_UTILITY * pct + bonus[i] if row["Level"] == top else 0.0))
+        elif row["Level"] == top:
+            entries.append((i, top, MLB_UTILITY * pct + bonus[i]))
             if farm and can_option(row, rules) and not minors._fits(farm, row["Age"], row["Pro"], levels):
                 entries.append((i, farm, -MLB_FRICTION))
             entries.append((i, None, -(RELEASE_BASE + 1.5 * _keep(row, 0, rules) + MLB_RELEASE_EXTRA)))
         elif row["Level"] == farm and not minors._fits(top, row["Age"], row["Pro"], levels):
             floor = BELOW_FLOOR_PENALTY if pct < rules.mlb_floor else 0.0
             entries.append((i, farm, 0.0))
-            entries.append((i, top, MLB_UTILITY * pct - MLB_FRICTION - floor))
+            entries.append((i, top, MLB_UTILITY * pct + bonus[i] - MLB_FRICTION - floor))
         else:
             continue
         sizes[i] = None
@@ -184,13 +281,17 @@ def _solve_majors(
         return {}
     groups = list(_needs(top, rules))
     n = len(entries)
-    extra = 1 + len(groups) + 3  # roster limit, the groups, pitchers over / under, hitters over
+    extra = (
+        1 + len(groups) + 3 + 1 + 2
+    )  # roster limit, groups, pitchers, hitters over, bat-only over, left / right lean
     cost = np.zeros(n + extra)
     cost[:n] = [-u for _, _, u in entries]
     cost[n] = CAPACITY_PENALTY
     first_group, after_groups = n + 1, n + 1 + len(groups)
     cost[first_group:after_groups] = COVER_PENALTY
     cost[after_groups:] = PITCHER_PENALTY
+    cost[n + 1 + len(groups) + 3] = BAT_ONLY_PENALTY
+    cost[-2:] = SIDE_PENALTY
     ids = list(sizes)
     roles = table["Listed"].map(_role) if "Listed" in table else pd.Series("", index=table.index)
     pitcher = table["pitcher"]
@@ -212,16 +313,29 @@ def _solve_majors(
     for c, group in enumerate(groups):
         members = [
             k for k, (i, dest, _) in enumerate(entries)
-            if dest == top and (can_start[i] if group == "SP" else roles[i] == group)
+            if dest == top and not injured[i]
+            and (can_start[i] if group == "SP" else covers[group][i] if covers else roles[i] == group)
         ]  # fmt: skip
         add(members, 1 + c, 1, _needs(top, rules)[group], np.inf)
+    if covers:  # the hitters who play by their bat only: a first baseman and a DH platoon, not more
+        bats = [k for k, (i, dest, _) in enumerate(entries) if dest == top and covers["BAT"][i]]
+        add(bats, 1 + len(groups) + 3, -1, -np.inf, BAT_ONLY_MAX)
+        lean = np.zeros(n + extra)  # left minus right bats among them (a switch hitter leans neither way)
+        for k in bats:
+            lean[k] = sides[entries[k][0]]
+        for sign, slack in ((1, extra - 2), (-1, extra - 1)):
+            line = sign * lean
+            line[n + slack] = -1
+            rows.append(line)
+            lower.append(-np.inf)
+            upper.append(SIDE_BALANCE)
     if limits.pitchers > 0:
         base = 1 + len(groups)
         mine = [k for k in at_top if pitcher[entries[k][0]]]
-        add(mine, base, -1, -np.inf, limits.pitchers + rules.pitcher_slack)
-        add(mine, base + 1, 1, limits.pitchers - rules.pitcher_slack, np.inf)
+        add(mine, base, -1, -np.inf, limits.pitchers + MLB_PITCHER_SLACK)
+        add(mine, base + 1, 1, limits.pitchers - MLB_PITCHER_SLACK, np.inf)
         hitters = [k for k in at_top if not pitcher[entries[k][0]]]
-        add(hitters, base + 2, -1, -np.inf, limits.max_players - limits.pitchers + rules.pitcher_slack)
+        add(hitters, base + 2, -1, -np.inf, limits.max_players - limits.pitchers + MLB_PITCHER_SLACK)
     result = milp(
         cost,
         constraints=LinearConstraint(np.array(rows), lower, upper),
@@ -234,8 +348,9 @@ def _solve_majors(
 
 
 def _role(listed) -> str:
-    """The group a player counts in when a level needs a team: C, IF (1B, 2B, 3B, SS), OF (LF, CF, RF) or "" (DH, pitchers)."""
-    return "C" if listed == "C" else "IF" if listed in INFIELD else "OF" if listed in OUTFIELD else ""
+    """The group a player counts in when a level needs a team: C, IF (2B, 3B, SS: a first baseman covers first base only), OF
+    (LF, CF, RF) or "" (1B, DH, pitchers)."""
+    return "C" if listed == "C" else "IF" if listed in COVER_INFIELD else "OF" if listed in OUTFIELD else ""
 
 
 def _needs(level: str, rules: minors.Rules) -> dict[str, int]:
@@ -268,6 +383,7 @@ def _solve(
     rules: minors.Rules,
     can_start: np.ndarray,
     fixed: dict[int, str | None] | None = None,
+    injured: np.ndarray | None = None,
 ) -> list[str | None]:
     """The destination of every row of `table` (a level name, the top level above the ladder or None for out)."""
     fixed = fixed or {}  # decided before: the majors and the players promoted to them
@@ -292,6 +408,8 @@ def _solve(
     cost[first_pitcher:first_cover] = PITCHER_PENALTY
     cost[first_cover:] = COVER_PENALTY
     roles = table["Listed"].map(_role).to_numpy() if "Listed" in table else np.full(len(table), "")
+    if injured is not None:
+        roles, can_start = np.where(injured, "", roles), can_start & ~injured  # an injured player covers nothing
     pitcher = table["pitcher"].to_numpy(dtype=bool)
     rows, lower, upper = [], [], []
 
@@ -474,9 +592,17 @@ def plan(
     can_start = (
         table["pitcher"] & (table["ID"].isin(starters) | (table["Listed"] == "SP" if "Listed" in table else False))
     ).to_numpy()
-    chosen = _solve_majors(table, rungs, levels, rules, can_start) if rungs[0] == minors.TOP else {}
+    injured = held(table)
+    covers = capability(table, frame) if rungs[0] == minors.TOP else None
+    sides, switch = batting_sides(table, frame), switch_hitters(table, frame)
+    chosen = (
+        _solve_majors(table, rungs, levels, rules, can_start, injured, covers, sides, switch)
+        if rungs[0] == minors.TOP
+        else {}
+    )
     fixed = {i: d for i, d in chosen.items() if table.at[i, "Level"] == minors.TOP or d == minors.TOP}
-    dest = _solve(table, rungs, levels, rules, can_start, fixed)
+    fixed.update({i: table.at[i, "Level"] for i in np.flatnonzero(injured)})  # an injured player stays where he is
+    dest = _solve(table, rungs, levels, rules, can_start, fixed, injured)
     table["can_start"] = can_start
     arriving = pd.Series([d for d, level in zip(dest, table["Level"]) if d is not None and d != level]).value_counts()
     counts = table["Level"].value_counts().add(arriving, fill_value=0)  # the players there and the ones sent to it
@@ -495,6 +621,10 @@ def plan(
             action.append(PROMOTE if d == minors.TOP or rungs.index(d) < rungs.index(level) else DEMOTE)
     table["Action"] = action
     table["Why"] = [_why(table.loc[i], d, counts, levels, rungs, rules) for i, d in enumerate(dest)]
+    for i in np.flatnonzero(injured):  # say why a player the ratings would move stays
+        row = table.loc[i]
+        if row["Move"] or (row["Level"] != minors.TOP and row["mlb_pct"] >= rules.mlb_floor):
+            table.at[i, "Why"] = injury_text(row)
     positions = listed_positions(table, frame, rules)
     return Plan(table, positions, summary(table, positions, levels, rungs, rules))
 
