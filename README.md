@@ -19,6 +19,7 @@ Reference:
 - [docs/processing.md](docs/processing.md): how the statistics, park factors, fielding and ability values are made.
 - [docs/models.md](docs/models.md): the value and outlook models, leagues with other rating scales, generated reports.
 - [deploy/README.md](deploy/README.md): the viewer on a server.
+- [CLAUDE.md](CLAUDE.md): what Claude Code needs to know about the project and how we work; workflow 9 of [docs/workflows.md](docs/workflows.md) keeps two machines in step.
 
 `files/` is not in git. The trained models and the league files are kept in the S3 bucket `ootp-models` with a history of every set (`sync_models.py`, `sync_files.py`; needs `aws configure` credentials).
 

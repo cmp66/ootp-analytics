@@ -62,11 +62,12 @@ def manifest_names(client, bucket: str, manifests: str = "manifests") -> list[st
     return sorted(names)
 
 
-def stored_blobs(client, bucket: str) -> set[str]:
-    blobs = set()
-    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix="blobs/"):
-        blobs |= {item["Key"].removeprefix("blobs/") for item in page.get("Contents", [])}
-    return blobs
+def stored_blobs(client, bucket: str, blobs: str = "blobs") -> set[str]:
+    """The hashes of the files stored under the key prefix `blobs`."""
+    found = set()
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"{blobs}/"):
+        found |= {item["Key"].removeprefix(f"{blobs}/") for item in page.get("Contents", [])}
+    return found
 
 
 def read_manifest(client, bucket: str, name: str, manifests: str = "manifests") -> dict:
@@ -81,15 +82,16 @@ def push(
     dry_run: bool = False,
     files: dict[str, Path] | None = None,
     manifests: str = "manifests",
+    blobs: str = "blobs",
 ) -> str | None:
     """Upload the files that are not in the bucket and write a manifest of the set. `files` (relative path -> file) defaults to
-    the models under `root`; `manifests` is the key prefix of this kind of set."""
+    the models under `root`; `manifests` is the key prefix of this kind of set and `blobs` that of the stored files."""
     files = local_files(root) if files is None else files
     if not files:
         raise SystemExit(f"no files to store under {root}")
     with ThreadPoolExecutor(WORKERS) as pool:
         hashes = dict(zip(files, pool.map(sha256, files.values())))
-    stored = stored_blobs(client, bucket)
+    stored = stored_blobs(client, bucket, blobs)
     new = {path: digest for path, digest in hashes.items() if digest not in stored}
     # the same content in two paths is uploaded once
     unique = {digest: path for path, digest in new.items()}
@@ -98,7 +100,9 @@ def push(
     if dry_run:
         return None
     with ThreadPoolExecutor(WORKERS) as pool:
-        list(pool.map(lambda item: client.upload_file(str(files[item[1]]), bucket, f"blobs/{item[0]}"), unique.items()))
+        list(
+            pool.map(lambda item: client.upload_file(str(files[item[1]]), bucket, f"{blobs}/{item[0]}"), unique.items())
+        )
     name = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{git_commit()}"
     taken = manifest_names(client, bucket, manifests)
     suffix = 1
@@ -132,14 +136,21 @@ def pull(
     version: str | None = None,
     dry_run: bool = False,
     manifests: str = "manifests",
+    blobs: str = "blobs",
+    protect=None,
 ) -> str:
+    """Download the files of a set that differ. `protect(path, target)` may return a reason to leave a local file alone."""
     name = resolve(manifest_names(client, bucket, manifests), version)
     files = read_manifest(client, bucket, name, manifests)["files"]
     todo = {}
     for path, info in files.items():
         target = root / path
         if not (target.is_file() and target.stat().st_size == info["size"] and sha256(target) == info["sha256"]):
-            todo[path] = info
+            reason = protect(path, target) if protect and target.exists() else None
+            if reason:
+                print(f"left alone: {path} ({reason})")
+            else:
+                todo[path] = info
     print(
         f"set {name}: {len(files)} files, {len(todo)} to download ({sum(i['size'] for i in todo.values()) / 1e6:.1f} MB)"
     )
@@ -151,7 +162,7 @@ def pull(
         target = root / path
         target.parent.mkdir(parents=True, exist_ok=True)
         part = target.with_name(target.name + ".part")
-        client.download_file(bucket, f"blobs/{info['sha256']}", str(part))
+        client.download_file(bucket, f"{blobs}/{info['sha256']}", str(part))
         os.replace(part, target)
 
     with ThreadPoolExecutor(WORKERS) as pool:

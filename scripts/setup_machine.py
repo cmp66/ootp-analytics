@@ -14,6 +14,7 @@ Steps, in order (each one that fails stops the run and says what to fix):
   aws       the credentials work and the bucket answers (`aws configure`; the bucket policy must allow this machine's IP)
   models    sync_models.py pull: the latest trained models into files/models/
   files     sync_files.py pull: the raw files of the human leagues (ratings and statistics exports, finance, ballparks)
+  notes     sync_notes.py pull: the memory notes of Claude Code and plans/ (what is not in git)
   training  sync_files.py pull --set training (only with --training)
   update    update_all.py: the processed files, values, outlook scores and lists, so the viewer can start
   test      python -m pytest (only with --test)
@@ -65,6 +66,7 @@ def steps(install: str | None = None, training: bool = False, update: bool = Tru
         Step("aws", None, "the credentials work and the bucket answers"),
         Step("models", script("sync_models.py", "pull"), "the trained models into files/models/"),
         Step("files", script("sync_files.py", "pull"), "the raw files of the human leagues"),
+        Step("notes", script("sync_notes.py", "pull"), "Claude Code's memory notes and the plans/ folder"),
     ]
     if training:
         found.append(
