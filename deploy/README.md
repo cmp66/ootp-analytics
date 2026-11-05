@@ -18,9 +18,10 @@ from that stack: its own compose file, its own folder (`/opt/ootp-viewer`), its 
    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
    ```
 2. **DNS:** a Route 53 A record `ootp.wahoosoftware.com` for the instance's static IP (the same IP as the NABL names).
-3. **S3 access for the server** (see below), then `deploy/.env` on the server from `deploy/.env.example` (`chmod 600`).
+3. **S3 access for the server** (see below).
 4. **Code and container**, from your machine: `deploy/deploy.sh ubuntu@<ip>` (needs rsync, and Docker with the compose plugin
-   on the instance, which the NABL stack already has).
+   on the instance, which the NABL stack already has). The first run copies the code, creates `deploy/.env` on the server from
+   `deploy/.env.example` and stops: put the access key of step 3 in it (`nano`), then run the script again.
 5. **First data:** on the instance `/opt/ootp-viewer/deploy/refresh.sh` (after a `push --set viewer` from your machine).
 6. **nginx:** `sudo cp /opt/ootp-viewer/deploy/nginx/ootp.conf /etc/nginx/conf.d/ootp.conf`, make the password file
    (`sudo apt install apache2-utils; sudo htpasswd -c /etc/nginx/ootp.htpasswd <user>`), `sudo nginx -t && sudo systemctl
