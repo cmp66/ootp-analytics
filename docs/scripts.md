@@ -32,6 +32,17 @@ outlook_lists.py TGS27 --list draft --out draft.csv
 ```
 Options: `--season`, `--org`, `--horizon {1,2,3,5,7,10,99}` (99 = career), `--slot`, `--top`, `--out`. Needs the outlook files of `predict_outlook.py`.
 
+### setup_machine.py
+Sets up another machine to develop and run the project (workflow 6 of [workflows.md](workflows.md)): `setup_machine.py --install cpu` (or `cuda`, `xpu`) installs the libraries with `uv pip install`, checks that they import and that the S3 bucket answers, runs `sync_models.py pull` and `sync_files.py pull`, then `update_all.py`. Needs `git clone`, Python 3.14, `uv`, `aws configure` and the machine's IP in the bucket policy first.
+```
+setup_machine.py --install cpu     # everything, with the libraries
+setup_machine.py                   # the libraries are already there
+setup_machine.py --test            # also run the tests at the end
+setup_machine.py --training        # also the training leagues' dumps (16 GB)
+setup_machine.py --dry-run         # say what it would do
+```
+A failing step stops the run and says what to fix; running it again continues cheaply (only what differs is downloaded).
+
 ## Pipeline steps
 
 ### process_seasons.py
