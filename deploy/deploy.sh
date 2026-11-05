@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # From your machine: copy the code to the Lightsail host and (re)build the viewer container. The league files are not copied; they
 # come from S3 (deploy/refresh.sh). Nothing outside /opt/ootp-viewer and the viewer container is touched.
-#   deploy/deploy.sh ubuntu@<lightsail-ip>            (SSH_KEY=~/.ssh/lightsail.pem to name the key)
+#   deploy/deploy.sh [ubuntu@<lightsail-ip>]          (default $VIEWER_HOST; SSH_KEY=~/.ssh/lightsail.pem to name the key)
+# For new data files use deploy/push_data.sh.
 set -euo pipefail
-HOST=${1:?usage: deploy/deploy.sh user@host}
+HOST=${1:-${VIEWER_HOST:?usage: deploy/deploy.sh user@host (or set VIEWER_HOST)}}
 REMOTE=/opt/ootp-viewer
 SSH="ssh ${SSH_KEY:+-i $SSH_KEY}"
 cd "$(dirname "$0")/.."
