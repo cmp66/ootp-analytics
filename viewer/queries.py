@@ -53,6 +53,8 @@ IDENTITY_COLUMNS = [
     "Sign",
     "SLR",
     "YL",
+    "Nat. Pop.",  # popularity (national and local): Unkn., Insig., Fair, Known, Pop., V.Pop, Ex.Pop.
+    "Loc. Pop.",
 ]
 IAFA_MAX_AGE = 19  # SctCat "International" also holds foreign professionals; the IAFA prospects are the young ones
 SLOT_ORDER = ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "DH", "SP", "RP"]

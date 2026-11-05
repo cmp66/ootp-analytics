@@ -9,6 +9,10 @@
 # weight of the place (a reliever pitches about a third of the innings of a starter). What an acquisition costs is the contract of a
 # claimed player and the demand of a free agent for a year (internal players cost nothing extra) against the budget space of the
 # organization, the money still available for the season.
+#
+# The PRIORITY LIST orders the acquisitions by expected impact: the runs a candidate adds over the contract (up to three years) against
+# the starter and against what the organization's own prospects will be worth in one and two years (a prospect who will be ready
+# makes a long deal for the place worth little: a bridge), times the chance he signs. It never takes the budget space under `min_budget`.
 
 [rules]
 need_percentile = 0.40     # a starter at or below this percentile of the league's starters at the place needs an upgrade
@@ -16,6 +20,27 @@ target_percentile = 0.50   # the value he should reach: this percentile of the l
 bullpen = 7                # relievers counted as starters
 min_gain = 1.0             # runs a candidate must add to be listed
 hard_to_sign = ["Impossible"]   # free agents who are not listed (their `Sign` level)
+min_budget = 10000000     # the priority list leaves this much of the budget space for the draft, the IAFA and other areas
+multiyear_demand = 8000000 # a free agent asking at least this much a year is assumed to want a multi-year deal
+multiyear_years = 3        # ... for this many years (the priority list looks three years ahead at most)
+block_weight = 0.5         # a year of a ready prospect kept out of the lineup by a signing counts this much against it
+non_need_factor = 0.5      # an upgrade of a place that is not a need counts this much in the priority list
 
 [weights]                  # what a run of value at the place counts for (hitters and starting pitchers 1)
 RP = 0.35
+
+[popularity.local]         # boost of the expected impact of a player whose LOCAL popularity is this level: the local market, fan interest
+"V.Pop" = 0.10             # (a tiebreaker, not a reason to sign a weak player: it multiplies the impact, which is small for a player
+"Ex.Pop." = 0.20           # who adds little)
+
+[popularity.national]      # NATIONAL popularity: awards and all-star votes, much less than the local one; the two boosts add up
+"V.Pop" = 0.02
+"Ex.Pop." = 0.04
+
+[signing]                  # the chance that a free agent signs with you, by his `Sign` level (the demands can change before he does)
+"Very Easy" = 0.95
+Easy = 0.85
+Normal = 0.70
+Hard = 0.45
+"Extremely Hard" = 0.20
+Impossible = 0.0

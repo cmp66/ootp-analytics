@@ -13,7 +13,8 @@ For each save the steps run in order (a failed step stops that save, the other s
     park      neutral-park event rates of the hitters, for the park adjustment of the viewer (scripts/predict_park.py)
     outlook   floor / ceiling, top-10 / top-50 chances, injury cost (scripts/predict_outlook.py)
     lists     every list of config/viewer.toml as a csv in output/lists/ (scripts/outlook_lists.py)
-When a function or output is added to the project, add its step to STEPS here (and to the README) so the update stays complete.
+When a function or output is added to the project, add its step to STEPS here (and to docs/updating-data.md) so the update
+stays complete.
 Training is not part of the update: trained models only change when you retrain them (train_models.py, train_outlook_models.py).
 """
 

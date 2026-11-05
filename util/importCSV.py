@@ -1,3 +1,8 @@
+"""Reads the raw OOTP files of a save into frames: in-game exports (ratings lists, team statistics) and database dumps.
+
+import_files is the entry point of stats/pipeline.py (scripts/process_seasons.py); load_season serves the analysis
+scripts; the export files are told apart by marker columns (EXPORT_FILE_MARKERS)."""
+
 import pandas as pd
 from util import paths
 from util.frames import consolidate

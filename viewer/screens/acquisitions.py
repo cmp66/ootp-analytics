@@ -24,10 +24,31 @@ from viewer.screens import org_view  # noqa: E402
 ROW_HEIGHT = 35
 WIDTHS = {
     "Place": 60, "Player": 150, "Listed": 60, "Age": 50, "Value": 62, "Park": 56, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50,
-    "Source": 90,
+    "Source": 90, "Years": 50, "Commit $m": 78, "Impact": 62, "Per yr": 56, "Chance": 62, "Expected": 72,
+    "Verdict": 70, "Context": 210,
+    "Spend": 70, "Local pop": 70, "Nat. pop": 66,
+    "Fallbacks": 330,
     "From": 60, "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
 }  # fmt: skip
-TEXT_COLUMNS = ("Place", "Player", "Listed", "Need", "Source", "From", "Deal", "Sign", "Yrs", "Best option", "Option")
+TEXT_COLUMNS = (
+    "Place",
+    "Player",
+    "Listed",
+    "Need",
+    "Source",
+    "From",
+    "Deal",
+    "Local pop",
+    "Nat. pop",
+    "Sign",
+    "Yrs",
+    "Best option",
+    "Option",
+    "Verdict",
+    "Context",
+    "Spend",
+    "Fallbacks",
+)
 
 
 def load(save: str, season: int):
@@ -44,6 +65,13 @@ def compute(save: str, season: int, org: str, settings: acquire.Settings, park_o
     return needs, pool
 
 
+@st.cache_data(show_spinner="Ranking the acquisitions...", max_entries=4, ttl=3600)
+def priorities(save: str, season: int, org: str, settings: acquire.Settings, budget: float, park_on: bool = False):
+    frame, _ = load(save, season)
+    needs, pool = compute(save, season, org, settings, park_on)
+    return acquire.priority_list(league.park_frame(save, season, frame, org, park_on), needs, pool, budget, settings)
+
+
 def settings_from_page(base: acquire.Settings) -> acquire.Settings:
     with st.expander("Rules (defaults from config/acquisition.toml; changes here last for this session)"):
         first, second, third = st.columns(3)
@@ -55,6 +83,17 @@ def settings_from_page(base: acquire.Settings) -> acquire.Settings:
         gain = second.slider("Least gain to list a candidate (runs)", 0.0, 10.0, base.min_gain, 0.5)
         pen = second.slider("Relievers counted as starters", 3, 10, base.bullpen)
         relief = third.slider("Weight of a run of a reliever", 0.1, 1.0, dict(base.weights).get("RP", 1.0), 0.05)
+        floor = second.number_input(
+            "Keep this much budget space ($m) for the draft, IAFA ...",
+            0.0,
+            100.0,
+            base.min_budget / 1e6,
+            1.0,
+            help="The priority list never takes the budget space under this",
+        )
+        multi = third.number_input(
+            "Free agents asking at least ($m a year) want several years", 0.0, 60.0, base.multiyear_demand / 1e6, 0.5
+        )
         hard = third.multiselect(
             "Free agents not listed when their signability is",
             ["Impossible", "Extremely Hard", "Hard", "Normal", "Easy", "Very Easy"],
@@ -62,7 +101,7 @@ def settings_from_page(base: acquire.Settings) -> acquire.Settings:
         )
     return replace(
         base, need_percentile=need, target_percentile=target, min_gain=gain, bullpen=pen, weights=(("RP", relief),),
-        hard_to_sign=tuple(hard),
+        hard_to_sign=tuple(hard), min_budget=floor * 1e6, multiyear_demand=multi * 1e6,
     )  # fmt: skip
 
 
@@ -100,6 +139,38 @@ def style_needs(frame: pd.DataFrame):
         na_rep="",
     )
     return style.apply(lambda row: ["font-weight: 700; color: #d6453d" if row["Need"] else "" for _ in row], axis=1)
+
+
+def priority_view(found: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "ID": found["ID"], "slot": found["slot"], "Place": found["Place"], "Player": found["Player"], "Age": found["Age"],
+            "Source": found["Source"], "Deal": found["Deal"], "Cost $m": found["Cost"] / 1e6, "Years": found["Years"],
+            "Commit $m": found["Commit"] / 1e6, "Sign": found["Sign"],
+            "Local pop": found["PopLocal"].map(acquire.POPULARITY_LABELS).fillna(""),
+            "Nat. pop": found["PopNational"].map(acquire.POPULARITY_LABELS).fillna(""), "Impact": found["Impact"],
+            "Per yr": found["PerYear"], "Chance": found["Chance"] * 100,
+            "Expected": found["Expected"], "Verdict": found["Verdict"], "Context": found["Context"], "Spend": found["Spend"],
+            "Fallbacks": found["Fallbacks"],
+        }
+    )  # fmt: skip
+
+
+def style_priorities(frame: pd.DataFrame):
+    style = frame.style.format(
+        {
+            "Cost $m": "{:.1f}",
+            "Commit $m": "{:.1f}",
+            "Impact": "{:.1f}",
+            "Per yr": "{:.1f}",
+            "Chance": "{:.0f}%",
+            "Expected": "{:.1f}",
+            "Age": "{:.0f}",
+        },
+        na_rep="",
+    )
+    colors = {"Within": "#2e7d32", "Over": "#9e9e9e"}
+    return style.map(lambda v: f"color: {colors.get(v, 'inherit')}; font-weight: 700", subset=["Spend"])
 
 
 def show(frame: pd.DataFrame, styled, key: str, height_rows: int = 14):
@@ -195,12 +266,32 @@ def main() -> None:
         "weighted by the place."
     )
     table = needs_table(needs, pool, budget, settings)
+    st.subheader("Priority list")
+    ranked = priorities(save, season, org, settings, budget, park_on)
+    st.caption(
+        "In the order to act. Impact = runs the player adds over his contract (three years at most) against "
+        "the starter and against what your own prospects at the place will be worth in one and two years; a "
+        "year in which he would keep a ready prospect out of the lineup counts against him. Per yr = Impact "
+        "divided by the years. Expected = Impact "
+        "x the chance he signs (his signability; the demand can change), raised for a very / extremely popular player "
+        "(Local pop counts most, the local market; Nat. pop, awards and all-star votes, a little; the boosts are in the "
+        "config). Verdict: Hole = nothing of your own "
+        "reaches the target within two years, a long deal is fine; Bridge / Soon = a prospect reaches it in "
+        "one / two years, so prefer a short deal; Fill = a place that is no need. Spend: Within = inside the "
+        f"budget space and leaves {money(settings.min_budget)} of it, Over = would take it under that, after the ones "
+        "above. Fallbacks = the next options at the place if he does not sign."
+    )
     generation = st.session_state.setdefault(
         "acquire_generation", 0
     )  # a new key clears the row selection of every table
     picked = None
+    if ranked.empty:
+        st.write("No acquisition adds enough within the budget space.")
+    else:
+        view = priority_view(ranked)
+        picked = show(view, style_priorities(view), f"acquire-priority-{save}-{org}-{generation}", height_rows=12)
     st.subheader("Where the roster needs an upgrade")
-    picked = show(table, style_needs(table), f"acquire-needs-{save}-{org}-{generation}", height_rows=22)
+    picked = picked or show(table, style_needs(table), f"acquire-needs-{save}-{org}-{generation}", height_rows=22)
 
     st.subheader("Best set of acquisitions within the budget space")
     everywhere = st.checkbox("Also upgrade places that are not a need")

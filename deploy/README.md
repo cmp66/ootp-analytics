@@ -49,6 +49,9 @@ Then make an IAM user for the server that can only read the viewer set (the acce
 
 ## Everyday
 
-1. On your machine: `update_all.py`, then `python scripts/sync_files.py push --set viewer`.
-2. The server pulls it on its next refresh (or run `deploy/refresh.sh` there). New code: `deploy/deploy.sh ubuntu@<ip>` again.
-3. Look at it with `docker stats` and `free -m` once in a while; the viewer should stay near 350-450 MB.
+Set `VIEWER_HOST=ubuntu@<ip>` (and `SSH_KEY=~/.ssh/<key>.pem`) in your shell profile, then:
+
+- **New data:** `update_all.py`, then `deploy/push_data.sh`. It pushes the viewer set to S3, then runs `refresh.sh` on the server,
+  which pulls what changed and restarts the viewer. (A cron job on the server does the pull too, if you set one up.)
+- **New code:** `deploy/deploy.sh`. It copies the code and rebuilds, which recreates the container.
+- Look at it with `docker stats` and `free -m` once in a while; the viewer should stay near 350-450 MB.

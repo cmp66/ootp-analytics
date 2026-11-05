@@ -154,3 +154,75 @@ def test_settings_come_from_the_config_file(tmp_path):
     config.write_text("[rules]\nbudget = 1\n")
     with pytest.raises(ValueError):
         acquire.load_settings(config)
+
+
+def priorities(prospect_later: float, budget: float = 1e9, settings: acquire.Settings = SETTINGS) -> pd.DataFrame:
+    """The priority list of MINE for the league frame; its AAA catcher (6 now) is worth `prospect_later` later."""
+    frame = league_frame()
+    frame["value_h1"] = frame["value_h2"] = frame["value_now"]
+    frame.loc[frame["ID"] == 904, ["value_h1", "value_h2"]] = prospect_later
+    needs = acquire.needs(frame, "MINE", settings)
+    pool = acquire.candidate_pool(frame, "MINE", needs, settings)
+    return acquire.priority_list(frame, needs, pool, budget, settings)
+
+
+def test_a_hole_at_the_place_makes_the_long_contract_the_priority():
+    found = priorities(prospect_later=0.0).set_index("Place")
+    assert (
+        found.loc["C", "Verdict"] == "Hole" and found.loc["C", "Player"] == "F P901"
+    )  # 12 for three years beats 10 for one
+    assert found.loc["C", "PerYear"] == pytest.approx(found.loc["C", "Impact"] / 3)
+    assert found.loc["C", "Years"] == 3 and found.loc["C", "Commit"] == 3 * found.loc["C", "Cost"]
+
+
+def test_a_prospect_who_will_be_ready_makes_the_long_contract_a_bridge_for_a_short_one():
+    found = priorities(prospect_later=20.0).set_index("Place")
+    assert found.loc["C", "Verdict"] == "Bridge" and "P904" in found.loc["C", "Context"]
+    assert found.loc["C", "Player"] == "F P900" and found.loc["C", "Years"] == 1  # the one year deal does not block him
+
+
+def test_the_list_keeps_the_minimum_budget_skips_what_does_not_fit_and_discounts_the_free_agents_who_may_not_sign():
+    found = priorities(0.0, budget=12.5e6, settings=acquire.Settings(bullpen=2, min_budget=10e6)).set_index("Place")
+    assert found.loc["C", "Spend"] == "Within"  # $2m of $12.5m leaves the $10m
+    assert found.loc["C", "Player"] == "F P900"  # the $30m deal does not fit the space and the next best is listed
+    row = found.loc["C"]
+    assert row["Chance"] == acquire.Settings().chance("Normal") and row["Expected"] == pytest.approx(
+        row["Impact"] * 0.7
+    )
+    assert acquire.Settings().chance("unknown level") == 1.0
+
+
+def test_local_popularity_boosts_a_player_much_more_than_national_popularity():
+    rows = pd.DataFrame(
+        {
+            "Nat. Pop.": ["Unkn.", "Pop.", "V.Pop", "Ex.Pop.", "bogus"],
+            "Loc. Pop.": ["V.Pop", "Pop.", "Unkn.", "Fair", None],
+        }
+    )
+    found = acquire.popularity(rows)
+    assert list(found["local"]) == ["vpop", "pop", "unkn", "fair", "unkn"]
+    assert list(found["national"]) == ["unkn", "pop", "vpop", "expop", "unkn"]
+    assert list(acquire.popularity(pd.DataFrame({"x": [1]})).iloc[0]) == [
+        "unkn",
+        "unkn",
+    ]  # an export without the columns
+    settings = acquire.load_settings()
+    assert dict(settings.popularity_local)["expop"] > 4 * dict(settings.popularity_national)["expop"]
+
+    def with_pop(local, national, **changes):
+        frame = league_frame()
+        frame["Nat. Pop."] = "Unkn."
+        frame["Loc. Pop."] = "Unkn."
+        frame.loc[frame["ID"] == 900, ["Loc. Pop.", "Nat. Pop."]] = [local, national]
+        needs = acquire.needs(frame, "MINE", SETTINGS)
+        pool = acquire.candidate_pool(frame, "MINE", needs, SETTINGS)
+        found = acquire.priority_list(
+            frame, needs, pool, 5e6, acquire.Settings(bullpen=2, min_budget=0, **changes)
+        )  # the $30m one is out
+        return found[found["Place"] == "C"].iloc[0]
+
+    plain, local, national = with_pop("Unkn.", "Unkn."), with_pop("Ex.Pop.", "Unkn."), with_pop("Unkn.", "Ex.Pop.")
+    assert plain["Player"] == "F P900" and plain["Boost"] == 1.0
+    assert local["Boost"] == pytest.approx(1.20) and national["Boost"] == pytest.approx(1.04)
+    assert with_pop("Ex.Pop.", "V.Pop")["Boost"] == pytest.approx(1.22)  # the two add up
+    assert local["Expected"] == pytest.approx(plain["Expected"] * 1.20)

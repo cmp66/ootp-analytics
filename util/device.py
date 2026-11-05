@@ -1,3 +1,5 @@
+"""The torch device the training scripts use (CUDA, then XPU, then CPU; OOTP_DEVICE overrides)."""
+
 import os
 
 import torch

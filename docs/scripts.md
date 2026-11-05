@@ -1,6 +1,6 @@
 # Script reference
 
-Every script takes `-h` for its full options. Run from the repository root as `PYTHONPATH=. python scripts/<name>.py ...`. A *save* is a folder under `files/` with a table in `config/saves.toml`. For the order to run things in see [workflows.md](workflows.md).
+Every script takes `-h` for its full options. Run from the repository root as `PYTHONPATH=. python scripts/<name>.py ...`. A *save* is a folder under `files/` with a table in `config/saves.toml`. For the order to run things in see [workflows.md](workflows.md); for updating data or code, [updating-data.md](updating-data.md) and [updating-code.md](updating-code.md).
 
 Times are rough, for the current data on the CPU.
 
@@ -20,7 +20,7 @@ update_all.py --steps              # list the steps
 Runs, per save: `process_seasons`, `predict_values` (with the `models_from` save), `predict_outlook`, and the lists of `config/viewer.toml` into `output/lists/`. The lists that compare with your roster need `org` in `config/update.toml`. Does not train. About 35 s for two saves.
 
 ### run_viewer.py
-`run_viewer.py [--port 8501]` starts the Streamlit viewer at http://localhost:8501: organization overview (default; org selector with all organizations and free agents), minor leagues (ceiling / floor with the chance of reaching it, 5-season or career window), MLB draft, IAFA, the acquisitions page (where the MLB roster needs an upgrade and the internal, waiver and free agent candidates within the budget space; `config/acquisition.toml`), the level moves page (which minor leaguers should move up or down, from their ratings relative to the level; `config/minors.toml`), the depth chart (an OOTP-style field for one organization: entire organization, minor leagues or one level, with players over the level's age / pro-years limits of `config/saves.toml` in red, ranked by current value or the 10-year ceiling / floor; the *Lineup* choice shows the hitters against right- or left-handed pitchers) and the explorer. Click a column header to sort, the Pos header to filter positions, a player for the ratings page. Reads the csv files `update_all.py` writes.
+`run_viewer.py [--port 8501]` starts the Streamlit viewer at http://localhost:8501. It reads the csv files `update_all.py` writes. The screens and what they show: [viewer.md](viewer.md).
 
 ### outlook_lists.py
 Prints or saves one list of `config/viewer.toml`.
@@ -108,6 +108,21 @@ sync_files.py push --set training     # the dumps of the training leagues; very 
 sync_files.py list --set raw          # the stored sets, newest first
 ```
 The processed `output` folders are left out of `raw` (`update_all.py` makes them again). Each set has its own history (`files-raw`, `files-viewer`, `files-training` manifests). The machine has to be allowed by the bucket policy. The viewer on a server: [deploy/README.md](../deploy/README.md).
+
+## Server (deploy/)
+
+Shell scripts, not Python. `$VIEWER_HOST` (`user@ip`) is the default host of the two that run from your machine; `$SSH_KEY` names the key. Setup: [deploy/README.md](../deploy/README.md).
+
+### deploy/deploy.sh
+`deploy/deploy.sh [user@host]` copies the code (`config model stats util viewer scripts deploy`) to `/opt/ootp-viewer` with rsync and rebuilds the container, which restarts the viewer. Never overwrites the server's `deploy/.env`; on the first run it creates it from `.env.example` and stops so you can add the keys. Use it for new code or a changed config file.
+
+### deploy/push_data.sh
+`deploy/push_data.sh [user@host]` runs `sync_files.py push --set viewer` (`$PYTHON` names the interpreter) and then `refresh.sh` on the server. Use it after `update_all.py` when the server should show the new data.
+
+### deploy/refresh.sh
+On the server: pulls the `viewer` set from S3 inside the container and restarts the viewer only when something was downloaded. Also fit for cron (`*/15 * * * * /opt/ootp-viewer/deploy/refresh.sh >> /var/log/ootp-refresh.log 2>&1`).
+
+For the shared helper modules see [utilities.md](utilities.md).
 
 ## Checks and reports
 

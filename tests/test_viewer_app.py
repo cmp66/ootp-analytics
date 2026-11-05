@@ -577,10 +577,14 @@ def test_the_acquisition_page_lists_the_needs_the_best_package_and_the_candidate
     app = AppTest.from_file(str(SCREENS / "acquisitions.py"), default_timeout=240).run()
     assert not app.exception
     assert [s.value for s in app.subheader] == [
-        "Where the roster needs an upgrade", "Best set of acquisitions within the budget space", "Candidates for a place",
+        "Priority list", "Where the roster needs an upgrade", "Best set of acquisitions within the budget space",
+        "Candidates for a place",
     ]  # fmt: skip
     assert len(app.metric) == 4 and len(app.dataframe) >= 2
-    needs = app.dataframe[0].value
+    priority = app.dataframe[0].value
+    assert {"Impact", "Expected", "Verdict", "Spend", "Fallbacks"} <= set(priority.columns)
+    assert set(priority["Spend"]) <= {"Within", "Over"}
+    needs = next(t.value for t in app.dataframe if "Need" in t.value.columns)
     assert needs["Place"].iloc[0] and set(needs["Need"]) <= {"NEED", ""}
     app.checkbox[0].check().run()  # also upgrade places that are not a need
     assert not app.exception
@@ -601,7 +605,7 @@ def test_the_park_toggle_values_the_players_in_the_park_of_the_organization_and_
     if page == "org_overview":
         assert "Park" in app.dataframe[0].value.columns  # what the park changes in each value
     if page == "acquisitions":
-        assert "Park" in app.dataframe[0].value.columns
+        assert any("Park" in t.value.columns for t in app.dataframe)  # the needs table
 
 
 def test_the_park_toggle_is_off_for_all_organizations_and_free_agents():
