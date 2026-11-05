@@ -61,3 +61,9 @@ def test_every_page_fits_the_memory_budget_without_the_model_libraries_and_leave
     assert result["heavy"] == [], f"the viewer loaded {result['heavy']}"
     assert result["peak_mb"] <= BUDGET_MB, f"peak memory {result['peak_mb']} MB > {BUDGET_MB} MB"
     print(result)
+
+
+def test_the_mmap_threshold_is_fixed_on_linux_and_the_call_is_harmless_elsewhere():
+    from viewer import data_cache
+
+    assert data_cache.fix_mmap_threshold() == sys.platform.startswith("linux")
