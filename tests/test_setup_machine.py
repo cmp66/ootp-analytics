@@ -8,9 +8,9 @@ def names(**options):
 
 
 def test_the_steps_run_in_order_and_the_options_add_or_drop_some():
-    assert names() == ["check", "aws", "models", "files", "update"]
+    assert names() == ["check", "aws", "models", "files", "notes", "update"]
     assert names(install="cpu", training=True, test=True) == [
-        "install", "check", "aws", "models", "files", "training", "update", "test",
+        "install", "check", "aws", "models", "files", "notes", "training", "update", "test",
     ]  # fmt: skip
     assert "update" not in names(update=False)
 

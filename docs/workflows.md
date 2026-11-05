@@ -14,6 +14,7 @@ What the project does and the steps for the jobs you do repeatedly. Run everythi
 | Change a threshold of a screen | [configuration.md](configuration.md); workflow 5 |
 | Understand what a screen shows | [viewer.md](viewer.md) |
 | Set up another machine or the server | Workflow 6 (`scripts/setup_machine.py`) and 8; [deploy/README.md](../deploy/README.md) |
+| Switch between my two machines | Workflow 9 (`scripts/sync_notes.py`) |
 | Check that nothing broke | Workflow 7 |
 | Find a script or a helper module | [scripts.md](scripts.md), [utilities.md](utilities.md) |
 | Know how the numbers are made | [processing.md](processing.md), [models.md](models.md) |
@@ -47,6 +48,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 | --- | --- |
 | `update_all.py` | One button: process, value, outlook-score and list every human league after new ratings files. |
 | `sync_models.py` | Pushes the trained models to the S3 bucket (with history) or pulls them onto another machine. |
+| `sync_notes.py` | Keeps Claude Code's memory notes, `plans/` and (on request) its conversations in step between machines. |
 | `setup_machine.py` | Sets up another machine: libraries, models and files from S3, the update. |
 | `sync_files.py` | The same for the league files (raw exports, the viewer's processed files, the training dumps). |
 | `deploy/push_data.sh`, `deploy/deploy.sh` | New data to the viewer server; new code to the viewer server. |
@@ -158,6 +160,7 @@ By hand it is five things; `scripts/setup_machine.py` does the last four in orde
 1. **Before the script** (it cannot do these): `git clone` the repository and check out the branch; install Python 3.14 (pyenv virtualenv `ootp-analytics`) and `uv`; install the AWS CLI credentials with `aws configure` (the keys that may use the bucket `ootp-models`); and add the machine's public IP address to the bucket policy (the bucket answers only to allowed addresses).
 2. **The script:** `python scripts/setup_machine.py --install cpu` (or `cuda`, `xpu`, see the README, Setup, for the hardware). It installs the libraries, checks that they import and that the bucket answers, pulls the trained models (`sync_models.py pull`) and the raw files of the human leagues (`sync_files.py pull`), and runs `update_all.py` so that the processed files exist. `--test` also runs the test suite, `--training` also pulls the dumps of the training leagues (16 GB, only to retrain here), `--dry-run` shows what it would do. Run it again at any time: it only downloads what differs and deletes nothing.
 3. **Start the viewer:** `python scripts/run_viewer.py`.
+4. **Claude Code on the new machine:** `CLAUDE.md` in the repository gives it the working rules and the domain notes. The memory notes and `plans/` come with the script (`sync_notes.py pull`); the conversations only if you ask (workflow 9).
 
 The models are pickles written by scikit-learn, PyTorch and friends: the requirements file pins the versions, or an artifact may fail to load. If one does, retrain (workflow 3). The raw files come from the machine that has the exports: run `sync_files.py push` there first, and after each new export. `files/` is not in git. A machine that only develops can skip the training set and the models if it never scores (the tests run without the raw files).
 
@@ -168,6 +171,17 @@ The models are pickles written by scikit-learn, PyTorch and friends: the require
 ### 8. The viewer on a server
 
 The viewer runs in a container on a small server (about 350 MB of memory; `deploy/`). It reads only the processed files of the latest season of each human league. New data: after `update_all.py`, `deploy/push_data.sh` (pushes the `viewer` set to S3 and has the server pull it and restart). New code: `deploy/deploy.sh`. Setup, nginx and S3 access: [deploy/README.md](../deploy/README.md). `tests/test_viewer_memory.py` keeps every page inside the memory budget: a new screen should load its data through `viewer/data_cache.py`, never with its own cache, and must not change the shared frame.
+
+### 9. Working on two machines
+
+You finish a big item on one machine and continue on the other; everything is in `main` when you switch.
+
+1. **Before you leave a machine:** merge your branch to `main`; `python scripts/sync_notes.py push` (Claude Code's memory notes and `plans/`); `sync_files.py push` if there are new exports, `sync_models.py push` if you trained models.
+2. **On the other machine:** `git checkout main && git pull`, then `sync_notes.py pull` (and `sync_files.py pull`, `sync_models.py pull` as needed), then `update_all.py` if the exports changed.
+3. **Claude Code's conversations** are only moved when you ask: `sync_notes.py push --set sessions` here and `pull --set sessions` there, then `claude --resume` shows them. They are big and hold everything that was on screen (paths, IP addresses, outputs); the other sets hold your notes only.
+4. A pull never deletes, and it leaves alone a file you changed on this machine after the last push (it says so; `--force` overwrites, `--mirror` removes local files that are not in the set). The repository's `CLAUDE.md` holds what Claude Code needs to know about the project and how you work, so it is the same on both machines; the memory notes are for what it learns along the way.
+
+The notes sets are stored in the bucket apart from the models and league files (`notes-*/`), where the read-only key of the viewer server cannot read them.
 
 ## Where things are written
 

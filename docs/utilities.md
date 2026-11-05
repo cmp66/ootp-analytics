@@ -2,6 +2,8 @@
 
 The small modules the scripts and the viewer share, and the shell scripts of the server. The scripts themselves are in [scripts.md](scripts.md), the settings in [configuration.md](configuration.md).
 
+Repository root: `CLAUDE.md` is what Claude Code reads first (how we work, the export, the baseball rules, gotchas).
+
 ## util/ (shared helpers)
 
 | Module | What it is for |

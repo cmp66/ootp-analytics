@@ -32,8 +32,21 @@ outlook_lists.py TGS27 --list draft --out draft.csv
 ```
 Options: `--season`, `--org`, `--horizon {1,2,3,5,7,10,99}` (99 = career), `--slot`, `--top`, `--out`. Needs the outlook files of `predict_outlook.py`.
 
+### sync_notes.py
+Keeps what is not in git in step between your machines (workflow 9 of [workflows.md](workflows.md)): Claude Code's memory notes of the project (`~/.claude/projects/<project path>/memory/`), the `plans/` folder and, with `--set sessions`, the Claude Code conversations. Same design as `sync_models.py` (files stored once by hash, a dated manifest per push, a pull only downloads what differs), under `notes-<set>/` and `notes-blobs/` in the bucket, apart from the models and league files.
+```
+sync_notes.py push                  # memory notes and plans/ (when you finish some work)
+sync_notes.py pull                  # on the other machine (before you start)
+sync_notes.py push --all            # also the conversations; or --set sessions alone
+sync_notes.py pull --dry-run        # say what would change
+sync_notes.py pull --force          # also overwrite local files changed after the last push
+sync_notes.py pull --mirror         # also remove local files that are not in the set
+sync_notes.py list                  # the stored sets
+```
+A pull never deletes (unless `--mirror`) and leaves a local file alone that differs from the stored one and is newer than the set, so work done on this machine after the last push is not overwritten. The Claude Code folder of a project is named after its path, so the sets land in the right folder on a machine with another path.
+
 ### setup_machine.py
-Sets up another machine to develop and run the project (workflow 6 of [workflows.md](workflows.md)): `setup_machine.py --install cpu` (or `cuda`, `xpu`) installs the libraries with `uv pip install`, checks that they import and that the S3 bucket answers, runs `sync_models.py pull` and `sync_files.py pull`, then `update_all.py`. Needs `git clone`, Python 3.14, `uv`, `aws configure` and the machine's IP in the bucket policy first.
+Sets up another machine to develop and run the project (workflow 6 of [workflows.md](workflows.md)): `setup_machine.py --install cpu` (or `cuda`, `xpu`) installs the libraries with `uv pip install`, checks that they import and that the S3 bucket answers, runs `sync_models.py pull`, `sync_files.py pull` and `sync_notes.py pull`, then `update_all.py`. Needs `git clone`, Python 3.14, `uv`, `aws configure` and the machine's IP in the bucket policy first.
 ```
 setup_machine.py --install cpu     # everything, with the libraries
 setup_machine.py                   # the libraries are already there
