@@ -68,6 +68,7 @@ class Playing:
     carry_pitchers: float = 0.38
     carry_pitchers_potential: float = 0.03
     start_rating: float = 25.0
+    joint_weight: float = 0.5
     primary_premium: float = 1.5
     key_premium: float = 2.0
     key_positions: tuple = ("C", "SS", "CF")

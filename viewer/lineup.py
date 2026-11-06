@@ -164,3 +164,46 @@ def comparison(result: pd.DataFrame) -> pd.DataFrame:
              int(((starters["Old"] != "") & (starters["Old"] != starters["Slot"])).sum()), float(playing_["total"].sum()))
         )  # fmt: skip
     return pd.DataFrame(rows, columns=["Level", "Players", "Off primary", "Differs from chart", "Playing value"])
+
+
+def joint(frame: pd.DataFrame, ratings: pd.DataFrame, rules: minors.Rules, settings: playing.Playing | None = None,
+          weight: float | None = None, growth: pd.DataFrame | None = None):  # fmt: skip
+    """The `playing` argument of `roster.plan`: the slots of the levels for the program that chooses the levels.
+
+    For every player and every minor league level he could go to, the value of each slot he can play there
+    (`playing.slot_utilities` at that level: its median age, its place on the ladder) over what he is worth on the bench or in
+    the bullpen. The program gains `weight` times these for the slots it fills (one player per lineup slot, the starters wanted
+    in the rotation), so a prospect goes where he plays, and two shortstops of one level do not both stay for the one position.
+    The majors and the complex where players are placed automatically have no slots here."""
+    settings = settings or playing.load_playing()
+    weight = settings.joint_weight if weight is None else weight
+
+    def build(table: pd.DataFrame, rungs: list[str], levels: dict[str, LevelLimits]) -> dict:
+        place = {i: p for p, i in enumerate(table["ID"])}
+        players = inputs(table, frame, ratings, growth)
+        ages = median_ages(frame, table)
+        base, parts, caps = {}, [], {}
+        for level in rungs:
+            if level == minors.TOP or levels[level].no_demotion:
+                continue
+            utility = playing.slot_utilities(
+                players, ages.get(level, float(table["Age"].median())), rungs.index(level), settings
+            )
+            if utility.empty:
+                continue
+            bench = utility[utility["slot"].isin(["BENCH", "RP"])].groupby("ID")["total"].max()
+            wanted = utility[utility["slot"].isin([*LINEUP, "SP"])].copy()
+            wanted["gain"] = wanted["total"] - wanted["ID"].map(bench).fillna(0.0)
+            wanted = wanted[wanted["gain"] > 0]
+            for player_id, value in bench.items():
+                base[(place[player_id], level)] = float(value)
+            parts.append(
+                pd.DataFrame(
+                    {"row": wanted["ID"].map(place), "level": level, "slot": wanted["slot"], "gain": wanted["gain"]}
+                )
+            )
+            caps[(level, "SP")] = roster._starters(level, rules)
+        inc = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["row", "level", "slot", "gain"])
+        return {"weight": weight, "base": base, "inc": inc, "caps": caps}
+
+    return build

@@ -65,6 +65,8 @@ age_step = 0.15         # a year younger than the median of the level counts thi
 age_min = 0.5
 age_max = 1.5
 window_cap = 5          # years of development window that count
+joint_weight = 0.5      # how much who plays where counts in the choice of the levels, against the other reasons for a move (0 = the
+                        # levels are chosen as before and the lineups only follow); a hand-tuned guess, see docs/viewer.md
 innings = 1000          # innings a full-time fielder plays in a season (for the position learning)
 start_rating = 25       # rating at a position he has never played (they start around 20 to 30)
 # Train the position he will play in the majors first (C, SS and CF most of all: a 70 or more is a long climb), then move him around.

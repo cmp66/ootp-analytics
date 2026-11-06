@@ -136,3 +136,57 @@ def test_the_growth_of_a_player_lifts_his_value():
 
 def test_the_defaults_come_from_the_settings_file():
     assert isinstance(playing.load_playing(), playing.Playing) and roster.LINEUP[-1] == "DH"
+
+
+# ---------------------------------------------------------------- the levels and the slots decided together
+
+
+def prospects_at_one_level(settings_weight):
+    """Two shortstop prospects of the same age at A, one slot at short there and an empty AA above."""
+    from tests.test_roster import frame_of, table  # noqa: PLC0415
+
+    prospect = {"focus": True, "Tier": minors.PROSPECT, "ceiling_pct": 0.9, "Window": 4, "Listed": "SS", "Age": 21}
+    t = table([("A", False, prospect), ("A", False, prospect)])
+    frame = frame_of(t)
+    ratings = pd.DataFrame({"ID": t["ID"]})
+    levels = {"AA": LevelLimits(), "A": LevelLimits(max_age=25)}
+    rules = minors.Rules(starters=1, pitcher_slack=0)
+    joint = lineup.joint(frame, ratings, rules, weight=settings_weight) if settings_weight else None
+    return roster.plan(t, frame, levels, rules, playing=joint), frame, ratings, levels, rules
+
+
+def test_without_the_slots_both_shortstops_stay_and_with_them_one_moves_up_to_play():
+    stay, *_ = prospects_at_one_level(0)
+    assert stay.players["Final"].tolist() == ["A", "A"]
+    moved, frame, ratings, levels, rules = prospects_at_one_level(8.0)
+    assert sorted(moved.players["Final"]) == ["A", "AA"]  # one of them plays short at AA, the other at A
+    placed = lineup.lineups(moved.players, frame, ratings, levels, rules)
+    at_short = placed[placed["Slot"] == "SS"]
+    assert sorted(at_short["Level"]) == ["A", "AA"] and at_short["Level"].is_unique
+
+
+def test_a_small_weight_does_not_move_anybody_the_ratings_did_not_ask_to_move():
+    small, *_ = prospects_at_one_level(0.05)
+    assert small.players["Final"].tolist() == ["A", "A"]
+
+
+def test_the_slot_variables_are_tied_to_the_destination_and_capped_by_the_slot():
+    import numpy as np  # noqa: PLC0415
+    from scipy import sparse  # noqa: PLC0415
+
+    pairs = [(0, "A", 0.0), (0, "AA", -1.0), (1, "A", 0.0), (1, "AA", -1.0)]
+    inc = pd.DataFrame(
+        {"row": [0, 0, 1, 1], "level": ["A", "AA", "A", "AA"], "slot": ["SS"] * 4, "gain": [5.0, 4.0, 5.0, 4.0]}
+    )
+    playing_ = {"weight": 2.0, "base": {(0, "A"): 1.0}, "inc": inc, "caps": {}}
+    start = sparse.csr_matrix(np.eye(4))
+    matrix, cost, lower, upper, integrality, top = roster._with_playing(
+        start, np.zeros(4), [1.0] * 4, [1.0] * 4, np.ones(4), np.ones(4), pairs, playing_
+    )
+    assert matrix.shape == (
+        4 + 4 + 2,
+        4 + 4,
+    )  # the old rows, a "y <= x" row for each slot variable, a cap row per (level, slot)
+    assert cost[:4].tolist() == [-2.0, 0.0, 0.0, 0.0]  # the bench value of player 0 at A joins his destination
+    assert cost[4:].tolist() == [-10.0, -8.0, -10.0, -8.0] and top[4:].tolist() == [1.0] * 4 and integrality[4:].all()
+    assert upper[-2:].tolist() == [1.0, 1.0] and upper[4:8].tolist() == [0.0] * 4
