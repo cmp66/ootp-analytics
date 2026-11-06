@@ -19,21 +19,22 @@ from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
 from model import scales  # noqa: E402
-from viewer import data_cache, league, minors, overview, roster  # noqa: E402
+from viewer import data_cache, league, lineup, minors, overview, playing, roster  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
     "Player": 150, "Pos": 50, "Age": 50, "Pro": 50, "Tier": 105, "Win": 50, "Ceil": 56, "Floor": 56, "Top-50 %": 70, "Green": 56,
-    "Mean %": 66, "Opt": 70, "To": 60, "Reason": 520, "Listed": 60, "Better": 60, "Gain": 56,
+    "Mean %": 66, "Opt": 70, "To": 60, "Reason": 520, "Listed": 60, "Better": 60, "Gain": 56, "Slot": 60, "Primary": 64,
+    "Value": 60, "Dev": 52, "Learn": 56, "Hit": 48, "Now": 52, "Grow": 56,
 }  # fmt: skip
 MOVE_COLORS = {minors.UP: "#2e9e57", minors.DOWN: "#d6453d", minors.MUST: "#e08a1e"}
 TIER_COLORS = {minors.TOP_PROSPECT: "#2e9e57", minors.PROSPECT: "#5aa469"}
-TEXT_COLUMNS = ("Player", "Pos", "Tier", "To", "Reason", "Listed", "Better", "Green", "Opt")
+TEXT_COLUMNS = ("Player", "Pos", "Tier", "To", "Reason", "Listed", "Better", "Green", "Opt", "Slot", "Primary")
 
 
 def load(save: str, season: int):
-    return data_cache.outlook(save, season), data_cache.player_data(save, season)
+    return data_cache.outlook(save, season), data_cache.player_data(save, season), data_cache.growth(save, season)
 
 
 def rules_from_page(base: minors.Rules) -> minors.Rules:
@@ -110,9 +111,18 @@ def styled(frame: pd.DataFrame):
             "Mean %": "{:.0f}",
             "Gain": "{:.1f}",
             "Age": "{:.0f}",
+            "Value": "{:.1f}",
+            "Dev": "{:.1f}",
+            "Learn": "{:.1f}",
+            "Hit": "{:.1f}",
+            "Now": "{:.1f}",
+            "Grow": "{:+.1f}",
         },
         na_rep="",
     )
+    if {"Slot", "Primary"} <= set(frame.columns):  # a slot that is not his own position
+        off = frame["Slot"].isin(lineup.LINEUP) & (frame["Slot"] != frame["Primary"])
+        style = style.apply(lambda col: ["color: #e08a1e; font-weight: 700" if o else "" for o in off], subset=["Slot"])
     for column, colors in (("Tier", TIER_COLORS), ("Action", ACTION_COLORS)):
         if column in frame:
             style = style.map(lambda v, c=colors: f"color: {c[v]}; font-weight: 700" if v in c else "", subset=[column])
@@ -155,6 +165,22 @@ def move_table(group: pd.DataFrame) -> pd.DataFrame:
     return out[columns].reset_index(drop=True)
 
 
+SLOT_ORDER = {slot: k for k, slot in enumerate([*lineup.LINEUP, "BENCH", "SP", "RP"])}
+
+
+def lineup_table(group: pd.DataFrame) -> pd.DataFrame:
+    """Who plays at a level: the lineup slots, then the bench, the rotation and the bullpen, with the parts of the playing value
+    (development, learning, the cost of an unfamiliar position, current value) and the words for the place."""
+    out = group.assign(order=group["Slot"].map(SLOT_ORDER)).sort_values(["order", "total"], ascending=[True, False])
+    out = out.rename(
+        columns={"total": "Value", "development": "Dev", "learning": "Learn", "hit": "Hit", "current": "Now"}
+    )
+    columns = ["ID", "Slot", "Player", "Age", "Primary", "Value", "Dev", "Learn", "Hit", "Now"]
+    if "Grow" in out:
+        columns.append("Grow")
+    return out[[*columns, "Reason"]].reset_index(drop=True)
+
+
 def position_table(group: pd.DataFrame) -> pd.DataFrame:
     return group.rename(columns={"Better": "Better", "Why": "Reason"})[
         ["ID", "Player", "Age", "Listed", "Better", "Gain", "Reason"]
@@ -178,13 +204,61 @@ def show(frame: pd.DataFrame, key: str):
 
 
 @st.cache_data(show_spinner="Working out the moves...", max_entries=4, ttl=3600)
-def planned(save: str, season: int, org: str, rules: minors.Rules, version: str, mlb_limit: int) -> roster.Plan:
-    frame, ratings = load(save, season)
+def planned(
+    save: str, season: int, org: str, rules: minors.Rules, version: str, mlb_limit: int, settings: playing.Playing
+) -> tuple[roster.Plan, pd.DataFrame]:
+    """The plan of the organization and, for the levels it ends up with, who plays where (viewer/lineup.py). The levels are chosen
+    together with the slots when `settings.joint_weight` is above 0."""
+    frame, ratings, growth = load(save, season)
     levels = get_save(save).levels
     mlb = roster.mlb_table(frame, ratings, org, rules, version)
     peers = roster.mlb_peers(frame, ratings, rules)
     table = minors.manage(frame, ratings, org, levels, rules, version)
-    return roster.plan(table, frame, levels, rules, mlb, mlb_limit, peers)
+    joint = lineup.joint(frame, ratings, rules, settings, growth=growth) if settings.joint_weight > 0 else None
+    result = roster.plan(table, frame, levels, rules, mlb, mlb_limit, peers, playing=joint)
+    placed = lineup.lineups(result.players, frame, ratings, levels, rules, settings, growth)
+    if growth is not None and not placed.empty:
+        placed = placed.merge(growth[["ID", "d_cur"]].rename(columns={"d_cur": "Grow"}), on="ID", how="left")
+    return result, placed
+
+
+def playing_from_page(base: playing.Playing) -> playing.Playing:
+    """The settings of config/minors.toml [playing], with the sliders of the page on top (for this session only)."""
+    with st.expander("Who plays (defaults from config/minors.toml; changes here last for this session)"):
+        first, second, third = st.columns(3)
+        joint = first.slider(
+            "Weight of who plays in the choice of the levels", 0.0, 2.0, base.joint_weight, 0.1,
+            help="0: the levels are chosen as before and the lineups only follow; higher: a prospect goes where he plays",
+        )  # fmt: skip
+        development = first.slider(
+            "Development", 0.0, 20.0, base.development, 1.0,
+            help="The value of the best prospect (ceiling 1, five years of window, young for the level) in a full-time slot",
+        )  # fmt: skip
+        learning = second.slider(
+            "Position learning (per rating point)", 0.0, 2.0, base.learning, 0.1,
+            help="Worth of a point gained at a position by playing it: more at his own position, little at another before "
+            "his own is trained",
+        )  # fmt: skip
+        ready = second.slider(
+            "Own position trained before another counts", 0.5, 1.0, base.primary_ready, 0.05,
+            help="How close to its potential (0 = 20, 1 = the potential) his position must be; C, SS and CF use the key level",
+        )  # fmt: skip
+        current = third.slider(
+            "Current value",
+            0.0,
+            20.0,
+            base.current,
+            1.0,
+            help="The floor: the best player of the level now, in a full-time slot",
+        )
+        hit = third.slider(
+            "Performance cost of an unfamiliar position", 0.0, 1.0, base.unfamiliar_hit, 0.05,
+            help="Share of the development value lost while he learns a position, less as he learns it",
+        )  # fmt: skip
+    return replace(
+        base, joint_weight=joint, development=development, learning=learning, primary_ready=ready,
+        key_ready=max(ready, base.key_ready), current=current, unfamiliar_hit=hit,
+    )  # fmt: skip
 
 
 def choose_mlb_limit(frame: pd.DataFrame, rules: minors.Rules, key: str, phase: str | None = None) -> int:
@@ -245,7 +319,7 @@ def main() -> None:
         return
     season = seasons[-1]
     try:
-        frame, ratings = load(save, season)
+        frame, ratings, _ = load(save, season)
     except FileNotFoundError:
         st.error(f"{save} {season} has no outlook files yet: run `python scripts/update_all.py {save}`.")
         return
@@ -266,7 +340,8 @@ def main() -> None:
     rules = rules_from_page(minors.load_rules())
     version = scales.version_of(get_save(save).ratings)
     mlb_limit = choose_mlb_limit(frame, rules, f"mlb-phase-{save}", config[save].get("phase"))
-    result = planned(save, season, org, rules, version, mlb_limit)
+    settings = playing_from_page(playing.load_playing())
+    result, placed = planned(save, season, org, rules, version, mlb_limit, settings)
     table = result.players
     if table.empty:
         st.info(f"{org} has no minor leaguers on the ladder.")
@@ -284,7 +359,10 @@ def main() -> None:
         "Every move respects the limits of the levels (age, pro years, the most players, the pitchers of a level within "
         f"{rules.pitcher_slack} of its target): a level that is too full sends its fillers down, and a player no level can take "
         "is DFA (on the 40-man roster) or released, the one with the least reason to be kept first.",
-        "Listed position = the best lineup of the level (one per position, the most total value) plays him elsewhere; "
+        "Who plays: the levels are chosen together with who plays where (a slot at a level is worth its development, the rating "
+        "he builds at the position, the cost of an unfamiliar position and his current value; the position he is trained at "
+        "comes first, then he moves around). Listed position = the best lineup of the level (one per position, the most "
+        "total value) plays him elsewhere; "
         f"a level wants {rules.starters} starting pitchers, relievers who belong in the rotation are flagged.",
         "Click a player for his ratings.",
     ]
@@ -296,6 +374,13 @@ def main() -> None:
     ladder = minors.ladder(levels)
     present = [lv for lv in [minors.TOP, *ladder] if lv in set(table["Level"])]
     st.dataframe(style_summary(result.summary, rules.pitcher_slack), height=min(len(result.summary), 10) * 35 + 38)
+    if not placed.empty:
+        st.caption(
+            "Who plays: players placed at the level they end up at; off primary = at a slot other than the position he is "
+            "trained at; differs from chart = the depth chart (most current value per position) would place him elsewhere; "
+            "playing value = the sum of the values of the lineup and the rotation."
+        )
+        st.dataframe(lineup.comparison(placed), hide_index=True, height=min(len(present), 10) * 35 + 38)
     generation = st.session_state.setdefault("minors_generation", 0)
     picked = None
     for level in present:
@@ -322,6 +407,15 @@ def main() -> None:
                 picked = (clicked, row["Pos"], row["Player"], level)
         if not shown_any:
             st.write("No moves.")
+        if level != minors.TOP and not placed.empty:
+            playing_here = placed[placed["Level"] == level]
+            if not playing_here.empty:
+                st.markdown(f"**Who plays** ({len(playing_here)}): the lineup, the bench, the rotation and the bullpen")
+                clicked = show(lineup_table(playing_here), f"minors-{save}-{org}-{level}-plays-{generation}")
+                if clicked and not picked:
+                    row = here.loc[here["ID"] == clicked]
+                    if not row.empty:
+                        picked = (clicked, row.iloc[0]["Pos"], row.iloc[0]["Player"], level)
     if picked:
         st.session_state["minors_generation"] = generation + 1
         player_id, slot, name, level = picked

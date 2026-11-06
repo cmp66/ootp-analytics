@@ -64,6 +64,14 @@ def player_data(save: str, season: int) -> pd.DataFrame:
     return shrink(table.drop_duplicates("ID"))
 
 
+@st.cache_resource(max_entries=MAX_LEAGUES, show_spinner=False)
+def growth(save: str, season: int) -> pd.DataFrame | None:
+    """ID, d_cur, d_pot and days: recent growth from the archive of exports (model/growth.py); None until the archive has two
+    exports 90 days apart."""
+    path = paths.output_file(save, season, "growth")
+    return shrink(pd.read_csv(path)) if path.exists() else None
+
+
 def player_row(save: str, season: int, player_id: int) -> pd.Series:
     """The ratings row of one player, named by his ID."""
     table = player_data(save, season)
