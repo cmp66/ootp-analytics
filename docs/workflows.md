@@ -185,6 +185,10 @@ You finish a big item on one machine and continue on the other; everything is in
 
 The notes sets are stored in the bucket apart from the models and league files (`notes-*/`), where the read-only key of the viewer server cannot read them.
 
+### 10. Checking the models against the human leagues
+
+After a new season of a human league, or after retraining: `python scripts/check_human_bias.py` (about two minutes). A `<<<` on a rating means all the human leagues miss in the same direction by a noticeable amount; if it holds up over seasons, calibrate it the way `pitching_control_per_sd` does (`config/saves.toml`, `model/relative.py`). `check_stuff_bias.py` looks at one question in detail (are pitchers with stuff and little else rated too high). The values the viewer shows are `_rel` (league relative), so a league-wide shift alone needs no action.
+
 ## Where things are written
 
 | What | Where |

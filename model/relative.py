@@ -81,17 +81,19 @@ def add_relative(scored: pd.DataFrame, weights: dict[str, pd.Series]) -> tuple[p
     return out, shifts
 
 
-CONTROL_COLUMNS = ("CON.1 vR", "CON.1 vL")
-MAX_CONTROL_Z = (
-    2.5  # the calibration was measured among major leaguers; a minor leaguer further out is not extrapolated
-)
+CALIBRATED_RATINGS = {  # calibration name -> the rating columns (the mean of the vs-right and vs-left ratings)
+    "control": ("CON.1 vR", "CON.1 vL"),
+    "pbabip": ("PBABIP vR", "PBABIP vL"),
+    "stamina": ("STM",),
+}
+MAX_Z = 2.5  # the calibration was measured among major leaguers; a minor leaguer further out is not extrapolated
 CALIBRATED_FIP = ("pitching_fip", "pitching_fip_vs_right", "pitching_fip_vs_left", "pitching_fip_plain")
 
 
-def control_z(players: pd.DataFrame, weights: pd.Series) -> pd.Series:
-    """Each pitcher's control rating (the mean of the vs-right and vs-left ratings) in standard deviations from the league: the
-    mean and standard deviation are those of the pitchers who pitched in the season, weighted by innings."""
-    rating = players[list(CONTROL_COLUMNS)].apply(pd.to_numeric, errors="coerce").mean(axis=1)
+def rating_z(players: pd.DataFrame, weights: pd.Series, columns: tuple[str, ...]) -> pd.Series:
+    """Each pitcher's rating (the mean of the columns, e.g. the vs-right and vs-left ratings) in standard deviations from the
+    league: the mean and standard deviation are those of the pitchers who pitched in the season, weighted by innings."""
+    rating = players[list(columns)].apply(pd.to_numeric, errors="coerce").mean(axis=1)
     both = pd.concat([rating.rename("rating"), weights.rename("weight")], axis=1, join="inner").dropna()
     both = both[both["weight"] > 0]
     if both.empty:
@@ -101,19 +103,33 @@ def control_z(players: pd.DataFrame, weights: pd.Series) -> pd.Series:
     return (rating - mean) / sd if sd > 0 else pd.Series(0.0, index=players.index)
 
 
-def calibrate_pitching(scored: pd.DataFrame, players: pd.DataFrame, weights: dict[str, pd.Series], per_sd: float):
-    """Human league calibration of the pitching values: `per_sd` runs per 200 IP for each standard deviation of control. The
-    models learn from a computer league, and in the human leagues the pitchers with poor control do worse, and those with good
-    control better, than they predict (about 2.5 runs per 200 IP per standard deviation, pooled over three leagues). Added to
-    the FIP values and to pitching_runs, with the amount in `pitching_control_adjustment` (the standard deviations are capped at
-    +-MAX_CONTROL_Z); per_sd 0 changes nothing."""
+def control_z(players: pd.DataFrame, weights: pd.Series) -> pd.Series:
+    """The control rating in standard deviations of the league (see rating_z)."""
+    return rating_z(players, weights, CALIBRATED_RATINGS["control"])
+
+
+def calibrate_pitching(
+    scored: pd.DataFrame, players: pd.DataFrame, weights: dict[str, pd.Series], per_sd: dict[str, float] | float
+):
+    """Human league calibration of the pitching values: runs per 200 IP for each standard deviation of a rating, for the
+    ratings of CALIBRATED_RATINGS (`per_sd` maps the name to the number; a plain number is control alone). The models learn from
+    a computer league, and in the human leagues pitchers with poor control, hit prevention (PBABIP) or stamina do worse, and those
+    with good ones better, than they predict (about 2.4, 1.1 and 1.2 runs per 200 IP per standard deviation, pooled over three
+    leagues, scripts/check_human_bias.py). Added to the FIP values and to pitching_runs, with each amount in
+    `pitching_<name>_adjustment` (the standard deviations are capped at +-MAX_Z); a setting of 0 changes nothing."""
+    if not isinstance(per_sd, dict):
+        per_sd = {"control": per_sd}
+    per_sd = {name: value for name, value in per_sd.items() if value}
     if not per_sd or "pitching_fip" not in scored:
         return scored
-    z = control_z(players, weights[domains.PITCHING_FIP]).clip(-MAX_CONTROL_Z, MAX_CONTROL_Z)
-    adjustment = (per_sd * z).reindex(scored.index).fillna(0.0)
     out = scored.copy()
+    total = pd.Series(0.0, index=scored.index)
+    for name, value in per_sd.items():
+        z = rating_z(players, weights[domains.PITCHING_FIP], CALIBRATED_RATINGS[name]).clip(-MAX_Z, MAX_Z)
+        adjustment = (value * z).reindex(scored.index).fillna(0.0)
+        out[f"pitching_{name}_adjustment"] = adjustment
+        total += adjustment
     for column in (*CALIBRATED_FIP, "pitching_runs"):
         if column in out:
-            out[column] = out[column] + adjustment
-    out["pitching_control_adjustment"] = adjustment
+            out[column] = out[column] + total
     return out
