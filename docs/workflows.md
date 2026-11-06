@@ -77,6 +77,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 | Script | What it does |
 | --- | --- |
 | `evaluate_models.py` | Scores trained models against real outcomes of some seasons. |
+| `check_playing_time.py` | Rating change against playing time (hitters, pitchers, defense) with a placebo on next season's playing time: how much of the link is selection. Workflow 11. |
 | `check_stuff_bias.py` | Checks whether the pitching models are too kind to pitchers with stuff and little else (or the opposite), against the real outcomes of a training league. |
 | `review_outlook.py` | Writes `docs/outlook-diagnostics-<save>.md`: how ratings develop, who stays, what traits change. |
 | `check_format_parity.py` | Writes `docs/export-dump-parity.md`: what the dump and the export have in common. |
@@ -188,6 +189,10 @@ The notes sets are stored in the bucket apart from the models and league files (
 ### 10. Checking the models against the human leagues
 
 After a new season of a human league, or after retraining: `python scripts/check_human_bias.py` (about two minutes). A `<<<` on a rating means all the human leagues miss in the same direction by a noticeable amount; if it holds up over seasons, calibrate it the way `pitching_control_per_sd` does (`config/saves.toml`, `model/relative.py`). `check_stuff_bias.py` looks at one question in detail (are pitchers with stuff and little else rated too high). The values the viewer shows are `_rel` (league relative), so a league-wide shift alone needs no action.
+
+### 11. Does playing time matter for development?
+
+After a human league has three or more consecutive seasons, or after a new training league: `python scripts/check_playing_time.py --saves <save>` (a minute or two per save). Read the **placebo** first: if next season's playing time predicts this season's change by much more than the season's own does, the managers give time to players who improved and the raw number is mostly selection. The raw coefficient times 6 (per 600 PA) is the most the playing time could be worth. For the training leagues see "Playing time and development" in [models.md](models.md).
 
 ## Where things are written
 

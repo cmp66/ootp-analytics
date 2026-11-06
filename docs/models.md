@@ -82,3 +82,21 @@ What this means for the work so far:
 - **Potential is not fixed.** The `talent` (potential) ratings of hitters fall with age: by 28-30 they have lost one to two points. Young players more than 2 points below potential grow about twice as fast as those at it.
 - **Relative against direct 1-10.** At the same moment 95% of the rating cells are identical. The relative setting lowers pitchers' PBABIP (22% of the cells differ, -0.22 on the 1-10 scale), control (-0.09) and stuff (-0.05), and raises hitters' strikeouts (+0.09) and contact (+0.04); speed, stamina and fielding are identical. The gap is constant through the year: the relative setting adds no drift of its own, and the development by age is the same.
 - **The conversion for PBL27.** `OOTP27.csv` matches the relative 1-10 within 0.3 20-80 points. With relative ratings off the top buckets of pitchers are worth less on the 20-80 scale (a control of 8, 9 and 10 is 59.7, 65.7 and 72.5 where the relative table says 64.7, 70.9 and 76.9). PBL27 plays with relative ratings off (its MLB pitchers look like Direct10, not Relative10: PBABIP 5.81 against 5.76 and 5.53), so it uses `OOTP27-direct.csv`, built from the first dumps of Relative80 and Direct10 (`scripts/build_scale_tables.py --direct`), for the training of its model set and for the outlook models.
+
+## Playing time and development
+
+`scripts/check_playing_time.py` asks whether the playing time a player actually gets changes how his ratings develop. Rating points of change per year per 100 plate appearances (hitters), batters faced (pitchers) or innings (defense), Model-Sim (2045-2086) and Model-Sim-26-Std (2037-2099), controlled for age, level, previous rating, gap to potential, work ethic and intelligence:
+
+| Group | Raw (upper bound) | With the seasons around | Placebo (next season's time) |
+| --- | --- | --- | --- |
+| Hitters, 6 batting ratings | +0.106 / +0.122 | +0.034 / +0.050 | +0.219 / +0.172 |
+| Pitchers, 5 pitching ratings | +0.059 / +0.029 | -0.035 / +0.005 | +0.083 / +0.029 |
+| Infield, 4 ratings | +0.023 / +0.021 | +0.008 / +0.006 | +0.017 / +0.024 |
+| Outfield, 3 ratings | +0.035 / +0.040 | +0.008 / +0.017 | +0.025 / +0.043 |
+| Catcher, 3 ratings | +0.011 / +0.024 | +0.002 / +0.007 | +0.013 / +0.033 |
+
+- **Managers reward the players who improved.** The playing time of the *next* season predicts this season's rating change about as strongly as (hitters: two to six times more than) this season's own, and it cannot be a cause. Most of the raw link is selection.
+- **Playing time is worth at most a little.** The raw coefficient is an upper bound; times six it is +0.64 / +0.73 rating points a year for a hitter with a full season (600 PA), +0.35 / +0.18 for a pitcher with 600 batters, +0.14 / +0.12 for a full season of infield and +0.21 / +0.24 for outfield, against annual changes of 1 to 1.5 points a rating for players under 24. Holding the seasons around fixed gives the lower bound (it can come out negative because playing time is persistent and the next season carries the change), so the real effect is between the two columns and, given the size of the placebo, nearer the lower. Young hitters have the largest numbers (under 22: +0.09 per 100 PA with the placebo in, 0.33 for the placebo).
+- **Not settled by this data.** A cross-section cannot separate cause from selection when the manager reacts to the improvement as it happens. The weekly runs of `files/Development-Analysis` (cumulative playing time against weekly rating change in 2087) were inconclusive: ratings change in about 4% of player-weeks, and early and late playing time are too correlated.
+- **For the models.** Playing time in the outlook tables is a signal of the manager's view of a player, not something that drives development. In the human leagues the manager is you: a prospect you play more is not a prospect the computer manager would have played, so do not read the training leagues' link as a reason to play a prospect for his development alone.
+- **Not yet done for the human leagues.** Each has one season; the script needs three consecutive ones for the placebo.
