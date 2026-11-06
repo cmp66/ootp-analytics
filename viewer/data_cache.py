@@ -6,6 +6,9 @@ the memory of the viewer stays at one or two leagues however many screens there 
 change them (`league.park_frame` and the other functions that adjust values work on a copy).
 """
 
+import ctypes
+import sys
+
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -14,6 +17,25 @@ from util import paths
 from viewer import queries
 
 MAX_LEAGUES = 2
+M_MMAP_THRESHOLD = -3  # mallopt parameter of glibc
+MMAP_THRESHOLD = 128 * 1024
+
+
+def fix_mmap_threshold() -> bool:
+    """Give big arrays back to the operating system when they are freed (Linux, glibc only; True when it was set).
+
+    By default glibc raises the size above which memory is taken straight from the system (up to 32 MB) each time such a block is
+    freed, so after a few pages the tables that pandas makes and drops stay in the process: the viewer peaked at 525 MB, with
+    only about 70 MB of tables alive. Fixing the threshold turns that off (peak 414 MB with every page opened)."""
+    if not sys.platform.startswith("linux"):
+        return False
+    try:
+        return bool(ctypes.CDLL("libc.so.6").mallopt(M_MMAP_THRESHOLD, MMAP_THRESHOLD))
+    except OSError, AttributeError:
+        return False
+
+
+fix_mmap_threshold()
 
 
 def shrink(frame: pd.DataFrame) -> pd.DataFrame:

@@ -147,7 +147,7 @@ def league_players(frame: pd.DataFrame, ratings: pd.DataFrame, rules: Rules) -> 
     best = rows.sort_values("standing", ascending=False, kind="stable").drop_duplicates("ID")
     best = best[~best["org"].isin(["FA", "nan", ""])]
     columns = ["ID", "org", "team_level", "Age", "slot", "value_now", "First Name", "Last Name"] + [
-        c for c in ("PROY", "LPOS", "ON40", "ACT", "OY", "OPT") if c in best
+        c for c in ("PROY", "LPOS", "ON40", "ACT", "OY", "OPT", "INJ", "Left") if c in best
     ]
     out = best[columns].copy()
     if "PROY" not in out:

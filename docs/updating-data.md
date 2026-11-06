@@ -24,11 +24,11 @@ A human league save (`source = "export"` in `config/saves.toml`) lives in `files
 
 - **Finance and statistics are updated only periodically.** A page that shows older finance or statistics than the ratings is normal, not a mistake in the update.
 - **The player lists must hold every level.** The MLB list and every minor league list have to be in `ratings/`. An export with the MLB only makes the minor league pages empty. If a page looks empty at AAA / R, first check that the minor league lists are there.
-- **Columns the pages read** (add them to the export view if they are missing): `R5` (draft eligible) and `ON40` (on the 40-man roster) for the Rule 5 page, `OY` (options used), `WAIV` (on waivers), `DFA`, `DEM` (a free agent's one-year demand; for IAFA and draft players the signing bonus), `Sign` (signability), `SLR` and `YL` (contract), `PROY` (pro years, for the level limits), `OPT` (option years used, 0 to 3) and `OY` (times optioned this season) for the level moves page, `Nat. Pop.` and `Loc. Pop.` (popularity, for the acquisitions priority list; values Unkn., Insig., Fair, Known, Pop., V.Pop, Ex.Pop.). A demand of 0 means a minor league deal. After adding a column, re-export the player lists and run `update_all.py`.
+- **Columns the pages read** (add them to the export view if they are missing): `R5` (draft eligible) and `ON40` (on the 40-man roster) for the Rule 5 page, `OY` (options used), `WAIV` (on waivers), `DFA`, `DEM` (a free agent's one-year demand; for IAFA and draft players the signing bonus), `Sign` (signability), `SLR` and `YL` (contract), `PROY` (pro years, for the level limits), `OPT` (option years used, 0 to 3) and `OY` (times optioned this season) for the level moves page, `INJ` and `Left` (injured now, and the time left, so the level moves page does not move injured players), `Nat. Pop.` and `Loc. Pop.` (popularity, for the acquisitions priority list; values Unkn., Insig., Fair, Known, Pop., V.Pop, Ex.Pop.). A demand of 0 means a minor league deal. After adding a column, re-export the player lists and run `update_all.py`.
 
 ## Everyday: new ratings files
 
-1. Put the export in the save's folder (same layout as the earlier seasons).
+1. `copy_exports.py` copies the export into the save's latest season folder (same layout as the earlier seasons); see [scripts.md](scripts.md). Or put the files there yourself.
 2. `update_all.py` (all saves of `config/update.toml`) or `update_all.py TGS27`. It runs, per save: process the seasons, score the values, score the outlook, write the park rates and the lists of `config/viewer.toml` into `output/lists/`.
    - `--season 2046` when it is not the latest season in the folder.
    - `--if-changed` skips a save whose input files have not changed since the last update.

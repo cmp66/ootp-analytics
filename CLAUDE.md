@@ -63,7 +63,7 @@ keeping, and tell the user to pull on the other machine.
   sending a major leaguer down. Moves respect the age and pro-years limits of each level (a 26 year old does not go down to a level
   with maximum age 25), `max_players` and the `pitchers` target (a target, +-1, because pitchers get hurt) per level in
   `config/saves.toml`. INT (international complex) is `no_demotion`: players are placed there automatically. Winter leagues are
-  `ladder = false` and not managed yet (a separate work item). Every level needs 2 catchers, 5 infielders, 4 outfielders and a
+  `ladder = false` and not managed yet (a separate work item). Injured players (`INJ` Yes) are not moved. Every level needs 2 catchers, 5 infielders (2B, 3B, SS: a first baseman does not count), 4 outfielders and a
   rotation (6 SP in the minors, 5 in the majors; the MLB season roster is 13 pitchers: 5 starters, 8 relievers). AAA has no age
   limit and is the last stop for prospects and the cover for injuries; lower down prospect status counts for more and a filler is
   just a filler.
@@ -77,6 +77,7 @@ keeping, and tell the user to pull on the other machine.
 
 - Streamlit page code runs on every rerun: heavy work goes in `st.cache_data` with `max_entries`, shared frames in
   `viewer/data_cache.py` (read only, 32-bit floats, two leagues at most).
+- `viewer/data_cache.py` fixes glibc's mmap threshold (`fix_mmap_threshold`): without it freed tables stay in the process and the peak is about 110 MB higher. Keep it imported by every page.
 - The viewer server is small (600 MB container): new code goes with `deploy/deploy.sh`, new data with `deploy/push_data.sh`.
 - Pandas performance warnings are errors in the tests (fragmented frames fail).
 - The code of the roster plan (`viewer/roster.py`) is an integer program (scipy `milp`); its penalties are hand tuned constants at

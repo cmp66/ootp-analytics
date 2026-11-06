@@ -46,6 +46,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 
 | Script | What it does |
 | --- | --- |
+| `copy_exports.py` | Copies the new exports from each save's import_export folder (`files/exports/<save>`) into the season folder; stops if the ratings files are a mix of new and old. |
 | `update_all.py` | One button: process, value, outlook-score and list every human league after new ratings files. |
 | `sync_models.py` | Pushes the trained models to the S3 bucket (with history) or pulls them onto another machine. |
 | `sync_notes.py` | Keeps Claude Code's memory notes, `plans/` and (on request) its conversations in step between machines. |
@@ -88,7 +89,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 
 This is the usual case. Cost: about 35 seconds for two saves.
 
-1. Put the export in the save's folder: `files/TGS27/<season>/` with the ratings in `files/TGS27/<season>/ratings/` (same layout as the earlier seasons).
+1. Export from OOTP, then `PYTHONPATH=. python scripts/copy_exports.py` (`--dry-run` to look first). It copies the files into the latest season folder `files/<save>/<season>/ratings/` and `finance/`; see [scripts.md](scripts.md). By hand: put them there yourself, in the same layout as the earlier seasons.
 2. `PYTHONPATH=. python scripts/update_all.py` (all saves of `config/update.toml`) or `update_all.py TGS27` (one save). Add `--season 2046` if it is not the latest season in the folder, `--if-changed` to skip a save whose files have not changed.
 3. `PYTHONPATH=. python scripts/run_viewer.py` and open http://localhost:8501. Reload the page if it was already open.
 4. The csv lists are also in `files/<save>/<season>/output/lists/`.

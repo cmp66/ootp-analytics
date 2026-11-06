@@ -1,3 +1,5 @@
+from unittest import mock
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -25,7 +27,14 @@ def table(rows):
 
 
 def frame_of(table_, values=None):
-    rows = [{"ID": i, "slot": "SS", "value_now": 0.0, "LPOS": "SS"} for i in table_["ID"] if i not in (values or {})]
+    """The outlook frame of a table: a player is able at his listed position (value 1) and, listed elsewhere, a shortstop of
+    value 0."""
+    listed = dict(zip(table_["ID"], table_["Listed"])) if "Listed" in table_ else {}
+    rows = [
+        {"ID": i, "slot": listed.get(i) if listed.get(i) in (*roster.HITTER_POSITIONS, "DH") else "SS",
+         "value_now": 1.0 if listed.get(i) in (*roster.HITTER_POSITIONS, "DH") else 0.0, "LPOS": "SS"}
+        for i in table_["ID"] if i not in (values or {})
+    ]  # fmt: skip
     rows += [
         {"ID": i, "slot": s, "value_now": v, "LPOS": "SS"} for i, per in (values or {}).items() for s, v in per.items()
     ]
@@ -210,7 +219,10 @@ def with_majors(minor_rows, mlb_rows, limit, rules=RULES):
     levels = {"AAA": LevelLimits(max_players=10), "AA": LevelLimits(max_players=10)}
     t = table(mlb_rows + minor_rows)
     mlb, minors_ = t[t["Level"] == "MLB"], t[t["Level"] != "MLB"]
-    return roster.plan(minors_, frame_of(t), levels, rules, mlb, limit, PEERS).players.set_index("Player")
+    with mock.patch.object(
+        roster, "BAT_ONLY_MAX", 99
+    ):  # the fillers are all DH: the bat-only limit is tested on its own
+        return roster.plan(minors_, frame_of(t), levels, rules, mlb, limit, PEERS).players.set_index("Player")
 
 
 def test_the_roster_limit_of_the_phase_sends_the_weakest_major_leaguers_down_and_a_larger_limit_keeps_everyone():
@@ -337,3 +349,168 @@ def test_the_summary_counts_what_each_level_has_after_the_plan_of_each_group_it_
     plan = roster.plan(t, pd.concat([frame_of(t), starters]), {"AA": LevelLimits()}, RULES)
     row = plan.summary.loc["AA"]
     assert (row["Catchers"], row["Infielders"], row["Outfielders"]) == (1, 1, 0) and row["Can start"] == 1
+
+
+def test_a_first_baseman_is_not_one_of_the_infielders_a_team_needs():
+    def player(listed, value):
+        return ("MLB", False, {"Listed": listed, "Value": value, "Tier": "MLB"})
+
+    infield = [player("2B", 70), player("3B", 70), player("SS", 70), player("2B", 70), player("SS", 10)]
+    mlb = [player("C", 70), player("C", 70), player("1B", 50), *infield] + [
+        player(p, 70) for p in ("LF", "CF", "RF", "LF")
+    ]
+    plan = with_majors([("AAA", False, {"Listed": "1B", "Value": 99.0})], mlb, 12)
+    assert (
+        plan.loc["P7", "Action"] == ""
+    )  # the weak shortstop is the fifth infielder: a first baseman would not replace him
+    assert plan.loc["P3", "Action"] == roster.DEMOTE and plan.loc["P13", "Action"] == roster.PROMOTE
+
+
+def test_an_injured_player_is_not_moved_either_way():
+    well = {"INJ": "-", "Left": "-"}
+    hurt = {"INJ": "Yes", "Left": "12 months"}
+    mlb = [
+        ("MLB", False, {"Value": 90.0, "Tier": "MLB", **well}),
+        ("MLB", False, {"Value": 10.0, "Tier": "MLB", **hurt}),
+    ]
+    farm = [("AAA", False, {"Value": 99.0, **hurt}), ("AAA", False, {"Value": 80.0, **well})]
+    plan = with_majors(farm, mlb, 2)
+    assert (plan["Action"] == "").all()  # the hurt 99 is not promoted and the hurt 10 is not sent down
+    assert plan.loc["P3", "Why"] == "injured (12 months): not moved until he is well"
+    healthy = with_majors(
+        [("AAA", False, {"Value": 99.0, **well})], mlb[:1] + [("MLB", False, {"Value": 10.0, "Tier": "MLB", **well})], 2
+    )
+    assert healthy.loc["P2", "Action"] == roster.DEMOTE and healthy.loc["P3", "Action"] == roster.PROMOTE
+
+
+def majors_plan(mlb_rows, farm_rows, limit, bats=None):
+    """`bats`: ID -> 1 (right), 2 (left), 3 (switch) for the `B` column of the outlook frame."""
+    levels = {"AAA": LevelLimits(max_players=10), "AA": LevelLimits(max_players=10)}
+    t = table(mlb_rows + farm_rows)
+    mlb, rest = t[t["Level"] == "MLB"], t[t["Level"] != "MLB"]
+    frame = frame_of(t)
+    if bats:
+        frame["B"] = frame["ID"].map(bats).fillna(1).astype(int)
+    return roster.plan(rest, frame, levels, RULES, mlb, limit, PEERS).players.set_index("Player")
+
+
+def test_the_capability_is_what_a_player_can_defend_not_the_position_the_game_lists():
+    t = table([("MLB", False, {"Listed": "LF"}), ("MLB", False, {"Listed": "1B"}), ("MLB", False, {"Listed": "2B"}),
+               ("MLB", False, {"Listed": "C"}), ("MLB", True, {})])  # fmt: skip
+    frame = pd.DataFrame(
+        [
+            {"ID": 1, "slot": "LF", "value_now": -3.0}, {"ID": 1, "slot": "1B", "value_now": 2.0},  # listed LF, cannot field
+            {"ID": 2, "slot": "1B", "value_now": 30.0}, {"ID": 2, "slot": "RF", "value_now": 8.0},  # a bat who could play RF
+            {"ID": 3, "slot": "2B", "value_now": 4.0}, {"ID": 3, "slot": "SS", "value_now": 1.0},
+            {"ID": 3, "slot": "3B", "value_now": -1.0}, {"ID": 4, "slot": "C", "value_now": -12.0},
+        ]
+    )  # fmt: skip
+    cover = roster.capability(t, frame)
+    assert list(cover["OF"]) == [
+        False,
+        False,
+        False,
+        False,
+        False,
+    ]  # the bat first player does not count as an outfielder
+    assert list(cover["IF"]) == [False, False, True, False, False] and list(cover["C"]) == [
+        False,
+        False,
+        False,
+        True,
+        False,
+    ]
+    assert list(cover["BAT"]) == [True, True, False, False, False]  # the pitcher is not a hitter
+
+
+def test_the_majors_carry_no_more_bat_only_hitters_than_a_first_baseman_and_a_platoon_at_dh():
+    def fielders(position, n, value=70.0):
+        return [("MLB", False, {"Listed": position, "Value": value, "Tier": "MLB"}) for _ in range(n)]
+
+    mlb = (fielders("C", 2) + fielders("SS", 5) + fielders("LF", 4) + fielders("RF", 1, 80.0)  # a spare outfielder
+           + fielders("DH", 3, 85.0))  # fmt: skip
+    farm = [("AAA", False, {"Listed": "DH", "Value": 87.0})]
+    plan = majors_plan(mlb, farm, 15)
+    assert (plan["Action"] == "").all()  # a fourth bat does not take the place of a spare fielder
+    with mock.patch.object(roster, "BAT_ONLY_MAX", 99):
+        free = majors_plan(mlb, farm, 15)
+    assert (
+        free.loc["P16", "Action"] == roster.PROMOTE and (free.loc["P8":"P12", "Action"] == roster.DEMOTE).sum() == 1
+    )  # without the limit
+    weak = [*mlb[:-1], ("MLB", False, {"Listed": "DH", "Value": 20.0, "Tier": "MLB"})]
+    assert majors_plan(weak, farm, 15).loc["P16", "Action"] == roster.PROMOTE  # a better bat replaces the weakest bat
+
+
+def test_the_bat_only_hitters_of_the_majors_do_not_lean_to_one_side_and_a_switch_hitter_is_worth_a_little_more():
+    def fielders(position, n):
+        return [("MLB", False, {"Listed": position, "Value": 70.0, "Tier": "MLB"}) for _ in range(n)]
+
+    def bat(value):
+        return {"Listed": "DH", "Value": value, "Tier": "MLB"}
+
+    base = fielders("C", 2) + fielders("SS", 5) + fielders("LF", 4)  # P1-P11
+    mlb = [*base, ("MLB", False, bat(90.0)), ("MLB", False, bat(60.0))]  # P12, P13: two left-handed bats
+    farm = [("AAA", False, {**bat(80.0)}), ("AAA", False, {**bat(79.0)})]  # P14 left-handed, P15 right-handed
+    left, right = {12: 2, 13: 2, 14: 2, 15: 1}, {}
+    plan = majors_plan(mlb, farm, 13, left)
+    assert (
+        plan.loc["P15", "Action"] == roster.PROMOTE and plan.loc["P14", "Action"] == ""
+    )  # the right-hander balances the pair
+    assert plan.loc["P13", "Action"] == roster.DEMOTE
+    alike = majors_plan(mlb, farm, 13, {**left, 15: 2})
+    assert alike.loc["P14", "Action"] == roster.PROMOTE  # two left-handers: the better one
+    switch = majors_plan(mlb, [("AAA", False, bat(79.0)), ("AAA", False, bat(80.0))], 13, {12: 2, 13: 1, 14: 3, 15: 1})
+    assert (
+        switch.loc["P14", "Action"] == roster.PROMOTE and switch.loc["P15", "Action"] == ""
+    )  # a right-hander a hair better: the switch hitter
+    assert right == {}
+
+
+def test_the_bottom_level_releases_its_extra_fillers_and_keeps_the_prospect_but_the_complex_is_not_a_bottom():
+    levels = {
+        "AA": LevelLimits(max_players=1),  # full: the extra players of R cannot be pushed up
+        "R": LevelLimits(max_players=1, max_age=23),
+        "INT": LevelLimits(max_players=5, no_demotion=True),
+    }
+    assert roster.bottom_level(["AA", "R", "INT"], {**levels}) == "R"  # the complex takes nobody from above
+    prospect = {"focus": True, "Tier": minors.PROSPECT, "ceiling_pct": 0.9}
+    rows = [
+        ("R", False, {"ceiling_pct": 0.1}),
+        ("R", False, prospect),
+        ("R", False, {"ceiling_pct": 0.2}),
+        ("AA", False, {}),
+    ]
+    plan = run(rows, levels).players.set_index("Player")
+    assert plan.loc["P2", "Action"] == "" and plan.loc[["P1", "P3"], "Action"].eq(roster.RELEASE).all()
+    assert "R holds at most 1" in plan.loc["P1", "Why"]
+
+
+def test_releasing_a_good_player_costs_far_more_than_a_weak_one_by_his_value_now_or_his_ceiling():
+    levels = {"AAA": LevelLimits(max_players=3), "AA": LevelLimits(max_players=3)}
+    rungs = ["AAA", "AA"]
+
+    def release_cost(**extra):
+        row = table([("AAA", True, {"Window": 0, "ceiling_pct": 0.3, **extra})]).iloc[0].copy()
+        row["mlb_pct"] = extra.get("mlb_pct", 0.0)
+        return -roster._options(row, rungs, levels, RULES)[-1][1]  # the last option is the release
+
+    weak = release_cost()
+    assert release_cost(mlb_pct=0.9) > weak + 20  # good now (a reliever of the majors' quality)
+    assert release_cost(Window=4, ceiling_pct=0.99) > weak + 20  # good later (a top prospect)
+    assert release_cost(Window=0, ceiling_pct=0.99) < weak + 8  # a ceiling means nothing to a veteran past his window
+
+
+def test_a_player_whose_ceiling_is_nowhere_near_the_majors_is_released_but_a_level_keeps_enough_players_to_play():
+    levels = {"AAA": LevelLimits(max_players=5)}  # at most 5; releasing for no future never takes it below 4
+    rows = [
+        ("AAA", False, {"Ceil": c, "Value": 50.0}) for c in (0.0, 1.0, 2.0, 50.0, 60.0)
+    ]  # standing 0.5%, 1.5%, 2.5% ...
+    t = table(rows)
+    plan = roster.plan(t, frame_of(t), levels, RULES, peers=PEERS).players.set_index("Player")
+    assert plan.loc["P1", "Action"] == roster.RELEASE and "no future" in plan.loc["P1", "Why"]  # the worst ceiling goes
+    assert plan.loc[["P2", "P3", "P4", "P5"], "Action"].eq("").all()  # the others stay: the level would be too small
+    assert roster.no_future(plan.reset_index(), levels, ["AAA"]).sum() == 1
+    bigger = {"AAA": LevelLimits(max_players=3)}  # over its maximum by two: the two weakest ceilings go, nobody else
+    t = table(rows)
+    out = roster.plan(t, frame_of(t), bigger, RULES, peers=PEERS).players.set_index("Player")["Action"]
+    assert out[["P1", "P2"]].eq(roster.RELEASE).all() and out[["P3", "P4", "P5"]].eq("").all()
