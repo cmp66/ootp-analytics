@@ -77,6 +77,7 @@ raw OOTP files ──process_seasons──▶ processed csv (files/<save>/<seaso
 | Script | What it does |
 | --- | --- |
 | `evaluate_models.py` | Scores trained models against real outcomes of some seasons. |
+| `check_stuff_bias.py` | Checks whether the pitching models are too kind to pitchers with stuff and little else (or the opposite), against the real outcomes of a training league. |
 | `review_outlook.py` | Writes `docs/outlook-diagnostics-<save>.md`: how ratings develop, who stays, what traits change. |
 | `check_format_parity.py` | Writes `docs/export-dump-parity.md`: what the dump and the export have in common. |
 | `rating_importance.py`, `compare_versions.py`, `derived_ratings.py` | Attribute rankings and OOTP 26 vs 27 comparison docs. |
