@@ -65,7 +65,9 @@ def main(argv=None) -> int:
         )
         view, key, coarse = None, save.ratings, []
         if args.scales:
-            conversion = scales.Conversion.load(scales.version_of(save.ratings))
+            conversion = scales.Conversion.load(
+                scales.version_of(save.ratings), relative=get_save(args.scales).relative_ratings
+            )
             coarse = scales.profile_columns(args.scales, conversion=conversion)
             if not coarse:
                 raise ValueError(f"{args.scales} has no ratings on the 1-10 scale: nothing to convert")

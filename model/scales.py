@@ -95,20 +95,30 @@ def version_of(ratings: str) -> str:
     return f"OOTP{digits}"
 
 
-def paired_counts(folder_20_80: Path, folder_1_10: Path) -> pd.DataFrame:
+def table_name(version: str, relative: bool = True) -> str:
+    """The file stem of a conversion table: OOTP27 (relative ratings on) or OOTP27-direct (off). With relative ratings off the
+    1-10 buckets are a fixed mapping of the underlying skill, with them on the game fits the buckets to the league."""
+    return version if relative else f"{version}-direct"
+
+
+def paired_counts(folder_20_80: Path, folder_1_10: Path, partial: bool = False) -> pd.DataFrame:
     """Rows column (the model's name), v20, v10, count: how many players have each pair of values in two dumps of one league taken
-    at the same moment. Columns that are the same in both dumps (not ratings) are left out."""
+    at the same moment. Columns that are the same in both dumps (not ratings) are left out. The dumps must hold the same players
+    (in any order); with `partial` the players in both are paired and the others left out (two runs of one league that were not
+    exported from exactly the same state, e.g. Development-Analysis)."""
     rows = []
     for file, rename in PAIR_FILES.items():
         first, second = pd.read_csv(folder_20_80 / file), pd.read_csv(folder_1_10 / file)
-        if not (first["player_id"] == second["player_id"]).all():
-            raise ValueError(f"{file}: the two dumps do not hold the same players in the same order")
+        if not partial and set(first["player_id"]) != set(second["player_id"]):
+            raise ValueError(f"{file}: the two dumps do not hold the same players")
+        both = first.merge(second, on="player_id", suffixes=("_a", "_b"))
         for source, name in rename.items():
             if source not in first.columns or name in NOT_PAIRED or not pd.api.types.is_numeric_dtype(first[source]):
                 continue
-            if first[source].equals(second[source]) or first[source].max() <= MAX_1_10:
+            a, b = both[source + "_a"], both[source + "_b"]
+            if a.equals(b) or a.max() <= MAX_1_10:
                 continue
-            counts = pd.crosstab(first[source], second[source]).stack()
+            counts = pd.crosstab(a, b).stack()
             rows += [(name, int(a), int(b), int(n)) for (a, b), n in counts[counts > 0].items()]
     return pd.DataFrame(rows, columns=["column", "v20", "v10", "count"])
 
@@ -128,8 +138,9 @@ class Conversion:
             self._expected[column] = (by_10["weighted"] / by_10["count"]).to_dict()
 
     @classmethod
-    def load(cls, version: str, folder: Path = TABLE_DIR) -> "Conversion":
-        path = folder / f"{version}.csv"
+    def load(cls, version: str, folder: Path = TABLE_DIR, relative: bool = True) -> "Conversion":
+        """The conversion table of a game version; `relative` False: the one for a league with relative ratings off."""
+        path = folder / f"{table_name(version, relative)}.csv"
         if not path.exists():
             raise FileNotFoundError(f"{path} not found; run scripts/build_scale_tables.py")
         return cls(pd.read_csv(path))

@@ -58,13 +58,23 @@ def test_paired_counts_keep_the_ratings_that_differ_between_the_dumps_with_the_m
     assert pairs == {(0, 0): 1, (25, 1): 3, (25, 2): 1, (30, 2): 1}
 
 
-def test_a_dump_pair_that_does_not_hold_the_same_players_is_refused(tmp_path):
+def test_a_dump_pair_that_does_not_hold_the_same_players_is_refused_unless_partial_pairing_is_asked_for(tmp_path):
     first, second = paired_dumps(tmp_path)
     frame = pd.read_csv(second / "players_batting.csv")
     frame.loc[0, "player_id"] = 99
     frame.to_csv(second / "players_batting.csv", index=False)
     with pytest.raises(ValueError):
         scales.paired_counts(first, second)
+    counts = scales.paired_counts(first, second, partial=True)  # player 1 and the new 99 are left out
+    assert {(r.v20, r.v10): r.count for r in counts.itertuples()} == {(0, 0): 1, (25, 1): 2, (25, 2): 1, (30, 2): 1}
+
+
+def test_players_are_paired_by_id_not_by_row(tmp_path):
+    first, second = paired_dumps(tmp_path)
+    frame = pd.read_csv(second / "players_batting.csv").iloc[::-1]
+    frame.to_csv(second / "players_batting.csv", index=False)
+    counts = scales.paired_counts(first, second)
+    assert {(r.v20, r.v10): r.count for r in counts.itertuples()} == {(0, 0): 1, (25, 1): 3, (25, 2): 1, (30, 2): 1}
 
 
 def test_conversion_draws_1_10_values_with_the_observed_shares_and_keeps_zero_and_missing(tmp_path):
@@ -123,3 +133,24 @@ def test_training_on_a_mix_of_scales_needs_a_league_that_has_1_10_ratings():
     from scripts import train_models
 
     assert train_models.main(["Model-Sim", "--scales", "Model-Sim", "--streams", "baserunning", "--no-cv"]) == 2
+
+
+def test_a_league_with_relative_ratings_off_uses_the_direct_table_which_values_the_top_pitching_buckets_lower():
+    from util.config import load_saves
+
+    assert scales.table_name("OOTP27") == "OOTP27" and scales.table_name("OOTP27", relative=False) == "OOTP27-direct"
+    saves = load_saves()
+    assert saves["PBL27"].relative_ratings is False
+    assert saves["TGS27"].relative_ratings and saves["Dugout26"].relative_ratings
+    relative, direct = scales.Conversion.load("OOTP27"), scales.Conversion.load("OOTP27", relative=False)
+    assert set(scales.rating_columns()) <= set(direct.columns)
+    top = pd.Series([8.0, 9.0])
+    for column in (
+        "CON.1",
+        "PBABIP",
+    ):  # measured: a direct 1-10 control of 8 or 9 is 1.5-5 points less on the 20-80 scale
+        assert (relative.expected_20_80(top, column) - direct.expected_20_80(top, column)).min() > 1.0
+    speed = pd.Series([5.0])
+    assert relative.expected_20_80(speed, "SPE").iloc[0] == pytest.approx(
+        direct.expected_20_80(speed, "SPE").iloc[0], abs=1
+    )
