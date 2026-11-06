@@ -9,7 +9,16 @@ from util.config import load_saves
 def league():
     """Four pitchers with control 40, 50, 50 and 60 (the mean of vs-right and vs-left) and their innings."""
     ids = pd.Index([1, 2, 3, 4], name="ID")
-    players = pd.DataFrame({"CON.1 vR": [40, 50, 55, 60], "CON.1 vL": [40, 50, 45, 60]}, index=ids)
+    players = pd.DataFrame(
+        {
+            "CON.1 vR": [40, 50, 55, 60],
+            "CON.1 vL": [40, 50, 45, 60],
+            "PBABIP vR": [60, 50, 50, 40],
+            "PBABIP vL": [60, 50, 50, 40],
+            "STM": [30, 50, 50, 70],
+        },
+        index=ids,
+    )
     weights = {domains.PITCHING_FIP: pd.Series([100.0, 100.0, 100.0, 100.0], index=ids)}
     scored = pd.DataFrame(
         {
@@ -54,7 +63,7 @@ def test_the_calibration_adds_runs_per_standard_deviation_to_the_fip_values_and_
     ]  # a rating far outside the league (a minor leaguer, who did not pitch)
     unused = {domains.PITCHING_FIP: weights[domains.PITCHING_FIP].where(players.index != 1, 0.0)}
     capped = relative.calibrate_pitching(scored, extreme, unused, 2.0)
-    assert capped.loc[1, "pitching_control_adjustment"] == pytest.approx(-2.0 * relative.MAX_CONTROL_Z)
+    assert capped.loc[1, "pitching_control_adjustment"] == pytest.approx(-2.0 * relative.MAX_Z)
     again = relative.calibrate_pitching(scored, players, weights, 0.0)  # a league without the setting is unchanged
     assert again.equals(scored)
 
@@ -78,3 +87,42 @@ def test_the_setting_is_read_per_save_and_only_the_human_leagues_have_it():
         saves["Model-Sim"].pitching_control_per_sd == 0.0 and saves["Model-Sim-26-Std"].pitching_control_per_sd == 0.0
     )
     assert all(saves[name].pitching_control_per_sd == 2.0 for name in ("TGS27", "Dugout26", "PBL27"))
+
+
+def test_pbabip_and_stamina_are_calibrated_the_same_way_and_the_adjustments_add_up():
+    scored, players, weights = league()
+    out = relative.calibrate_pitching(scored, players, weights, {"control": 2.0, "pbabip": 0.8, "stamina": 1.0})
+    parts = {name: out[f"pitching_{name}_adjustment"] for name in ("control", "pbabip", "stamina")}
+    weight = weights[domains.PITCHING_FIP]
+    for name, value in (("control", 2.0), ("pbabip", 0.8), ("stamina", 1.0)):
+        z = relative.rating_z(players, weight, relative.CALIBRATED_RATINGS[name])
+        assert parts[name].tolist() == pytest.approx((value * z).tolist())
+    total = parts["control"] + parts["pbabip"] + parts["stamina"]
+    for column in ("pitching_fip", "pitching_fip_plain", "pitching_runs"):
+        assert (out[column] - scored[column]).tolist() == pytest.approx(total.tolist())
+    assert (
+        out.loc[1, "pitching_runs"] < scored.loc[1, "pitching_runs"]
+    )  # poor control, hit prevention and stamina all lose
+    only = relative.calibrate_pitching(scored, players, weights, {"stamina": 1.0})
+    assert (
+        "pitching_control_adjustment" not in only and "pitching_stamina_adjustment" in only
+    )  # a setting of 0 is left out
+    assert relative.calibrate_pitching(scored, players, weights, {"control": 0.0}).equals(scored)
+
+
+def test_the_three_settings_are_read_for_the_human_leagues_only():
+    saves = load_saves()
+    for name in ("TGS27", "Dugout26", "PBL27"):
+        save = saves[name]
+        assert (save.pitching_control_per_sd, save.pitching_pbabip_per_sd, save.pitching_stamina_per_sd) == (
+            2.0,
+            0.8,
+            1.0,
+        )
+    for name in ("Model-Sim", "Model-Sim-26-Std"):
+        save = saves[name]
+        assert (save.pitching_control_per_sd, save.pitching_pbabip_per_sd, save.pitching_stamina_per_sd) == (
+            0.0,
+            0.0,
+            0.0,
+        )

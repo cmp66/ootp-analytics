@@ -218,5 +218,11 @@ def score_season(save: str, season: int, artifacts: dict[str, Artifact]) -> tupl
         raise KeyError(f"{save} {season}: ratings missing for these models: {missing}")
     scored = score(artifacts, players[columns].apply(pd.to_numeric, errors="coerce"))
     weights = relative.season_weights(save, season)
-    scored = relative.calibrate_pitching(scored, players, weights, get_save(save).pitching_control_per_sd)
+    config = get_save(save)
+    per_sd = {
+        "control": config.pitching_control_per_sd,
+        "pbabip": config.pitching_pbabip_per_sd,
+        "stamina": config.pitching_stamina_per_sd,
+    }
+    scored = relative.calibrate_pitching(scored, players, weights, per_sd)
     return relative.add_relative(scored, weights)
