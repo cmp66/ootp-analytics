@@ -464,3 +464,53 @@ def test_the_bat_only_hitters_of_the_majors_do_not_lean_to_one_side_and_a_switch
         switch.loc["P14", "Action"] == roster.PROMOTE and switch.loc["P15", "Action"] == ""
     )  # a right-hander a hair better: the switch hitter
     assert right == {}
+
+
+def test_the_bottom_level_releases_its_extra_fillers_and_keeps_the_prospect_but_the_complex_is_not_a_bottom():
+    levels = {
+        "AA": LevelLimits(max_players=1),  # full: the extra players of R cannot be pushed up
+        "R": LevelLimits(max_players=1, max_age=23),
+        "INT": LevelLimits(max_players=5, no_demotion=True),
+    }
+    assert roster.bottom_level(["AA", "R", "INT"], {**levels}) == "R"  # the complex takes nobody from above
+    prospect = {"focus": True, "Tier": minors.PROSPECT, "ceiling_pct": 0.9}
+    rows = [
+        ("R", False, {"ceiling_pct": 0.1}),
+        ("R", False, prospect),
+        ("R", False, {"ceiling_pct": 0.2}),
+        ("AA", False, {}),
+    ]
+    plan = run(rows, levels).players.set_index("Player")
+    assert plan.loc["P2", "Action"] == "" and plan.loc[["P1", "P3"], "Action"].eq(roster.RELEASE).all()
+    assert "R holds at most 1" in plan.loc["P1", "Why"]
+
+
+def test_releasing_a_good_player_costs_far_more_than_a_weak_one_by_his_value_now_or_his_ceiling():
+    levels = {"AAA": LevelLimits(max_players=3), "AA": LevelLimits(max_players=3)}
+    rungs = ["AAA", "AA"]
+
+    def release_cost(**extra):
+        row = table([("AAA", True, {"Window": 0, "ceiling_pct": 0.3, **extra})]).iloc[0].copy()
+        row["mlb_pct"] = extra.get("mlb_pct", 0.0)
+        return -roster._options(row, rungs, levels, RULES)[-1][1]  # the last option is the release
+
+    weak = release_cost()
+    assert release_cost(mlb_pct=0.9) > weak + 20  # good now (a reliever of the majors' quality)
+    assert release_cost(Window=4, ceiling_pct=0.99) > weak + 20  # good later (a top prospect)
+    assert release_cost(Window=0, ceiling_pct=0.99) < weak + 8  # a ceiling means nothing to a veteran past his window
+
+
+def test_a_player_whose_ceiling_is_nowhere_near_the_majors_is_released_but_a_level_keeps_enough_players_to_play():
+    levels = {"AAA": LevelLimits(max_players=5)}  # at most 5; releasing for no future never takes it below 4
+    rows = [
+        ("AAA", False, {"Ceil": c, "Value": 50.0}) for c in (0.0, 1.0, 2.0, 50.0, 60.0)
+    ]  # standing 0.5%, 1.5%, 2.5% ...
+    t = table(rows)
+    plan = roster.plan(t, frame_of(t), levels, RULES, peers=PEERS).players.set_index("Player")
+    assert plan.loc["P1", "Action"] == roster.RELEASE and "no future" in plan.loc["P1", "Why"]  # the worst ceiling goes
+    assert plan.loc[["P2", "P3", "P4", "P5"], "Action"].eq("").all()  # the others stay: the level would be too small
+    assert roster.no_future(plan.reset_index(), levels, ["AAA"]).sum() == 1
+    bigger = {"AAA": LevelLimits(max_players=3)}  # over its maximum by two: the two weakest ceilings go, nobody else
+    t = table(rows)
+    out = roster.plan(t, frame_of(t), bigger, RULES, peers=PEERS).players.set_index("Player")["Action"]
+    assert out[["P1", "P2"]].eq(roster.RELEASE).all() and out[["P3", "P4", "P5"]].eq("").all()

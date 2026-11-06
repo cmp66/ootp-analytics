@@ -78,6 +78,11 @@ BELOW_FLOOR_PENALTY = (
 )
 MLB_RELEASE_EXTRA = 15.0  # releasing a major leaguer is a bigger step: only when the roster limit leaves no other way
 RELEASE_BASE = 3.0  # a release costs more than the demotion of a filler, less than the demotion of a prospect
+BOTTOM_RELEASE = 3.0  # hand tuned: a filler of the bottom level costs this + a quarter of keep + the quality term below
+# QUALITY_RELEASE: hand tuned, what releasing the best player costs more than the worst (below the capacity penalty, so a level
+# may rather stay over its maximum than lose its best pitcher). The quality is the larger of where his value now stands among the
+# league's major leaguers and, for a prospect with development left, his ceiling.
+QUALITY_RELEASE = 30.0
 
 
 @dataclass(frozen=True)
@@ -113,6 +118,31 @@ def _keep(row: pd.Series, depth: int, rules: minors.Rules) -> float:
     return 1.0 + max(prospect, near, 3.0 * (row["mean"] if pd.notna(row["mean"]) else 0.5) * (depth == 0))
 
 
+def bottom_level(rungs: list[str], levels: dict[str, LevelLimits]) -> str | None:
+    """The lowest level of the ladder that players are demoted into: not the international complex (placed automatically) and
+    not the winter league (off the ladder). Nobody can be demoted below it, so its extra players are released."""
+    open_ = [lv for lv in rungs if lv != minors.TOP and not levels[lv].no_demotion]
+    return open_[-1] if open_ else None
+
+
+NO_FUTURE_CEILING = (
+    0.03  # hand tuned: a player whose ceiling stands below this share of the league's major leaguers has no future
+)
+NO_FUTURE_GAIN = (
+    4.0  # hand tuned: what releasing him is worth; the cover of a level (40) and its pitchers (6) are worth more
+)
+LEVEL_FLOOR_SHARE = 0.8  # hand tuned: releasing for no future never takes a level below this share of its maximum
+
+
+def _quality(row: pd.Series) -> float:
+    """0 to 1: how much a player is worth having, by what he is now (his standing among the league's major leaguers) or what
+    he can become (the ceiling of a prospect with development left). A veteran past his window counts by his value now only.
+    """
+    now = row["mlb_pct"] if pd.notna(row.get("mlb_pct")) else 0.0
+    later = row["ceiling_pct"] if row.get("Window", 0) > 0 and pd.notna(row.get("ceiling_pct")) else 0.0
+    return float(max(now, later))
+
+
 def _options(row: pd.Series, rungs: list[str], levels: dict[str, LevelLimits], rules: minors.Rules) -> list:
     """The (destination, utility) pairs open to a player: stay, up, down, out (None). The utility is how well the destination
     follows the move the ratings ask for; a move nobody asked for costs more the more the player is worth keeping, so the
@@ -146,7 +176,15 @@ def _options(row: pd.Series, rungs: list[str], levels: dict[str, LevelLimits], r
                 (1.0 if wish == minors.DOWN else -(1.0 + 1.2 * keep)),
             )
         )
-    options.append((None, -(RELEASE_BASE + 1.5 * keep + (MLB_RELEASE_EXTRA if level == minors.TOP else 0.0))))
+    if row.get("hopeless"):  # no future in the organization: out, unless the level needs him to field a team
+        options.append((None, NO_FUTURE_GAIN))
+    elif (
+        level == bottom_level(rungs, levels) and not row["focus"]
+    ):  # a filler of the bottom level goes first: no level below
+        options.append((None, -(BOTTOM_RELEASE + 0.25 * keep + QUALITY_RELEASE * _quality(row))))
+    else:
+        extra = MLB_RELEASE_EXTRA if level == minors.TOP else QUALITY_RELEASE * _quality(row)
+        options.append((None, -(RELEASE_BASE + 1.5 * keep + extra)))
     return options
 
 
@@ -491,6 +529,8 @@ def _why(
         )
     if dest == minors.TOP:
         return f"among the best the majors can use: his value stands at {row['mlb_pct']:.0%} of the league's major leaguers"
+    if dest is None and row.get("hopeless"):
+        return f"no future: his ceiling stands at {row['ceil_mlb']:.0%} of the league's major leaguers"
     if dest is None:
         over = minors._fits(level, row["Age"], row["Pro"], levels)
         if over:
@@ -552,16 +592,32 @@ def _starters(level: str, rules: minors.Rules) -> int:
     return rules.mlb_starters if level == minors.TOP else rules.starters
 
 
-def _mlb_standing(table: pd.DataFrame, peers: pd.DataFrame | None) -> pd.Series:
-    """Where each player's current value stands among the league's major leaguers of his kind (0 to 1); NaN without peers."""
+def _mlb_standing(table: pd.DataFrame, peers: pd.DataFrame | None, column: str = "Value") -> pd.Series:
+    """Where each player's current value (or, with `column`, his ceiling) stands among the league's major leaguers of his kind
+    (0 to 1); NaN without peers."""
     out = pd.Series(np.nan, index=table.index)
-    if peers is None or "Value" not in table:
+    if peers is None or column not in table:
         return out
     for pitcher in (False, True):
         mine = table["pitcher"] == pitcher
         here = peers.loc[peers["pitcher"] == pitcher, "value_now"].to_numpy(dtype=float)
         if mine.any() and len(here):
-            out[mine] = minors.percentile(table.loc[mine, "Value"], here)
+            out[mine] = minors.percentile(table.loc[mine, column], here)
+    return out
+
+
+def no_future(table: pd.DataFrame, levels: dict[str, LevelLimits], rungs: list[str]) -> pd.Series:
+    """The players the organization has no reason to keep: a ceiling (`Ceil`) below `NO_FUTURE_CEILING` of the league's major
+    leaguers of his kind. Per level the worst ceilings first, and never more than takes the level down to `LEVEL_FLOOR_SHARE`
+    of its maximum (a level needs players to field a team). Not the majors, not the international complex."""
+    out = pd.Series(False, index=table.index)
+    for level in rungs:
+        limits = levels[level]
+        if level == minors.TOP or limits.no_demotion or limits.max_players <= 0:
+            continue
+        here = table[(table["Level"] == level) & (table["ceil_mlb"] < NO_FUTURE_CEILING)].sort_values("ceil_mlb")
+        room = int((table["Level"] == level).sum() - np.ceil(LEVEL_FLOOR_SHARE * limits.max_players))
+        out[here.index[: max(room, 0)]] = True
     return out
 
 
@@ -586,6 +642,8 @@ def plan(
         table = pd.concat([mlb, table], ignore_index=True)
     table = table.reset_index(drop=True).copy()
     table["mlb_pct"] = _mlb_standing(table, peers)
+    table["ceil_mlb"] = _mlb_standing(table, peers, "Ceil")
+    table["hopeless"] = no_future(table, levels, rungs) if peers is not None else False
     if rungs[0] == minors.TOP:
         table["mean"] = table["mean"].where(table["Level"] != minors.TOP, table["mlb_pct"])
     starters = set(frame.loc[frame["slot"] == "SP", "ID"])
