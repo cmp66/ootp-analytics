@@ -51,10 +51,12 @@ Copies the files of a new OOTP export into the latest season folder of each save
 copy_exports.py                 # TGS27, Dugout26, PBL27
 copy_exports.py Dugout26        # one save
 copy_exports.py --dry-run       # say what would be copied
+copy_exports.py --no-archive    # do not keep a dated copy of the ratings
 ```
 `files/exports/<save>` is a symlink to the `import_export` folder of the save in the game folder (the path differs per machine; not in git). The files wanted are the ones already in `files/<save>/<season>/ratings/` and `finance/`; other files in the export folder (extra lists, `.ootp`, park info) are ignored, and a new list has to be put in the season folder once by hand before it is picked up.
 - **ratings:** the files are one export, so all of them must be newer than the copy (modified time) or none. All newer: copied. None newer: nothing to do. A mix, a file missing from the export folder, or a file without `ID` or with `B` or `T` twice (the view shows both the text and the code version): nothing is copied for that save, the problems are listed and the exit status is 1.
 - **finance:** exported now and then, so a file that is not newer (or not in the export folder) is skipped without a problem. It is also left alone when the ratings files have problems.
+- **archive:** every new ratings export is also kept, gzipped, in `files/<save>/archive/<season>/<yyyy-mm-dd>/`, the date being the in-game date of the export (found from the dates of birth and ages in it, see `util/ages.py`). A save is exported every sim or so, so the archive is a series of snapshots of every player's ratings: when ratings change and by how much, which the copy in the season folder (replaced by the next export) does not keep. An export of a date that is already kept is not kept twice. About 1.3 MB per export; the archive goes to S3 with the `raw` set of `sync_files.py`.
 Copies keep the modified time of the export, so running it twice copies nothing the second time. It does not run the update: follow it with `update_all.py`.
 
 ### setup_machine.py

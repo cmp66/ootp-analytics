@@ -25,6 +25,11 @@ def export_ratings_dir(save: str, season: int) -> Path:
     return export_dir(save, season) / "ratings"
 
 
+def archive_dir(save: str, season: int, date: str) -> Path:
+    """Where a kept copy of the ratings exports of one in-game date goes (scripts/copy_exports.py)."""
+    return export_dir(save, season).parent / "archive" / str(season) / date
+
+
 def dump_dir(save: str, ratings: str, season: int) -> Path:
     """Season folder of OOTP database csv dumps."""
     return save_dir(save) / "dumps" / ratings / str(season)

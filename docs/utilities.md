@@ -14,6 +14,7 @@ Repository root: `CLAUDE.md` is what Claude Code reads first (how we work, the e
 | `util/seasons.py` | `available_seasons(save)` (seasons with raw data), `select_seasons(...)` (latest by default, `--season`, `--start/--stop`), `served_seasons(save)` (seasons the viewer can show: raw data **or** processed outlook files, so a server that only has the outputs works). |
 | `util/importCSV.py` | Reads the raw files into frames: the in-game export (ratings lists, team statistics, tells the files apart by marker columns) and the database dumps. `import_files` is what the processing calls. |
 | `util/frames.py` | Keeps pandas 3 frames from fragmenting (`consolidate`, `add_constant_columns`, `numeric_columns`); a fragmentation warning is a test failure here. |
+| `util/ages.py` | Fine ages: the in-game date of an export or dump found from the dates of birth and whole ages of its players (`date_window`, `export_date`; it closes to one day), the game's date format (`parse_game_date`), the date of each player's ratings from the `Sct` column (`rating_dates`) and the age in years with the fraction (`fine_age`). |
 | `util/innings.py` | Outs <-> baseball innings notation (100.1 = 100 and 1/3) <-> decimal innings. |
 | `util/device.py` | The torch device of the training scripts: CUDA, then XPU, then CPU; `OOTP_DEVICE` (cpu, cuda or xpu) overrides. |
 

@@ -54,7 +54,7 @@ POTENTIAL = "pot"  # gate key of the potential rating of the position
 GATE_PERCENTILE = 0.01
 
 STATE_COLUMNS = [
-    "Age", "LPOS", "role", "ORG", "league_id", "free_agent", "retired", "last_team_id", "B", "T", "HT", "WT",
+    "Age", "AgeFine", "LPOS", "role", "ORG", "league_id", "free_agent", "retired", "last_team_id", "B", "T", "HT", "WT",
     "WE", "INT", "LEA", "LOY", "FIN", "Prone", "prone_leg", "prone_back", "prone_arm", "experience", "college",
     "acquired", "draft_year", "draft_round", "draft_overall_pick", "picked_in_draft", "draft_eligible",
     "injury_is_injured", "injury_left", "injury_career_ending", "Lev", "SctCat",

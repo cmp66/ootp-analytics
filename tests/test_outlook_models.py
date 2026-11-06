@@ -124,7 +124,8 @@ def mini_tables():
     """Two hitters at SS over three seasons: player 1 becomes top 10 then top 50, player 2 leaves after the first season."""
     players = pd.DataFrame(
         {
-            "ID": [1, 2, 1, 1], "season": [1, 1, 2, 3], "Age": [20, 20, 21, 22], "LPOS": "SS", "level": [3.0, 3.0, 2.0, 1.0],
+            "ID": [1, 2, 1, 1], "season": [1, 1, 2, 3], "Age": [20, 20, 21, 22], "AgeFine": [20.3, 20.6, 21.3, 22.3],
+            "LPOS": "SS", "level": [3.0, 3.0, 2.0, 1.0],
             "WE_ord": 1.0, "INT_ord": 1.0, "Prone3_ord": 1.0, "time_share": [0.9, 0.5, 0.8, 0.95],
             "observed_h1": [True, True, True, False], "observed_h2": [True, True, False, False],
             "observed_h3": False, "observed_h5": False, "stay_h1": [1.0, 0.0, 1.0, np.nan],

@@ -56,12 +56,15 @@ class OutlookModels:
         self.save, self.ratings = save, ratings
 
     def horizons(self) -> tuple[int, ...]:
-        """The horizons every family has value models for."""
+        """The horizons every family has value models for. Models trained on other features than the current ones (a folder
+        keeps the files of horizons that were dropped from training, such as 2 and 3 seasons ahead, with the whole age where
+        the models now read the fine age) are not used."""
         found = {family: set() for family in FAMILIES}
-        for name in self.items:
+        for name, item in self.items.items():
             parts = name.split("-")
             if parts[0] == "value" and parts[1] in found and parts[2].startswith("h"):
-                found[parts[1]].add(int(parts[2][1:]))
+                if set(item.features) <= set(outlook_models.feature_names(parts[1])):
+                    found[parts[1]].add(int(parts[2][1:]))
         common = set.intersection(*found.values()) if found else set()
         return tuple(sorted(common))
 
