@@ -65,6 +65,7 @@ pitching_pbabip_per_sd = 0.8
 pitching_stamina_per_sd = 1.0
 ratings = "Standard27"
 scales = "PBL27"
+relative_ratings = false  # the game's relative ratings are off: its 1-10 ratings use the -direct conversion table
 ballparks = "ballpark_ratings.csv"
 
 [TGS27.levels."AAA"]

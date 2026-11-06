@@ -48,6 +48,8 @@ class SaveConfig:
     scales: str | None = None
     # runs per 200 IP a pitcher gains (or loses) per standard deviation of his control, PBABIP and stamina ratings, on top of the
     # models: they were trained on a computer league, and in the human leagues these count for more (scripts/check_human_bias.py)
+    # False: the league has the game's relative ratings off (PBL27); its 1-10 ratings use the "-direct" conversion table
+    relative_ratings: bool = True
     pitching_control_per_sd: float = 0.0
     pitching_pbabip_per_sd: float = 0.0
     pitching_stamina_per_sd: float = 0.0
@@ -93,6 +95,7 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
             team_names=dict(values.get("team_names", {})),
             levels=levels,
             scales=values.get("scales"),
+            relative_ratings=bool(values.get("relative_ratings", True)),
             pitching_control_per_sd=float(values.get("pitching_control_per_sd", 0.0)),
             pitching_pbabip_per_sd=float(values.get("pitching_pbabip_per_sd", 0.0)),
             pitching_stamina_per_sd=float(values.get("pitching_stamina_per_sd", 0.0)),

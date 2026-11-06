@@ -120,7 +120,7 @@ def season_inputs(save: str, season: int, models_from: str | None = None) -> dic
     plan14 = outlook_data._load_artifacts(models_from, scales.model_set(config.ratings, config.scales))
     state = outlook_data.season_state(save, season)
     if config.scales:  # the position minimums and the outlook models know the 20-80 scale: give them the expected value
-        conversion = scales.Conversion.load(scales.version_of(config.ratings))
+        conversion = scales.Conversion.load(scales.version_of(config.ratings), relative=config.relative_ratings)
         state = conversion.expect_frame(state, scales.profile_columns(save, season, conversion))
     scored, _ = registry.score_season(save, season, plan14)
     values = outlook_data.slot_values(state, scored)

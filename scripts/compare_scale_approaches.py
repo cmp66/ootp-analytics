@@ -113,7 +113,7 @@ def main() -> None:
 
     config = get_save(args.save)
     version = scales.version_of(config.ratings)
-    conversion = scales.Conversion.load(version)
+    conversion = scales.Conversion.load(version, relative=get_save(args.like).relative_ratings if args.like else True)
     seasons = [s for s in available_seasons(args.save) if s >= (args.start or 0)]
     columns = scales.rating_columns()
     if args.like:
