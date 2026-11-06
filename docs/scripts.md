@@ -188,6 +188,14 @@ check_human_bias.py --flag-z 2 --reference-seasons 10
 ```
 One season of a league is a few hundred players, so look for the sign agreeing between leagues, and run it again when a league has another season. The result that led to `pitching_control_per_sd` is in [models.md](models.md).
 
+### check_playing_time.py
+Does actual playing time matter for development? (workflow 11 of [workflows.md](workflows.md).) For hitters (plate appearances), pitchers (batters faced) and defense (innings at infield, outfield and catcher) it regresses the change of the ratings between two consecutive seasons on playing time, with age, level, previous rating, gap to potential, work ethic and intelligence as controls. It prints the **raw** coefficient (an upper bound: managers give time to the players who improve), the one **with** the seasons before and after (a lower bound) and the **placebo**, the coefficient of next season's playing time, which cannot cause this season's change and so measures the selection. Rating points per 100 PA, batters faced or innings.
+```
+check_playing_time.py                                        # Model-Sim and Model-Sim-26-Std, every group
+check_playing_time.py --saves Model-Sim TGS27 --groups hitters pitchers
+```
+A save needs three consecutive seasons for the placebo (two: only the raw estimate); the human leagues have one season each at the moment, so run it again as they grow. Results and reading: "Playing time and development" in [models.md](models.md).
+
 ### check_format_parity.py
 `check_format_parity.py [--out docs/export-dump-parity.md]` compares dump and export saves of the same ratings set: columns the models read, trait conversions, level, draft route. Run after changing the import or `model/formats.py`.
 
