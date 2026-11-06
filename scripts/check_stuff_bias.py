@@ -7,8 +7,9 @@ Usage:
     PYTHONPATH=. python scripts/check_stuff_bias.py TGS27 --models-from Model-Sim    # another save's outcomes, same ratings set
 
 Needs a save with outcomes (a training league: Model-Sim, Model-Sim-26-Std) and its trained models. For each pitching model
-(`pitching-fip`: park adjusted FIP runs per 200 IP above average; `pitching-babip`: BABIP minus the league's) the player-seasons
-are put in groups by their ratings (the mean of the vs-right and vs-left ratings):
+(`pitching-fip`: park adjusted FIP runs SAVED per 200 IP against the average, so more is better for the pitcher;
+`pitching-babip`: BABIP minus the league's, so less is better) the player-seasons are put in groups by their ratings (the mean of
+the vs-right and vs-left ratings):
 
   stuff only      stuff at least --stuff-min and control, home run avoidance and movement (PBABIP) all at most --others-max
   control only    the mirror: control and home run avoidance both at least --stuff-min, stuff at most --others-max
@@ -16,9 +17,10 @@ are put in groups by their ratings (the mean of the vs-right and vs-left ratings
   all             everybody
 
 and, for each group, the mean prediction, the mean outcome (weighted by innings or balls in play) and the difference. A group
-whose outcome is clearly above its prediction (more runs, more hits allowed) is one the model is too kind to; z is the
-difference over its standard error (rows are treated as independent, though a pitcher appears in several seasons, so read
-|z| above 3 as a sign, not a proof). Starters (start share of at least half) and relievers are shown apart.
+whose pitchers did clearly worse than predicted (fewer runs saved, more hits allowed) is one the model is too kind to, and one
+that did better is one it is too harsh to; z is the difference over its standard error (rows are treated as independent,
+though a pitcher appears in several seasons, so read |z| above 3 as a sign, not a proof). Starters (start share of at least
+half) and relievers are shown apart.
 
 This checks the value now. The ceiling (potential) models build on the same ratings but on development tables, so a bias
 here is a bias there too, but a clean result does not clear the ceiling.
@@ -39,7 +41,7 @@ from util.config import get_save  # noqa: E402
 from util.seasons import available_seasons, select_seasons  # noqa: E402
 
 PARTS = {  # model name -> (stream, what the target is, unit)
-    "pitching-fip": (domains.PITCHING_FIP, "FIP runs per 200 IP above average", "runs"),
+    "pitching-fip": (domains.PITCHING_FIP, "FIP runs saved per 200 IP against the average", "runs"),
     "pitching-babip": (domains.PITCHING_BABIP, "BABIP above the league's", "BABIP"),
 }
 MIN_ROWS = 30  # a group with fewer player-seasons is shown but not judged
@@ -125,7 +127,11 @@ def report(
                 f"    {name:<14}{role:<10}{c['n']:>7}{c['weight']:>9.0f}{c['prediction']:>+11.3f}{c['outcome']:>+9.3f}"
                 f"{c['diff']:>+13.3f}{c['z']:>+7.1f}{note}"
             )
-    lines.append(f"    ({unit}: positive actual-pred = more allowed than the model expected = the model is too kind)")
+    if unit == "runs":  # FIPRuns200 counts runs SAVED against the league rate: more is better for the pitcher
+        note = "runs saved: negative actual-pred = fewer runs saved than expected = too kind; positive = too harsh"
+    else:
+        note = f"{unit}: positive actual-pred = more allowed than the model expected = the model is too kind"
+    lines.append(f"    ({note})")
     return lines
 
 
