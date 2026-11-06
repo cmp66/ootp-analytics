@@ -46,6 +46,9 @@ class SaveConfig:
     # name of the rating scale profile of a league whose ratings are not all 20-80 (the models for it are trained on ratings
     # turned to that mix, see model/scales.py); None: all 20-80
     scales: str | None = None
+    # runs per 200 IP a pitcher gains (or loses) per standard deviation of his control rating, on top of the models: the models
+    # were trained on a computer league, and in the human leagues control counts for more (scripts/check_stuff_bias.py)
+    pitching_control_per_sd: float = 0.0
 
 
 def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
@@ -88,6 +91,7 @@ def load_saves(path: Path = CONFIG_PATH) -> dict[str, SaveConfig]:
             team_names=dict(values.get("team_names", {})),
             levels=levels,
             scales=values.get("scales"),
+            pitching_control_per_sd=float(values.get("pitching_control_per_sd", 0.0)),
         )
     return saves
 
