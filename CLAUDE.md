@@ -7,8 +7,10 @@ The user reads the docs by workflow, not by script list: keep that structure whe
 
 ## How we work
 
-- **Branches.** One branch per piece of work, from an up to date `main`. The user opens and merges the PR on GitHub (there is no
-  `gh` CLI). After a merge: `git checkout main && git pull`, delete the local branch.
+- **Branches.** One branch per piece of work, from an up to date `main`, and **only one at a time**: stay on it until it is
+  pushed and the user has merged it, and put follow-ups (a rename, a doc fix, a correction to an earlier PR) on the same branch
+  instead of opening another. Before `git checkout -b`, check `git branch --no-merged main` is empty. The user opens and merges
+  the PR on GitHub (there is no `gh` CLI). After a merge: `git checkout main && git pull`, delete the local branch.
 - **Commits and pushes.** Leave finished work uncommitted until the user has reviewed it; commit when asked ("commit ...") and
   push only when asked. A commit message ends with the Co-Authored-By line given in the session. Never commit `files/`, `.env`
   or `.vscode/`; check `git status` before `git add -A`.
