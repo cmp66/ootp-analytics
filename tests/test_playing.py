@@ -13,7 +13,7 @@ def players():
             "ID": [1, 2, 3, 4],
             "Age": [19, 23, 27, 20],
             "pitcher": [False, False, False, True],
-            "Window": [6, 2, 0, 6],
+            "Window": [6, 2, 1, 6],
             "ceiling_pct": [0.95, 0.9, 0.1, 0.9],
             "slot": ["SS", "SS", "1B", "SP"],
             "d_cur": [np.nan, 2.0, np.nan, 2.0],
@@ -108,10 +108,12 @@ def test_learning_at_his_own_position_is_worth_more_and_most_at_the_key_position
     table = playing.slot_utilities(players(), median_age=21.0, depth=3).set_index(["ID", "slot"])
     home = table.loc[(1, "SS")]
     assert home["gain"] == pytest.approx(15.0) and home["primary"]
-    assert home["learning"] == pytest.approx(p.learning * 15.0 * p.key_premium)  # SS is a key position
+    assert home["learning"] == pytest.approx(
+        p.learning * 15.0 * p.key_premium * 0.95
+    )  # SS is a key position; ceiling 0.95
     first = table.loc[(3, "1B")]
     assert first["gain"] == pytest.approx(5.0) and first["learning"] == pytest.approx(
-        p.learning * 5.0 * p.primary_premium
+        p.learning * 5.0 * p.primary_premium * 0.1  # ceiling 0.1
     )
     assert "trains his SS rating +15.0" in home["reason"]
 
@@ -121,8 +123,8 @@ def test_another_position_counts_in_full_only_once_the_primary_is_trained():
     table = playing.slot_utilities(players(), median_age=21.0, depth=3).set_index(["ID", "slot"])
     not_ready, ready = table.loc[(1, "2B")], table.loc[(2, "2B")]
     assert not not_ready["ready"] and ready["ready"]  # SS 55 of 70 (0.70) against 68 of 70 (0.96), key level 0.90
-    assert not_ready["learning"] == pytest.approx(p.learning * not_ready["gain"] * p.before_ready)
-    assert ready["learning"] == pytest.approx(p.learning * ready["gain"])
+    assert not_ready["learning"] == pytest.approx(p.learning * not_ready["gain"] * p.before_ready * 0.95)
+    assert ready["learning"] == pytest.approx(p.learning * ready["gain"] * 0.9)
     assert "not trained enough yet" in not_ready["reason"] and "not trained enough yet" not in ready["reason"]
 
 
@@ -162,3 +164,14 @@ def test_a_pitcher_has_only_pitching_slots_and_hitters_never_do():
     assert set(table[table["ID"] == 4]["slot"]) == {"SP"}
     assert not table[table["slot"].isin(playing.PITCHER_SLOTS)]["ID"].isin([1, 2, 3]).any()
     assert playing.slot_utilities(players().iloc[0:0], median_age=21.0).empty
+
+
+def test_a_player_without_a_future_gets_no_value_for_learning_a_position():
+    p = Playing()
+    done = players().assign(Window=0)  # nobody has development left
+    table = playing.slot_utilities(done, median_age=21.0, depth=3)
+    assert (table["learning"] == 0).all() and (table["development"] == 0).all()
+    weak = playing.slot_utilities(players().assign(ceiling_pct=0.1), median_age=21.0, depth=3).set_index(["ID", "slot"])
+    strong = playing.slot_utilities(players(), median_age=21.0, depth=3).set_index(["ID", "slot"])
+    assert weak.loc[(1, "SS"), "learning"] < strong.loc[(1, "SS"), "learning"]
+    assert p.learning > 0

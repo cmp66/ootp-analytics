@@ -18,6 +18,8 @@ a level) for a player has three parts, in one scale (utility, like the numbers o
   and CF, where the rating at the position must be 70 or higher in the majors and the climb takes time. So the learning at his
   primary position is worth more (`primary_premium`, `key_premium` for `key_positions`), and learning at another position counts
   only once the primary is close to its potential (`primary_ready`, `key_ready`; before that `before_ready` of it);
+* **only for a player with a future**: the learning counts by his ceiling (its standing among the league's minor leaguers of his
+  kind) and not at all once his development window is over;
 * **unfamiliar position**: a player learning a position pays in performance (the game models his hitting suffering while he
   deals with it, less as he learns): `unfamiliar_hit` x the development value x how far he is from his potential there is
   subtracted at a position that is not his primary. A prospect in the window in which his growth matters most is better at his
@@ -208,6 +210,12 @@ def slot_utilities(
             gain = learning(slot, rating, potential, depth, p)
             premium = p.key_premium if slot in p.key_positions else p.primary_premium
             gate = np.where(mine, premium, np.where(ready[ok], 1.0, p.before_ready))
+            # only a player with a future is worth the time: the learning counts by his ceiling, and not at all past his window
+            gate = (
+                gate
+                * np.nan_to_num(sub["ceiling_pct"].to_numpy(dtype=float))
+                * (sub["Window"].to_numpy(dtype=float) > 0)
+            )
             hit = np.where(mine, 0.0, p.unfamiliar_hit * dev * (1.0 - familiarity(rating, potential, p)))
         standing = sub.get(f"std_{slot}", sub.get("mean", pd.Series(0.5, index=sub.index))).fillna(0.0).to_numpy()
         part = pd.DataFrame(
