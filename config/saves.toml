@@ -8,6 +8,13 @@
 #   scales (optional): the rating scale profile of a league whose ratings are not all 20-80 (names the league whose mix of scales the
 #            models were trained on: `train_models.py <training save> --scales <league>`); the models are looked up in
 #            files/models/<save>/<ratings>@<scales>/. Without it the league is scored with the 20-80 models.
+#   pitching_control_per_sd, pitching_pbabip_per_sd, pitching_stamina_per_sd (optional, default 0): human leagues only. Runs per
+#            200 IP a pitcher gains per standard deviation of his control (or PBABIP, or stamina) rating over the league (and loses
+#            below it), added to the pitching values on top of the models. The models learn from a computer league; in the human
+#            leagues (TGS27, PBL27, Dugout26) pitchers with poor control did worse, and those with good control better, than
+#            predicted, by 1.4 to 3.2 runs per 200 IP per standard deviation (pooled 2.4; 2.0 is used), and PBABIP (pooled 1.1;
+#            0.8 used) and stamina (pooled 1.2; 1.0 used) the same way, less. See scripts/check_human_bias.py and docs/models.md.
+#            Re-run update_all.py after changing them.
 #   [<save>.levels."<level>"] (optional): limits of a minor league level, keyed by the level of the ratings column Lev (AAA, AA, A+,
 #            A-, R+, R, INT = the international complex, WL). max_age: the oldest age allowed; max_pro_years: the most years of
 #            professional experience allowed (ratings column PROY). 0 = no limit. The depth chart marks the players who exceed
@@ -36,17 +43,26 @@ ballparks = "ballpark_ratings.csv"
 
 [TGS27]
 source = "export"
+pitching_control_per_sd = 2.0
+pitching_pbabip_per_sd = 0.8
+pitching_stamina_per_sd = 1.0
 ratings = "Standard27"
 ballparks = "ballpark_ratings.csv"
 
 [Dugout26]
 source = "export"
+pitching_control_per_sd = 2.0
+pitching_pbabip_per_sd = 0.8
+pitching_stamina_per_sd = 1.0
 ratings = "Standard26"
 scales = "Dugout26"  # models trained on the mix of 20-80 and 1-10 ratings of this league (scripts/train_models.py --scales)
 ballparks = "ballpark_ratings.csv"
 
 [PBL27]
 source = "export"
+pitching_control_per_sd = 2.0
+pitching_pbabip_per_sd = 0.8
+pitching_stamina_per_sd = 1.0
 ratings = "Standard27"
 scales = "PBL27"
 ballparks = "ballpark_ratings.csv"

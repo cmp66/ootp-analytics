@@ -14,6 +14,7 @@ from model import data, domains, evaluate, relative
 from model.artifact import Artifact
 from model.metrics import summarize
 from model.train import fit_table, holdout_last_seasons, make_model
+from util.config import get_save
 
 STACKED_STREAMS = (domains.BATTING, domains.PITCHING_FIP, domains.PITCHING_BABIP)
 SPLIT_SHARED = {domains.BATTING: [], domains.PITCHING_FIP: ["STM", "PIT"], domains.PITCHING_BABIP: []}
@@ -216,4 +217,12 @@ def score_season(save: str, season: int, artifacts: dict[str, Artifact]) -> tupl
     if missing:
         raise KeyError(f"{save} {season}: ratings missing for these models: {missing}")
     scored = score(artifacts, players[columns].apply(pd.to_numeric, errors="coerce"))
-    return relative.add_relative(scored, relative.season_weights(save, season))
+    weights = relative.season_weights(save, season)
+    config = get_save(save)
+    per_sd = {
+        "control": config.pitching_control_per_sd,
+        "pbabip": config.pitching_pbabip_per_sd,
+        "stamina": config.pitching_stamina_per_sd,
+    }
+    scored = relative.calibrate_pitching(scored, players, weights, per_sd)
+    return relative.add_relative(scored, weights)
