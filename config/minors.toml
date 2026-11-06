@@ -52,3 +52,42 @@ max_option_years = 3    # option years a player has. The first demotion of a sea
                         # season): with OPT at 3 and OY at 0 he cannot be sent down without waivers (he is DFA'd); with OY of 1 or more,
                         # or OPT below 3, he can. Without the OPT column in the export there is no information and he can.
 floor = 0.35            # a player of the minors is promoted for his value only from this standing among the league's major leaguers
+
+[playing]   # who plays: the value of a player in a slot of a level (viewer/playing.py). Hand-tuned weights; the carry-overs and the
+            # position learning are measured (docs/models.md: "Playing time and development", and the notes on growth and positions)
+development = 10.0      # utility of the best prospect (ceiling 1.0, five years of window, younger than the level) in a full-time slot
+learning = 0.5          # utility per rating point he gains at a position by playing it
+current = 6.0           # utility of a player who is the best of his level by his value now (a floor so that a level can field a team)
+starter_share = 1.0     # share of the season's playing time of a lineup slot or a rotation spot
+bench_share = 0.15      # of a bench player (pinch hitting, injuries)
+bullpen_share = 0.30    # of a reliever
+age_step = 0.15         # a year younger than the median of the level counts this much more (a year older, less)
+age_min = 0.5
+age_max = 1.5
+window_cap = 5          # years of development window that count
+innings = 1000          # innings a full-time fielder plays in a season (for the position learning)
+start_rating = 25       # rating at a position he has never played (they start around 20 to 30)
+# Train the position he will play in the majors first (C, SS and CF most of all: a 70 or more is a long climb), then move him around.
+primary_premium = 1.5   # learning at his own position counts this much more
+key_premium = 2.0       # ... and this much at the key positions
+key_positions = ["C", "SS", "CF"]
+primary_ready = 0.80    # his own position must be this far toward its potential (0 = 20, 1 = the potential) before another counts in full
+key_ready = 0.90        # ... at the key positions
+before_ready = 0.20     # the share of the learning at another position that counts before that
+unfamiliar_hit = 0.30   # a position he is learning costs this x the development value x (1 - how far he is toward its potential)
+momentum_scale = 0.10   # development x (1 + this x the extra rating points expected from last year's growth)
+momentum_min = 0.5
+momentum_max = 2.0
+# measured in Model-Sim (TCR on): the extra rating points over the next three years per point gained last year
+carry_hitters = 0.80
+carry_hitters_potential = 0.19
+carry_pitchers = 0.38
+carry_pitchers_potential = 0.03
+[playing.learn_by_level]  # rating points gained at a position per 100 innings played there, by the place of the level on the ladder
+# (Relative80, one season, rating at a position against innings at it by level, with the start rating and the gap to the potential
+# as controls): the lower the level the faster, the majors the slowest. Nearly all of it comes in the regular season in that run;
+# the user reports more in spring training in the human leagues, which the weekly runs do not show.
+mlb = 0.08      # the majors
+upper = 0.58    # AAA and AA
+a = 1.51        # the two A levels
+rookie = 3.29   # the rookie levels and the international complex
