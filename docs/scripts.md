@@ -171,6 +171,9 @@ evaluate_models.py Dugout26 --models-from Model-Sim-26-Std
 ```
 Prints the scores stored at training (honest) and the scores on the seasons asked for (marked in-sample when trained on).
 
+### check_stuff_bias.py
+`check_stuff_bias.py Model-Sim [--start 2081 --stop 2086] [--stuff-min 65 --others-max 50 --gap 10] [--models-from Model-Sim]` takes the two pitching models (`pitching-fip`: park adjusted FIP runs per 200 IP above average; `pitching-babip`: BABIP above the league's) and compares what they predicted with what happened, for groups of pitchers made from their ratings (the mean of the vs-right and vs-left ratings): *stuff only* (stuff at least `--stuff-min`, control, home run avoidance and movement at most `--others-max`), *control only* (control and home run avoidance at least `--stuff-min`, stuff at most `--others-max`), *balanced* (the four within `--gap` points) and *all*; starters and relievers apart. A group whose actual runs (or BABIP) are clearly above the prediction (`z` above 3) is one the model is too kind to. Needs a save with outcomes and its trained models: a training league (`Model-Sim`, `Model-Sim-26-Std`), whose dumps are not in S3 by default (see `sync_files.py push --set training`). It checks the value now; the ceiling models build on the same ratings, so a bias here is a bias there, but a clean result does not clear the ceiling.
+
 ### review_outlook.py
 `review_outlook.py <save> [--out file.md] [--csv-dir dir]` writes `docs/outlook-diagnostics-<save>.md`: attribute development by age, what traits and proneness change, who stays in the league, aging of value, baselines the outlook models must beat. About a minute; needs the outlook tables.
 
