@@ -26,6 +26,7 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
 from scipy.optimize import Bounds, LinearConstraint, milp
 
 from util.config import LevelLimits
@@ -57,6 +58,9 @@ SIDE_BALANCE = (
     1  # the bat-only hitters of the majors: at most this many more left-handed bats than right-handed ones, or reverse
 )
 SIDE_PENALTY = 15.0  # hand tuned: per bat beyond that
+REGULAR_BAT = (
+    0.85  # hand tuned: a bat-only hitter this high among the league's major leaguers plays every day, no platoon
+)
 BAT_ONLY_MAX = 3  # hand tuned: hitters of the majors who cover no position (a first baseman and a DH platoon of two)
 BAT_ONLY_PENALTY = 20.0  # per bat-only hitter beyond that: a full-time DH moves one of the platoon down
 NEEDS = {"C": 2, "IF": 5, "OF": 4}  # what every level (the majors too) must have to field a team, by listed position
@@ -359,8 +363,9 @@ def _solve_majors(
         bats = [k for k, (i, dest, _) in enumerate(entries) if dest == top and covers["BAT"][i]]
         add(bats, 1 + len(groups) + 3, -1, -np.inf, BAT_ONLY_MAX)
         lean = np.zeros(n + extra)  # left minus right bats among them (a switch hitter leans neither way)
-        for k in bats:
-            lean[k] = sides[entries[k][0]]
+        for k in bats:  # a regular plays against both sides: only the platoon bats lean
+            i = entries[k][0]
+            lean[k] = 0.0 if table.at[i, "mlb_pct"] >= REGULAR_BAT else sides[i]
         for sign, slack in ((1, extra - 2), (-1, extra - 1)):
             line = sign * lean
             line[n + slack] = -1
@@ -422,8 +427,10 @@ def _solve(
     can_start: np.ndarray,
     fixed: dict[int, str | None] | None = None,
     injured: np.ndarray | None = None,
+    playing: dict | None = None,
 ) -> list[str | None]:
-    """The destination of every row of `table` (a level name, the top level above the ladder or None for out)."""
+    """The destination of every row of `table` (a level name, the top level above the ladder or None for out). With `playing`
+    (`lineup.joint_values`) the plan also decides who plays: see `_with_playing`."""
     fixed = fixed or {}  # decided before: the majors and the players promoted to them
     choices = [
         [(fixed[p], 0.0)] if p in fixed else _options(row, rungs, levels, rules)
@@ -493,11 +500,17 @@ def _solve(
             line[mine] = 1
             line[first_cover + len(groups) * j + c] = 1
             add(line, need, np.inf)
+    matrix = sparse.csr_matrix(np.array(rows))
+    integrality, top = np.r_[np.ones(n), np.zeros(extra)], np.r_[np.ones(n), np.full(extra, np.inf)]
+    if playing:
+        matrix, cost, lower, upper, integrality, top = _with_playing(
+            matrix, cost, lower, upper, integrality, top, pairs, playing
+        )
     result = milp(
         cost,
-        constraints=LinearConstraint(np.array(rows), lower, upper),
-        integrality=np.r_[np.ones(n), np.zeros(extra)],
-        bounds=Bounds(0, np.r_[np.ones(n), np.full(extra, np.inf)]),
+        constraints=LinearConstraint(matrix, lower, upper),
+        integrality=integrality,
+        bounds=Bounds(0, top),
     )
     if not result.success:  # cannot happen (the slack makes it feasible); fall back to the ratings' wishes
         return [row["To"] if row["Move"] and not row["Blocked"] else row["Level"] for _, row in table.iterrows()]
@@ -507,6 +520,48 @@ def _solve(
         if chosen[k]:
             dest[p] = level
     return dest
+
+
+def _with_playing(matrix, cost, lower, upper, integrality, top, pairs, playing: dict):
+    """The program of `_solve` with the slots of the levels: the value of who plays where is part of the choice of the level.
+
+    `playing` has `weight`, `base` ((row, level) -> what he is worth on the bench or in the bullpen there: it joins the value of
+    the destination), `inc` (a table with row, level, slot and the gain of a slot over the bench) and `caps` ((level, slot) -> how
+    many can play it: one for a lineup slot, the starters wanted for the rotation). A slot variable can be 1 only when its player
+    goes to its level (y <= x) and a slot holds at most its cap; the objective gains `weight` x the value of every slot filled.
+    """
+    weight = playing["weight"]
+    index = {(p, dest): k for k, (p, dest, _) in enumerate(pairs)}
+    cost = cost.copy()
+    for (p, level), value in playing["base"].items():
+        if (p, level) in index:
+            cost[index[(p, level)]] -= weight * value
+    inc = playing["inc"]
+    inc = inc[[(p, level) in index for p, level in zip(inc["row"], inc["level"])]].reset_index(drop=True)
+    m, width = len(inc), matrix.shape[1]
+    if m == 0:
+        return matrix, cost, lower, upper, integrality, top
+    new_rows, new_cols, new_vals, new_low, new_high = [], [], [], [], []
+    for j, (p, level) in enumerate(zip(inc["row"], inc["level"])):  # y <= x
+        new_rows += [j, j]
+        new_cols += [width + j, index[(p, level)]]
+        new_vals += [1.0, -1.0]
+        new_low.append(-np.inf)
+        new_high.append(0.0)
+    r = m
+    for (level, slot), group in inc.groupby(["level", "slot"]):  # a slot holds at most its cap
+        new_rows += [r] * len(group)
+        new_cols += [width + j for j in group.index]
+        new_vals += [1.0] * len(group)
+        new_low.append(-np.inf)
+        new_high.append(playing["caps"].get((level, slot), 1))
+        r += 1
+    extra_rows = sparse.csr_matrix((new_vals, (new_rows, new_cols)), shape=(r, width + m))
+    matrix = sparse.vstack([sparse.hstack([matrix, sparse.csr_matrix((matrix.shape[0], m))]), extra_rows], format="csr")
+    cost = np.r_[cost, -weight * inc["gain"].to_numpy(dtype=float)]
+    return (
+        matrix, cost, np.r_[lower, new_low], np.r_[upper, new_high], np.r_[integrality, np.ones(m)], np.r_[top, np.ones(m)],
+    )  # fmt: skip
 
 
 def _why(
@@ -629,12 +684,15 @@ def plan(
     mlb: pd.DataFrame | None = None,
     mlb_limit: int = 0,
     peers: pd.DataFrame | None = None,
+    playing=None,
 ) -> Plan:
     """The plan for the table of `minors.manage` (every minor leaguer of one organization on the ladder). `frame` is the
     outlook frame, for the values at the positions. With `mlb` (the active roster, `mlb_table`) the majors are the top level
     of the plan with the roster limit `mlb_limit`, filled with the best players of the organization (`peers` = `mlb_peers`:
     the league's major leaguers they are measured against); players without an option left cannot be sent down (they stay or
-    are DFA'd), and what the rest of the organization needs is solved below the majors."""
+    are DFA'd), and what the rest of the organization needs is solved below the majors. `playing` (`lineup.joint`) is a function
+    of the table and the rungs that gives the slots of the levels: with it the choice of the level also follows who plays where.
+    """
     rungs = minors.ladder(levels)
     if mlb is not None and not mlb.empty:
         levels = {minors.TOP: mlb_limits(rules, mlb_limit), **levels}
@@ -660,7 +718,9 @@ def plan(
     )
     fixed = {i: d for i, d in chosen.items() if table.at[i, "Level"] == minors.TOP or d == minors.TOP}
     fixed.update({i: table.at[i, "Level"] for i in np.flatnonzero(injured)})  # an injured player stays where he is
-    dest = _solve(table, rungs, levels, rules, can_start, fixed, injured)
+    dest = _solve(
+        table, rungs, levels, rules, can_start, fixed, injured, playing(table, rungs, levels) if playing else None
+    )
     table["can_start"] = can_start
     arriving = pd.Series([d for d, level in zip(dest, table["Level"]) if d is not None and d != level]).value_counts()
     counts = table["Level"].value_counts().add(arriving, fill_value=0)  # the players there and the ones sent to it

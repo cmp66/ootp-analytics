@@ -13,11 +13,11 @@ One-button update of the human leagues of `config/update.toml`.
 update_all.py                      # every save, latest season
 update_all.py TGS27                  # one save
 update_all.py --season 2046        # another season
-update_all.py --only outlook lists # some steps (process, values, outlook, lists)
+update_all.py --only outlook lists # some steps (process, values, park, outlook, growth, lists)
 update_all.py --if-changed         # skip saves whose input files are unchanged
 update_all.py --steps              # list the steps
 ```
-Runs, per save: `process_seasons`, `predict_values` (with the `models_from` save), `predict_outlook`, and the lists of `config/viewer.toml` into `output/lists/`. The lists that compare with your roster need `org` in `config/update.toml`. Does not train. About 35 s for two saves.
+Runs, per save: `process_seasons`, `predict_values` (with the `models_from` save), `predict_outlook`, `model/growth.py` (recent growth from the archive of exports, export leagues only) and the lists of `config/viewer.toml` into `output/lists/`. The lists that compare with your roster need `org` in `config/update.toml`. Does not train. About 35 s for two saves.
 
 ### run_viewer.py
 `run_viewer.py [--port 8501]` starts the Streamlit viewer at http://localhost:8501. It reads the csv files `update_all.py` writes. The screens and what they show: [viewer.md](viewer.md).

@@ -33,7 +33,7 @@ SETS = ("raw", "viewer", "training")
 MANIFESTS = {name: f"files-{name}" for name in SETS}
 VIEWER_OUTPUTS = (  # the processed files the viewer reads (viewer/queries.py, data_cache.py, parks.py)
     "outlook-slots", "outlook-players", "player-data", "predicted-values", "finances", "park-rates", "woba-calcs",
-    "team-pitching",
+    "team-pitching", "growth",
 )  # fmt: skip
 SKIPPED_FOLDERS = ("output",)
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -547,6 +548,51 @@ def test_the_management_page_lists_the_moves_of_every_league_and_survives_a_leag
         assert not app.exception
     app.selectbox[1].select(app.selectbox[1].options[-1]).run()  # another organization
     assert not app.exception
+
+
+def test_the_management_page_says_who_plays_at_every_level_and_the_sliders_change_the_plan():
+    app = AppTest.from_file(str(SCREENS / "minor_management.py"), default_timeout=180).run()
+    assert not app.exception
+    if len(app.dataframe) < 4:
+        pytest.skip("the league has no minor leaguers on the ladder (an export without the minor league lists)")
+    tables = [
+        t.value
+        for t in app.dataframe
+        if {"Slot", "Primary", "Value", "Dev", "Learn", "Hit", "Now"} <= set(t.value.columns)
+    ]
+    assert tables, "no lineup table"
+    slots = set().union(*[set(t["Slot"]) for t in tables])
+    assert {"SS", "BENCH", "SP"} <= slots and (tables[0]["Reason"] != "").all()
+    assert any("Who plays" in m.value for m in app.markdown)
+    summary = next(
+        t.value for t in app.dataframe if {"Off primary", "Differs from chart", "Playing value"} <= set(t.value.columns)
+    )
+    assert (summary["Players"] > 0).all()
+    weight = next(sl for sl in app.slider if sl.label.startswith("Weight of who plays"))
+    weight.set_value(0.0).run()  # the levels as before, the lineups follow
+    assert not app.exception
+    weight.set_value(2.0).run()
+    assert not app.exception
+
+
+def test_the_lineup_table_orders_the_slots_and_marks_a_player_away_from_his_position():
+    from viewer.screens import minor_management as page  # noqa: PLC0415
+
+    placed = pd.DataFrame(
+        {"Level": "AA", "Slot": ["BENCH", "SS", "2B", "SP"], "ID": [1, 2, 3, 4], "Player": list("abcd"), "Age": 21.0,
+         "Primary": ["SS", "SS", "SS", "SP"], "total": 5.0, "development": 3.0, "learning": 1.0, "hit": 0.5, "current": 1.5,
+         "Reason": "x", "Grow": [np.nan, 1.0, -1.0, 0.5]}
+    )  # fmt: skip
+    out = page.lineup_table(placed)
+    assert out["Slot"].tolist() == ["SS", "2B", "BENCH", "SP"][:0] or out["Slot"].tolist() == [
+        "2B",
+        "SS",
+        "BENCH",
+        "SP",
+    ]
+    assert {"Value", "Dev", "Learn", "Hit", "Now", "Grow"} <= set(out.columns)
+    html = page.styled(out).to_html()
+    assert html.count("#e08a1e") == 1  # only the 2B of a shortstop is off his position
 
 
 def test_prospects_are_the_better_ceilings_with_development_left_and_the_rest_is_filler():

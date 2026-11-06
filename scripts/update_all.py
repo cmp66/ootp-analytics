@@ -12,6 +12,7 @@ For each save the steps run in order (a failed step stops that save, the other s
     values    predicted values of every player, plan 14 models (scripts/predict_values.py)
     park      neutral-park event rates of the hitters, for the park adjustment of the viewer (scripts/predict_park.py)
     outlook   floor / ceiling, top-10 / top-50 chances, injury cost (scripts/predict_outlook.py)
+    growth    recent growth of the ratings and the potential from the archive of exports (model/growth.py)
     lists     every list of config/viewer.toml as a csv in output/lists/ (scripts/outlook_lists.py)
 When a function or output is added to the project, add its step to STEPS here (and to docs/updating-data.md) so the update
 stays complete.
@@ -28,7 +29,7 @@ from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from model import park, scales  # noqa: E402
+from model import growth, park, scales  # noqa: E402
 from scripts import outlook_lists, predict_outlook, predict_park, predict_values, process_seasons  # noqa: E402
 from util import paths  # noqa: E402
 from util.config import get_save  # noqa: E402
@@ -77,6 +78,25 @@ def _outlook(job: Job) -> int:
     return predict_outlook.main([job.save, "--season", str(job.season), "--models-from", job.models_from])
 
 
+def _growth(job: Job) -> int:
+    """Recent growth of the players from the dated archive of the ratings exports (model/growth.py); needs two exports of the
+    season 90 days or more apart, and only the export leagues have an archive."""
+    target = paths.output_file(job.save, job.season, "growth")
+    if get_save(job.save).source != "export":
+        print("  skipped: a database dump league has no archive of exports")
+        return 0
+    found = growth.archive_growth(job.save, job.season)
+    if found is None:
+        target.unlink(missing_ok=True)  # no stale growth beside new ratings
+        print(
+            f"  skipped: needs two archived exports {growth.MIN_DAYS} days or more apart (scripts/copy_exports.py keeps them)"
+        )
+        return 0
+    found.to_csv(target, index=False)
+    print(f"  {len(found)} players, {int(found['days'].iloc[0])} days of history -> {target.name}")
+    return 0
+
+
 def _lists(job: Job) -> int:
     """Every list of config/viewer.toml to output/lists/; the lists that need an organization are skipped without one."""
     defaults, specs = queries.load_list_specs()
@@ -101,6 +121,7 @@ STEPS = [
     Step("values", "predicted values (plan 14 models)", _values),
     Step("park", "neutral-park event rates for the park adjustment of the viewer", _park),
     Step("outlook", "outlook scores: floor, ceiling, tier chances, injury cost", _outlook),
+    Step("growth", "recent growth of the players from the archive of exports", _growth),
     Step("lists", "the lists of config/viewer.toml as csv files", _lists),
 ]
 

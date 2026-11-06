@@ -449,8 +449,8 @@ def test_the_bat_only_hitters_of_the_majors_do_not_lean_to_one_side_and_a_switch
         return {"Listed": "DH", "Value": value, "Tier": "MLB"}
 
     base = fielders("C", 2) + fielders("SS", 5) + fielders("LF", 4)  # P1-P11
-    mlb = [*base, ("MLB", False, bat(90.0)), ("MLB", False, bat(60.0))]  # P12, P13: two left-handed bats
-    farm = [("AAA", False, {**bat(80.0)}), ("AAA", False, {**bat(79.0)})]  # P14 left-handed, P15 right-handed
+    mlb = [*base, ("MLB", False, bat(80.0)), ("MLB", False, bat(50.0))]  # P12, P13: two left-handed bats
+    farm = [("AAA", False, {**bat(70.0)}), ("AAA", False, {**bat(69.0)})]  # P14 left-handed, P15 right-handed
     left, right = {12: 2, 13: 2, 14: 2, 15: 1}, {}
     plan = majors_plan(mlb, farm, 13, left)
     assert (
@@ -459,11 +459,30 @@ def test_the_bat_only_hitters_of_the_majors_do_not_lean_to_one_side_and_a_switch
     assert plan.loc["P13", "Action"] == roster.DEMOTE
     alike = majors_plan(mlb, farm, 13, {**left, 15: 2})
     assert alike.loc["P14", "Action"] == roster.PROMOTE  # two left-handers: the better one
-    switch = majors_plan(mlb, [("AAA", False, bat(79.0)), ("AAA", False, bat(80.0))], 13, {12: 2, 13: 1, 14: 3, 15: 1})
+    switch = majors_plan(mlb, [("AAA", False, bat(69.0)), ("AAA", False, bat(70.0))], 13, {12: 2, 13: 1, 14: 3, 15: 1})
     assert (
         switch.loc["P14", "Action"] == roster.PROMOTE and switch.loc["P15", "Action"] == ""
     )  # a right-hander a hair better: the switch hitter
     assert right == {}
+
+
+def test_a_regular_bat_does_not_have_to_balance_the_sides_of_the_platoon():
+    def fielders(position, n):
+        return [("MLB", False, {"Listed": position, "Value": 70.0, "Tier": "MLB"}) for _ in range(n)]
+
+    def bat(value, **extra):
+        return {"Listed": "DH", "Value": value, "Tier": "MLB", **extra}
+
+    base = fielders("C", 2) + fielders("SS", 5) + fielders("LF", 4)  # P1-P11
+    stuck = bat(50.0, OPT=3, OY=0)  # P12: no option left, stays, left-handed
+    mlb = [*base, ("MLB", False, stuck), ("MLB", False, bat(97.0, OPT=1, OY=0))]  # P13: the best bat, left-handed
+    farm = [("AAA", False, bat(74.0))]  # P14: right-handed
+    sides = {12: 2, 13: 2, 14: 1}
+    kept = majors_plan(mlb, farm, 13, sides)
+    assert kept.loc["P13", "Action"] == "" and kept.loc["P14", "Action"] == ""  # the regular stays
+    with mock.patch.object(roster, "REGULAR_BAT", 1.1):  # counted as a platoon bat, he would have been sent down
+        platoon = majors_plan(mlb, farm, 13, sides)
+    assert platoon.loc["P13", "Action"] == roster.DEMOTE and platoon.loc["P14", "Action"] == roster.PROMOTE
 
 
 def test_the_bottom_level_releases_its_extra_fillers_and_keeps_the_prospect_but_the_complex_is_not_a_bottom():
