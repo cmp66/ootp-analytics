@@ -11,7 +11,7 @@ Needs a save with outcomes (a training league: Model-Sim, Model-Sim-26-Std) and 
 `pitching-babip`: BABIP minus the league's, so less is better) the player-seasons are put in groups by their ratings (the mean of
 the vs-right and vs-left ratings):
 
-  stuff only      stuff at least --stuff-min and control, home run avoidance and movement (PBABIP) all at most --others-max
+  stuff only      stuff at least --stuff-min and control, home run avoidance (HRR) and PBABIP all at most --others-max
   control only    the mirror: control and home run avoidance both at least --stuff-min, stuff at most --others-max
   balanced        the four ratings within --gap points of each other
   all             everybody
@@ -62,13 +62,13 @@ def profile(frame: pd.DataFrame) -> pd.DataFrame:
             "stuff": mean("STU vR", "STU vL"),
             "control": mean("CON.1 vR", "CON.1 vL"),
             "homers": mean("HRR vR", "HRR vL"),
-            "movement": mean("PBABIP vR", "PBABIP vL"),
+            "pbabip": mean("PBABIP vR", "PBABIP vL"),
         },
         index=frame.index,
     )
-    out["others_max"] = out[["control", "homers", "movement"]].max(axis=1)
-    out["spread"] = out[["stuff", "control", "homers", "movement"]].max(axis=1) - out[
-        ["stuff", "control", "homers", "movement"]
+    out["others_max"] = out[["control", "homers", "pbabip"]].max(axis=1)
+    out["spread"] = out[["stuff", "control", "homers", "pbabip"]].max(axis=1) - out[
+        ["stuff", "control", "homers", "pbabip"]
     ].min(axis=1)
     return out
 

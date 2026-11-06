@@ -6,12 +6,12 @@ from scripts import check_stuff_bias, train_models
 from tests.test_model_registry import multi_season_root
 
 
-def ratings_frame(stuff, control, homers, movement):
+def ratings_frame(stuff, control, homers, pbabip):
     n = len(stuff)
     return pd.DataFrame(
         {
             "STU vR": stuff, "STU vL": stuff, "CON.1 vR": control, "CON.1 vL": control,
-            "HRR vR": homers, "HRR vL": homers, "PBABIP vR": movement, "PBABIP vL": movement,
+            "HRR vR": homers, "HRR vL": homers, "PBABIP vR": pbabip, "PBABIP vL": pbabip,
             "target": np.zeros(n), "weight": np.ones(n), "start_share": np.zeros(n),
         }
     )  # fmt: skip
