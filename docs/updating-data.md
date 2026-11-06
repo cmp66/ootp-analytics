@@ -28,7 +28,7 @@ A human league save (`source = "export"` in `config/saves.toml`) lives in `files
 
 ## Everyday: new ratings files
 
-1. `copy_exports.py` copies the export into the save's latest season folder (same layout as the earlier seasons); see [scripts.md](scripts.md). Or put the files there yourself.
+1. `copy_exports.py` copies the export into the save's latest season folder (same layout as the earlier seasons) and keeps a dated, gzipped copy of the ratings in `files/<save>/archive/<season>/<in-game date>/`; see [scripts.md](scripts.md). Or put the files there yourself.
 2. `update_all.py` (all saves of `config/update.toml`) or `update_all.py TGS27`. It runs, per save: process the seasons, score the values, score the outlook, write the park rates and the lists of `config/viewer.toml` into `output/lists/`.
    - `--season 2046` when it is not the latest season in the folder.
    - `--if-changed` skips a save whose input files have not changed since the last update.

@@ -62,7 +62,7 @@ def test_report_functions_build_the_workbook():
     season = available_seasons(save)[-1]
     frame = queries.load_outlook(save, season)
     pool = queries.apply_filters(queries.select_pool(frame, "mlb"), include_depth=False)
-    spec = report.ReportSpec("Test", "rank_score", 3, [("Players from", "MLB players")], top=10, top_per_position=5)
+    spec = report.ReportSpec("Test", "rank_score", 5, [("Players from", "MLB players")], top=10, top_per_position=5)
     ordered, lowest, blocks = (
         report.ordered_list(pool, spec),
         report.ordered_list(pool, spec, True),
@@ -643,7 +643,7 @@ def test_the_lists_carry_the_player_id_for_the_screens_but_not_for_the_excel_rep
     save = next(iter(load_update_config()))
     frame = queries.load_outlook(save, available_seasons(save)[-1])
     pool = queries.apply_filters(queries.select_pool(frame, "mlb"), include_depth=False)
-    spec = report.ReportSpec("Test", "rank_score", 3, [], top=5, top_per_position=3)
+    spec = report.ReportSpec("Test", "rank_score", 5, [], top=5, top_per_position=3)
     plain = report.ordered_list(pool, spec)
     with_id = report.ordered_list(pool, spec, with_id=True)
     assert (

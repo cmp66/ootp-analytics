@@ -75,6 +75,14 @@ keeping, and tell the user to pull on the other machine.
 - **Rule 5.** Rebuilding teams draft on potential, so high-potential prospects are protected, and exposed high-potential prospects
   of other organizations are listed as draft candidates.
 
+- **Ratings are rebalanced and can be relative.** In a relative league (TGS27, Dugout26 and the training leagues) the game keeps the
+  distribution of ratings constant over the save and rebalances them when the offseason starts (late October) and around opening
+  day, so a rating can move without the player changing. PBL27 is non-relative (1-10 buckets are a direct mapping of the underlying
+  1-600 skill). Players are re-scouted now and then; `Sct` in the export is the date of a player's ratings (the export date in
+  TGS27 and Dugout26, mostly 29 October in PBL27). Ages are fine ages (`AgeFine`, `util/ages.py`) at the date of the ratings; the
+  in-game date of an export is found from the dates of birth and ages in it. `copy_exports.py` keeps every export in
+  `files/<save>/archive/` (gzipped, by in-game date). See `docs/models.md`.
+
 ## Gotchas
 
 - Streamlit page code runs on every rerun: heavy work goes in `st.cache_data` with `max_entries`, shared frames in

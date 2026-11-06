@@ -66,8 +66,8 @@ PITCHER_RATINGS = [
 SHARED_RATINGS = ["HT", "WT"]
 TRAIT_FEATURES = ["WE_ord", "INT_ord", "Prone3_ord"]
 RATING_COLUMNS = {"hitters": HITTER_RATINGS, "pitchers": PITCHER_RATINGS}
-PLAYER_FEATURES = ["Age", "level", "best_value", "best_pct", "is_pitcher", *TRAIT_FEATURES, "HT", "WT"]
-AVAIL_FEATURES = ["Age", "level", "best_value", "is_pitcher", *TRAIT_FEATURES]
+PLAYER_FEATURES = ["AgeFine", "level", "best_value", "best_pct", "is_pitcher", *TRAIT_FEATURES, "HT", "WT"]
+AVAIL_FEATURES = ["AgeFine", "level", "best_value", "is_pitcher", *TRAIT_FEATURES]
 OUTLOOK_DIR = "outlook"
 
 
@@ -75,7 +75,7 @@ def feature_names(family: str) -> list[str]:
     """Features of a family's value models and tier classifiers, in order."""
     slot_specific = ["slot_rating", "slot_pot"] if family == "hitters" else []
     return [
-        "slot", "Age", "level", "value_now", "pct_now", "best_value", *slot_specific,
+        "slot", "AgeFine", "level", "value_now", "pct_now", "best_value", *slot_specific,
         *RATING_COLUMNS[family], *SHARED_RATINGS, *TRAIT_FEATURES,
     ]  # fmt: skip
 
@@ -123,7 +123,7 @@ def add_player_targets(table: pd.DataFrame, horizons=HORIZONS) -> pd.DataFrame:
     return out
 
 
-CONTEXT_COLUMNS = ["ID", "season", "Age", "level", "best_value", "WE_ord", "INT_ord", "Prone3_ord"]
+CONTEXT_COLUMNS = ["ID", "season", "Age", "AgeFine", "level", "best_value", "WE_ord", "INT_ord", "Prone3_ord"]
 
 
 def rating_columns_needed(family: str) -> list[str]:

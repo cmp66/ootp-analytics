@@ -4,7 +4,7 @@ import_files is the entry point of stats/pipeline.py (scripts/process_seasons.py
 scripts; the export files are told apart by marker columns (EXPORT_FILE_MARKERS)."""
 
 import pandas as pd
-from util import paths
+from util import ages, paths
 from util.frames import consolidate
 from util.innings import dump_ip_to_outs, outs_to_ip
 from util.config import get_save
@@ -133,6 +133,30 @@ EXPORT_RATINGS_RENAMES = {
 }
 
 
+def add_fine_age(
+    frame: pd.DataFrame, current: pd.Series | None = None, scouted: pd.Series | None = None
+) -> pd.DataFrame:
+    """Add `AgeFine` (age in years and fractions on the date of the ratings) and `RatingDays` (days between the ratings and the
+    file: 0 unless the export says a player was scouted earlier). The date of the file is found from the dates of birth and the
+    whole ages of the players (util/ages.py); `current` marks the players to use for it (the dump has retired players whose
+    age is no longer counted). Without a usable date of birth the age plus half a year."""
+    dob_column = "DOB" if "DOB" in frame else "date_of_birth" if "date_of_birth" in frame else None
+    out = frame.copy()
+    if dob_column is None:
+        out["AgeFine"], out["RatingDays"] = out["Age"] + 0.5, 0
+        return out
+    dob = pd.to_datetime(out[dob_column], format="%m/%d/%Y" if dob_column == "DOB" else None, errors="coerce")
+    use = pd.Series(True, index=out.index) if current is None else current
+    date = ages.export_date(dob[use], out.loc[use, "Age"])
+    if date is None:
+        out["AgeFine"], out["RatingDays"] = out["Age"] + 0.5, 0
+        return out
+    rated = ages.rating_dates(scouted, date) if scouted is not None else pd.Series(date, index=out.index)
+    out["AgeFine"] = ages.fine_age(dob, rated).fillna(out["Age"] + 0.5)
+    out["RatingDays"] = (date - rated).dt.days
+    return out
+
+
 def import_ratings(league: str, season: int, ratings_type: str, basedir: str) -> pd.DataFrame:
 
     filedir = paths.export_ratings_dir(league, season)
@@ -145,6 +169,7 @@ def import_ratings(league: str, season: int, ratings_type: str, basedir: str) ->
     df_player_ratings = df_player_ratings.rename(columns=EXPORT_RATINGS_RENAMES)
     df_player_ratings = df_player_ratings.drop(columns=["EXP"], errors="ignore")
     df_player_ratings = df_player_ratings.set_index("ID")
+    df_player_ratings = add_fine_age(df_player_ratings, scouted=df_player_ratings.get("Sct"))
 
     # keep the categories the export shows (L / N / H, and the five proneness levels): the 40 / 100 / 160 codes below merge
     # Iron Man with Durable and Wrecked with Fragile and are not on the scale of the dump's 1-200 numbers (model/formats.py)
@@ -369,6 +394,7 @@ def import_ootp_dump_ratings(
     ]
     df_player_pitching_ratings_base["PIT"] = df_player_pitching_ratings_base[pitch_columns].gt(0).sum(axis=1)
 
+    df_player_ratings_base = add_fine_age(df_player_ratings_base, df_player_ratings_base["retired"].eq(0))
     df_player_ratings_base = consolidate(df_player_ratings_base.set_index("ID"))
     df_player_batting_ratings_base = consolidate(df_player_batting_ratings_base.set_index("ID"))
     df_player_fielding_ratings_base = consolidate(df_player_fielding_ratings_base.set_index("ID"))
