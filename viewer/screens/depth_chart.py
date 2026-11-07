@@ -19,7 +19,7 @@ from model import scales  # noqa: E402
 from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
-from viewer import data_cache, depth, league, minors, org_plan, overview, playing, roster  # noqa: E402
+from viewer import data_cache, depth, injuries, league, minors, org_plan, overview, playing, roster  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 BOX_TITLES = {
@@ -51,6 +51,12 @@ STYLE = org_view.STYLE + f"""
 .box .value {{color: #9fb0cf; font-size: 12px; min-width: 38px; text-align: right;}}
 .box .over {{color: #ff7b72;}}
 .box .off {{color: #ffb347;}}
+.box .inj {{font-size: 10px; font-weight: 700; color: #111; border-radius: 3px; padding: 0 4px; margin-left: 5px;}}
+.box .inj.dtd {{background: {injuries.COLORS[injuries.DTD]};}}
+.box .inj.out {{background: {injuries.COLORS[injuries.OUT]};}}
+.il {{margin-top: 6px; font-size: 14px;}}
+.il .inj {{font-size: 11px; font-weight: 700; color: #111; border-radius: 3px; padding: 0 5px; margin-right: 4px;}}
+.il .inj.il {{background: {injuries.COLORS[injuries.IL]};}}
 .box .none {{color: #8a93a8; font-style: italic;}}
 </style>
 """
@@ -62,6 +68,8 @@ def style_of(row) -> str:
     tips = []
     if row.Flag:
         tips.append(f"Over the limits of {row.Lev}: {row.Flag}")
+    if row.Inj:
+        tips.append(f"Injured: {row.Inj}")
     if getattr(row, "Note", ""):
         tips.append(row.Note)
     classes = "over" if row.Flag else "off" if getattr(row, "Off", False) else ""
@@ -69,10 +77,32 @@ def style_of(row) -> str:
     return (f' class="{classes}"' if classes else "") + title
 
 
+def badge(text: str) -> str:
+    """The small colored tag after the name of a player who is day to day or out."""
+    state = str(text).split(" ")[0].upper()
+    return (
+        f'<span class="inj {state.lower()}">{html.escape(state)}</span>'
+        if state in (injuries.DTD, injuries.OUT)
+        else ""
+    )
+
+
+def injured_list_html(rows: pd.DataFrame) -> str:
+    """The players on the injured list, who are not in the chart."""
+    if rows.empty:
+        return ""
+    items = "; ".join(
+        f'<span class="inj il">IL</span>{html.escape(r.Player)} ({html.escape(str(r.Pos))}, {html.escape(str(r.Lev))}, '
+        f"age {r.Age:.0f}): {html.escape(r.Inj.removeprefix('IL '))}"
+        for r in rows.itertuples()
+    )
+    return f'<div class="il"><b>Injured list</b> (off the chart until well): {items}</div>'
+
+
 def player_rows(players) -> str:
     return (
         "".join(
-            f'<div class="row"><span{style_of(row)}>{html.escape(row.Player)}</span>'
+            f'<div class="row"><span{style_of(row)}>{html.escape(row.Player)}{badge(row.Inj)}</span>'
             f'<span class="lev">{html.escape(str(row.Lev))}</span>'
             f'<span class="value">{"" if pd.isna(row.Value) else f"{row.Value:.1f}"}</span></div>'
             for row in players.itertuples()
@@ -114,7 +144,9 @@ def planned_from_session(save: str, season: int, org: str, frame: pd.DataFrame):
             "season": rules.mlb_season, "offseason": rules.mlb_offseason, "spring": rules.mlb_spring
         }.get(phase or "") or roster.detect_limit(frame, rules) or rules.mlb_season  # fmt: skip
     version = scales.version_of(get_save(save).ratings)
-    result, placed, offered = org_plan.planned(save, season, org, rules, version, limit, settings)
+    result, placed, offered = org_plan.planned(
+        save, season, org, rules, version, limit, settings, injuries.load_injuries()
+    )
     return None if placed.empty else (placed, offered)
 
 
@@ -186,11 +218,12 @@ def main() -> None:
         disabled=not splits,
     )
     sides = {label: side for side, label in depth.SIDE_LABELS.items()}
+    marks = data_cache.injury_marks(save, season)
     try:
         if planned_view:
-            chart = depth.planned_chart(frame, org, choice, plan[0], plan[1], levels)
+            chart = depth.planned_chart(frame, org, choice, plan[0], plan[1], levels, marks=marks)
         else:
-            chart = depth.depth_chart(frame, org, choice, ranking, levels, sides.get(view))
+            chart = depth.depth_chart(frame, org, choice, ranking, levels, sides.get(view), marks)
     except ValueError as error:  # outlook files made before the career view have no 10-season floor / ceiling
         st.error(str(error))
         return
@@ -234,7 +267,9 @@ def main() -> None:
         format_func=lambda c: "Choose a player..." if c is None else c,
         key=f"depth-open-{save}-{org}-{generation}",
     )
+    st.html(injuries.legend_html())
     st.html(chart_html(chart))
+    st.html(injured_list_html(depth.injured_list(frame, org, choice, marks)))
     if chosen:
         st.session_state["depth_generation"] = generation + 1
         player_id, slot, name = players[chosen]

@@ -19,17 +19,28 @@ from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
 from model import scales  # noqa: E402
-from viewer import league, lineup, minors, org_plan, overview, playing, roster  # noqa: E402
+from viewer import (
+    data_cache,
+    depth,
+    injuries,
+    league,
+    lineup,
+    minors,
+    org_plan,
+    overview,
+    playing,
+    roster,
+)  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
     "Player": 150, "Pos": 50, "Age": 50, "Pro": 50, "Tier": 105, "Win": 50, "Ceil": 56, "Floor": 56, "Top-50 %": 70, "Green": 56,
-    "Mean %": 66, "Opt": 70, "To": 60, "Reason": 520, "Listed": 60, "Better": 60, "Gain": 56,
+    "Mean %": 66, "Opt": 70, "Inj": 96, "To": 60, "Reason": 520, "Listed": 60, "Better": 60, "Gain": 56,
 }  # fmt: skip
 MOVE_COLORS = {minors.UP: "#2e9e57", minors.DOWN: "#d6453d", minors.MUST: "#e08a1e"}
 TIER_COLORS = {minors.TOP_PROSPECT: "#2e9e57", minors.PROSPECT: "#5aa469"}
-TEXT_COLUMNS = ("Player", "Pos", "Tier", "To", "Reason", "Listed", "Better", "Green", "Opt")
+TEXT_COLUMNS = ("Player", "Pos", "Tier", "To", "Reason", "Listed", "Better", "Green", "Opt", "Inj")
 
 
 def rules_from_page(base: minors.Rules) -> minors.Rules:
@@ -112,15 +123,16 @@ def styled(frame: pd.DataFrame):
     for column, colors in (("Tier", TIER_COLORS), ("Action", ACTION_COLORS)):
         if column in frame:
             style = style.map(lambda v, c=colors: f"color: {c[v]}; font-weight: 700" if v in c else "", subset=[column])
-    return style
+    return injuries.paint(style, frame)
 
 
-def move_table(group: pd.DataFrame) -> pd.DataFrame:
+def move_table(group: pd.DataFrame, marks: pd.DataFrame | None = None) -> pd.DataFrame:
     """The columns of a list of moves, the best prospects first (the moves of the prospects with development left matter most)."""
     out = group.drop(
         columns=["To", "Reason"]
     ).copy()  # the wishes of the ratings; the plan's destination and reason follow
     out["Pos"] = out["Listed"] if "Listed" in out else out["Pos"]
+    out = injuries.add(out, marks)
     out["Green"] = out["green"].astype(int).astype(str) + "/" + out["pitcher"].map({True: "3", False: "6"})
     out["Mean %"] = out["mean"] * 100
     if "OPT" in out:  # option years used of 3, and the demotions this season (the players of the majors)
@@ -136,6 +148,7 @@ def move_table(group: pd.DataFrame) -> pd.DataFrame:
         "Player",
         "Pos",
         "Age",
+        *(["Inj"] if "Inj" in out else []),
         "Pro",
         "Tier",
         "Win",
@@ -151,10 +164,23 @@ def move_table(group: pd.DataFrame) -> pd.DataFrame:
     return out[columns].reset_index(drop=True)
 
 
-def position_table(group: pd.DataFrame) -> pd.DataFrame:
-    return group.rename(columns={"Better": "Better", "Why": "Reason"})[
-        ["ID", "Player", "Age", "Listed", "Better", "Gain", "Reason"]
-    ].reset_index(drop=True)
+def position_table(group: pd.DataFrame, marks: pd.DataFrame | None = None) -> pd.DataFrame:
+    return (
+        injuries.add(group, marks)
+        .rename(columns={"Better": "Better", "Why": "Reason"})[
+            [
+                "ID",
+                "Player",
+                "Age",
+                *(["Inj"] if "Inj" in injuries.add(group, marks) else []),
+                "Listed",
+                "Better",
+                "Gain",
+                "Reason",
+            ]
+        ]
+        .reset_index(drop=True)
+    )
 
 
 def show(frame: pd.DataFrame, key: str):
@@ -292,7 +318,9 @@ def main() -> None:
     version = scales.version_of(get_save(save).ratings)
     mlb_limit = choose_mlb_limit(frame, rules, f"mlb-phase-{save}", config[save].get("phase"))
     settings = playing_from_page(playing.load_playing())
-    result, placed, _ = org_plan.planned(save, season, org, rules, version, mlb_limit, settings)
+    result, placed, _ = org_plan.planned(
+        save, season, org, rules, version, mlb_limit, settings, injuries.load_injuries()
+    )
     st.session_state["planner"] = (save, org, rules, mlb_limit, settings)  # the depth chart draws the same plan
     table = result.players
     if table.empty:
@@ -319,6 +347,7 @@ def main() -> None:
         "Click a player for his ratings.",
     ]
     st.caption(" ".join(sentences))
+    st.html(injuries.legend_html())
     if not has_limits:
         st.info(
             "The levels have no roster limits yet: set `max_players` and `pitchers` per level in config/saves.toml."
@@ -334,6 +363,7 @@ def main() -> None:
             "(Players: As planned)."
         )
         st.dataframe(lineup.comparison(placed), hide_index=True, height=min(len(present), 10) * 35 + 38)
+    marks = data_cache.injury_marks(save, season)
     generation = st.session_state.setdefault("minors_generation", 0)
     picked = None
     for level in present:
@@ -346,7 +376,7 @@ def main() -> None:
                 continue
             shown_any = True
             st.markdown(f"**{title}** ({len(group)})")
-            clicked = show(move_table(group), f"minors-{save}-{org}-{level}-{title}-{generation}")
+            clicked = show(move_table(group, marks), f"minors-{save}-{org}-{level}-{title}-{generation}")
             if clicked and not picked:
                 row = group.loc[group["ID"] == clicked].iloc[0]
                 picked = (clicked, row["Pos"], row["Player"], level)
@@ -354,12 +384,24 @@ def main() -> None:
         if not wrong.empty:
             shown_any = True
             st.markdown(f"**Listed at a position that is not their best** ({len(wrong)})")
-            clicked = show(position_table(wrong), f"minors-{save}-{org}-{level}-position-{generation}")
+            clicked = show(position_table(wrong, marks), f"minors-{save}-{org}-{level}-position-{generation}")
             if clicked and not picked:
                 row = here.loc[here["ID"] == clicked].iloc[0]
                 picked = (clicked, row["Pos"], row["Player"], level)
         if not shown_any:
             st.write("No moves.")
+    hurt = depth.injured_list(frame, org, depth.WHOLE, marks)
+    if not hurt.empty:
+        st.subheader(f"Injured list: {len(hurt)} players left out of the plan")
+        st.caption(
+            f"More than {injuries.load_injuries().injured_list:g} days out (or a time not known): no roster spot, no move and no "
+            "lineup slot until an export shows them well again. Shown in violet."
+        )
+        st.dataframe(
+            injuries.paint(hurt.drop(columns="ID").style.format({"Age": "{:.0f}"}), hurt),
+            hide_index=True,
+            height=min(len(hurt), 10) * ROW_HEIGHT + 38,
+        )
     if picked:
         st.session_state["minors_generation"] = generation + 1
         player_id, slot, name, level = picked

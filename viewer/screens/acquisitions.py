@@ -18,11 +18,12 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from util.update_config import load_update_config  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
-from viewer import acquire, data_cache, league  # noqa: E402
+from viewer import acquire, data_cache, injuries, league  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
+    "Inj": 96,
     "Place": 60, "Player": 150, "Listed": 60, "Age": 50, "Value": 62, "Park": 56, "Pct": 56, "Target": 62, "Gap": 56, "Need": 50,
     "Source": 90, "Years": 50, "Commit $m": 78, "Impact": 62, "Per yr": 56, "Chance": 62, "Expected": 72,
     "Verdict": 70, "Context": 210,
@@ -31,6 +32,7 @@ WIDTHS = {
     "From": 60, "Deal": 95, "Cost $m": 70, "Sign": 100, "Yrs": 50, "Gain": 56, "Per $m": 62, "Best option": 190, "Option": 190,
 }  # fmt: skip
 TEXT_COLUMNS = (
+    "Inj",
     "Place",
     "Player",
     "Listed",
@@ -176,6 +178,7 @@ def style_priorities(frame: pd.DataFrame):
 def show(frame: pd.DataFrame, styled, key: str, height_rows: int = 14):
     """A table with the ID kept out of sight; returns the ID of the player clicked, if any."""
     shown = [c for c in frame.columns if c not in ("ID", "slot")]
+    styled = injuries.paint(styled, frame)
     config = {
         c: (st.column_config.TextColumn if c in TEXT_COLUMNS else st.column_config.NumberColumn)(
             width=WIDTHS.get(c, 60)
@@ -248,6 +251,9 @@ def main() -> None:
     settings = settings_from_page(acquire.load_settings())
     park_on = league.park_toggle(st, org, "park-acquire", league.park_available(save, season))
     needs, pool = compute(save, season, org, settings, park_on)
+    marks = data_cache.injury_marks(save, season)
+    if not marks.empty:
+        st.html(injuries.legend_html())
     budget = acquire.budget_space(finances, org)
 
     metrics = st.columns(4)
@@ -265,7 +271,7 @@ def main() -> None:
         "(claimed with their contract) and free agents (what they ask for a year). Gain = runs of value over the starter, "
         "weighted by the place."
     )
-    table = needs_table(needs, pool, budget, settings)
+    table = injuries.add(needs_table(needs, pool, budget, settings), marks)
     st.subheader("Priority list")
     ranked = priorities(save, season, org, settings, budget, park_on)
     st.caption(
@@ -288,7 +294,7 @@ def main() -> None:
     if ranked.empty:
         st.write("No acquisition adds enough within the budget space.")
     else:
-        view = priority_view(ranked)
+        view = injuries.add(priority_view(ranked), marks)
         picked = show(view, style_priorities(view), f"acquire-priority-{save}-{org}-{generation}", height_rows=12)
     st.subheader("Where the roster needs an upgrade")
     picked = picked or show(table, style_needs(table), f"acquire-needs-{save}-{org}-{generation}", height_rows=22)
@@ -301,7 +307,7 @@ def main() -> None:
     if chosen.empty:
         st.write("No candidate adds enough within the budget space.")
     else:
-        view = candidate_view(chosen)
+        view = injuries.add(candidate_view(chosen), marks)
         view.insert(0, "Place", chosen["Place"])
         picked = picked or show(view, style_candidates(view), f"acquire-package-{save}-{org}-{everywhere}-{generation}")
         spent = chosen["Cost"].sum()
@@ -327,7 +333,7 @@ def main() -> None:
     if found.empty:
         st.write("No candidate adds enough at this place with these choices.")
     else:
-        view = candidate_view(found.head(40))
+        view = injuries.add(candidate_view(found.head(40)), marks)
         picked = picked or show(
             view, style_candidates(view), f"acquire-{save}-{org}-{place}-{sources}-{within}-{generation}"
         )

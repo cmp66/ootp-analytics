@@ -20,16 +20,17 @@ from model import scales  # noqa: E402
 from util.update_config import load_update_config  # noqa: E402
 from util.config import get_save  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
-from viewer import acquire, data_cache, league, minors, rule5  # noqa: E402
+from viewer import acquire, data_cache, injuries, league, minors, rule5  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 ROW_HEIGHT = 35
 WIDTHS = {
+    "Inj": 96,
     "Player": 150, "Pos": 50, "Age": 50, "Level": 60, "Tier": 105, "Win": 50, "Value": 62, "MLB %": 62, "Gain": 56, "Upside": 62,
     "Ceil": 56, "Floor": 56, "Top-50 %": 70, "Action": 90, "Why": 380, "Keep %": 64, "Owed $m": 70, "Years": 90, "From": 60,
     "Place": 60, "Go": 60,
 }  # fmt: skip
-TEXT_COLUMNS = ("Player", "Pos", "Level", "Tier", "Action", "Why", "Years", "From", "Place", "Go")
+TEXT_COLUMNS = ("Player", "Inj", "Pos", "Level", "Tier", "Action", "Why", "Years", "From", "Place", "Go")
 ACTION_COLORS = {rule5.PROTECT: "#2e9e57", rule5.LOW_RISK: "#b8860b", rule5.EXPOSE: "#8a8f99"}
 
 
@@ -44,6 +45,7 @@ def money(value) -> str:
 def show(frame: pd.DataFrame, styled, key: str, rows: int = 16):
     """A table with the ID kept out of sight; returns (ID, slot, name) of the player clicked, if any."""
     shown = [c for c in frame.columns if c not in ("ID", "slot")]
+    styled = injuries.paint(styled, frame)
     config = {
         c: (st.column_config.TextColumn if c in TEXT_COLUMNS else st.column_config.NumberColumn)(
             width=WIDTHS.get(c, 60)
@@ -153,6 +155,9 @@ def main() -> None:
     except FileNotFoundError:
         st.error(f"{save} {season} has no outlook files yet: run `python scripts/update_all.py {save}`.")
         return
+    marks = data_cache.injury_marks(save, season)
+    if not marks.empty:
+        st.html(injuries.legend_html())
     if "R5" not in frame.columns:
         st.error(
             f"{save} has no Rule 5 flag (R5) in its export: enable it in the game and export the player lists again."
@@ -241,7 +246,7 @@ def main() -> None:
     if rec.empty:
         st.write("None of your players is draft eligible.")
     else:
-        view = eligible_view(rec)
+        view = injuries.add(eligible_view(rec), marks)
         picked = show(view, style_eligible(view), f"rule5-eligible-{save}-{org}-{generation}", rows=20)
 
     st.subheader("Who could come off the 40-man")
@@ -258,7 +263,7 @@ def main() -> None:
     if candidates.empty:
         st.write("No player on the 40-man who is not a starter.")
     else:
-        view = removal_view(candidates, room["to_clear"])
+        view = injuries.add(removal_view(candidates, room["to_clear"]), marks)
         picked = picked or show(view, style_removal(view), f"rule5-remove-{save}-{org}-{generation}")
 
     st.subheader("Players to draft from other organizations")
@@ -266,7 +271,7 @@ def main() -> None:
     if targets.empty:
         st.write("No draft eligible player of another organization would improve your MLB roster.")
     else:
-        view = target_view(targets.head(30))
+        view = injuries.add(target_view(targets.head(30)), marks)
         picked = picked or show(view, style_targets(view), f"rule5-targets-{save}-{org}-{generation}")
         st.caption(
             "Gain = runs over the starter of the place (or over your best other player when it is empty). "
@@ -278,7 +283,7 @@ def main() -> None:
     if potential.empty:
         st.write("No draft eligible prospect of another organization is exposed with that much potential.")
     else:
-        view = potential_view(potential.head(30))
+        view = injuries.add(potential_view(potential.head(30)), marks)
         picked = picked or show(view, style_potential(view), f"rule5-potential-{save}-{org}-{generation}")
         st.caption(
             "Exposed draft eligible prospects (not on their 40-man roster) whose ceiling is in the best of the league at their "

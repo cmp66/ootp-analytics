@@ -11,6 +11,8 @@ import html
 
 import pandas as pd
 
+from viewer import injuries
+
 CSS = """
 <style>
 .pc {background: #1b1c1f; color: #dcdcdc; border-radius: 8px; padding: 12px 16px; font-family: inherit;
@@ -258,8 +260,22 @@ def _pitcher(row: pd.Series, slot: str) -> tuple[str, str]:
     return left, right
 
 
+def injury_html(row: pd.Series) -> str:
+    """One line in the color of the state when the player is injured (day to day, out or on the injured list), else nothing."""
+    if str(row.get("INJ", "")).strip().lower() not in ("yes", "y", "1", "true"):
+        return ""
+    left = str(row.get("Left", "?"))
+    state = injuries.status(injuries.days(left), injuries.load_injuries())
+    note = " (on the injured list: off the depth charts and the plan)" if state == injuries.IL else ""
+    return (
+        f'<div class="text" style="color:{injuries.COLORS[state]};font-weight:700">'
+        f"Injured: {injuries.LABELS[state]}, {html.escape(left)} left{note}</div>"
+    )
+
+
 def card_html(row: pd.Series, slot: str, title: str = "") -> str:
     """The whole page for a player (a row of player-data) as html with its own style."""
     left, right = _pitcher(row, slot) if is_pitcher(slot) else _hitter(row)
     caption = f'<div class="name">{html.escape(title)}</div>' if title else ""
+    caption += injury_html(row)
     return f'{CSS}<div class="pc">{caption}<div>{left}{personality(row)}</div><div>{right}</div></div>'

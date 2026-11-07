@@ -93,3 +93,8 @@ mlb = 0.08      # the majors
 upper = 0.58    # AAA and AA
 a = 1.51        # the two A levels
 rookie = 3.29   # the rookie levels and the international complex
+
+[injuries]  # how an injury is read from the export (INJ = Yes, Left = the time left, e.g. "4 days", "one week", "2-3 months", "?"); viewer/injuries.py
+day_to_day = 7        # days left or fewer: day to day (marked, not moved, still plays)
+injured_list = 14     # more days than this (or an unknown time, "?"): on the injured list, taken off the depth charts and the plan
+                      # (a range such as "2-3 weeks" counts by its upper end); in between he is out: marked, not moved, and not cover

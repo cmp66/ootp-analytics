@@ -14,7 +14,7 @@ import pandas as pd
 import streamlit as st
 
 from util import paths
-from viewer import queries
+from viewer import injuries, queries
 
 MAX_LEAGUES = 2
 M_MMAP_THRESHOLD = -3  # mallopt parameter of glibc
@@ -70,6 +70,17 @@ def growth(save: str, season: int) -> pd.DataFrame | None:
     exports 90 days apart."""
     path = paths.output_file(save, season, "growth")
     return shrink(pd.read_csv(path)) if path.exists() else None
+
+
+@st.cache_resource(max_entries=MAX_LEAGUES, show_spinner=False)
+def injured(save: str, season: int) -> pd.DataFrame:
+    """The injured players of the league (viewer/injuries.py `raw`): ID, left (the export's text) and days. A few hundred rows."""
+    return injuries.raw(outlook(save, season))
+
+
+def injury_marks(save: str, season: int) -> pd.DataFrame:
+    """The injured players with their state under the `[injuries]` settings of config/minors.toml (DTD, OUT or IL) and text."""
+    return injuries.marks(injured(save, season), injuries.load_injuries())
 
 
 def player_row(save: str, season: int, player_id: int) -> pd.Series:

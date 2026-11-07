@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
-from viewer import queries
+from viewer import injuries, queries
 
 FIELD_SLOTS = ["LF", "CF", "RF", "3B", "SS", "2B", "1B", "C", "SP", "RP"]  # the positions of the game's depth chart
 CHART_SLOTS = [*FIELD_SLOTS[:-2], "DH", *FIELD_SLOTS[-2:]]  # the chart of the viewer also has the designated hitter
@@ -153,8 +153,22 @@ def _pool(frame: pd.DataFrame, org: str, show: str) -> pd.DataFrame:
     return pool
 
 
-def _chart(pool: pd.DataFrame, order: dict[str, list[int]], columns: dict[str, str], limits: dict | None) -> dict:
-    """Slot -> its table (ID, Player, Lev, Value, Flag) for the player IDs of `order`; `columns`: the value column per slot."""
+def _hurt(ids, marks: pd.DataFrame | None) -> list[str]:
+    """The injury text of each player ("" when he is well); `marks` is `injuries.marks`."""
+    if marks is None or marks.empty:
+        return [""] * len(ids)
+    return [marks["text"].get(i, "") for i in ids]
+
+
+def _chart(
+    pool: pd.DataFrame,
+    order: dict[str, list[int]],
+    columns: dict[str, str],
+    limits: dict | None,
+    marks: pd.DataFrame | None = None,
+) -> dict:
+    """Slot -> its table (ID, Player, Lev, Value, Flag, Inj) for the player IDs of `order`;
+    `columns`: the value column per slot."""
     chart = {}
     for slot in CHART_SLOTS:
         rows = pool[pool["slot"] == slot].drop_duplicates("ID").set_index("ID").reindex(order[slot])
@@ -168,6 +182,7 @@ def _chart(pool: pd.DataFrame, order: dict[str, list[int]], columns: dict[str, s
                 "Lev": rows["team_level"].to_numpy(),
                 "Value": rows[columns[slot]].to_numpy(),
                 "Flag": limit_flags(rows, limits or {}),
+                "Inj": _hurt(rows.index, marks),
             }
         )
     return chart
@@ -180,9 +195,11 @@ def depth_chart(
     ranked_by: str = RANKED_BY[0],
     limits: dict | None = None,
     side: str | None = None,
+    marks: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
-    """Slot -> its players in depth order (the starter first); columns ID, Player, Lev, Value (the ranking value at the slot) and
-    Flag (the limits of his level he exceeds; `limits` is the `levels` of the save's config: level -> LevelLimits).
+    """Slot -> its players in depth order (the starter first); columns ID, Player, Lev, Value (the ranking value at the slot),
+    Flag (the limits of his level he exceeds; `limits` is the `levels` of the save's config: level -> LevelLimits) and Inj (the
+    injury text, "" when well). A player on the injured list (`marks`, viewer/injuries.py) is not in the chart.
 
     `show`: the whole organization, its minor leagues, or one level (team) of show_options. `side`: "right" or "left" for the
     lineup against a right- or left-handed starting pitcher (the hitters' values against that side, ranked by the current value
@@ -191,6 +208,7 @@ def depth_chart(
     column = ranking_column(frame, ranked_by, side)
     pitching = ranking_column(frame, ranked_by)
     pool = _pool(frame, org, show)
+    pool = pool[~pool["ID"].isin(injuries.listed(marks))]
     pitcher = pool["slot"].isin(PITCHER_SLOTS)
     hitting = pool[~pitcher].dropna(subset=[column])
     pool = pd.concat([hitting, pool[pitcher].dropna(subset=[pitching])])
@@ -198,7 +216,7 @@ def depth_chart(
     placed = {player for ids in hitters.values() for player in ids}
     pitchers = fill(pool[~pool["ID"].isin(placed)], pitching, PITCHER_SLOTS, DEPTH_PITCHERS // PITCHER_SLOTS["SP"])
     columns = {slot: pitching if slot in PITCHER_SLOTS else column for slot in CHART_SLOTS}
-    return _chart(pool, hitters | pitchers, columns, limits)
+    return _chart(pool, hitters | pitchers, columns, limits, marks)
 
 
 def _planned_order(placed: pd.DataFrame, offered: pd.DataFrame, levels: list[str]) -> tuple[dict, dict]:
@@ -240,6 +258,7 @@ def planned_chart(
     offered: pd.DataFrame,
     limits: dict | None = None,
     column: str = "value_now",
+    marks: pd.DataFrame | None = None,
 ) -> dict[str, pd.DataFrame]:
     """The depth chart of the plan (`lineup.placement`): slot -> its players in depth order, with the columns of `depth_chart`
     and, for the plan, Note (why he plays there, and the level he comes from) and Off (at a slot other than the position he is
@@ -248,6 +267,8 @@ def planned_chart(
     options = show_options(frame, org)
     if show not in options:
         raise ValueError(f"unknown choice {show!r}; known: {options}")
+    placed = placed[~placed["ID"].isin(injuries.listed(marks))]  # the plan has them off already; a stale cache has not
+    offered = offered[~offered["ID"].isin(injuries.listed(marks))]
     present = [level for level in ["MLB", *LEVEL_ORDER] if level in set(placed["Level"])]
     present += sorted(set(placed["Level"]) - set(present))
     levels = [show] if show not in SHOW else [level for level in present if show == WHOLE or level != "MLB"]
@@ -287,6 +308,28 @@ def planned_chart(
                 "Flag": limit_flags(planned, limits or {}),
                 "Note": note,
                 "Off": off,
+                "Inj": _hurt(ids, marks),
             }
         )
     return chart
+
+
+def injured_list(frame: pd.DataFrame, org: str, show: str, marks: pd.DataFrame | None) -> pd.DataFrame:
+    """The players of the part of the organization shown who are on the injured list (viewer/injuries.py), longest first: ID,
+    Player, Pos, Age, Lev and Inj. They are not in the charts."""
+    columns = ["ID", "Player", "Pos", "Age", "Lev", "Inj"]
+    gone = injuries.listed(marks)
+    if not gone:
+        return pd.DataFrame(columns=columns)
+    pool = _pool(frame, org, show)
+    pool = pool[pool["ID"].isin(gone)].drop_duplicates("ID")
+    if pool.empty:
+        return pd.DataFrame(columns=columns)
+    names = (pool["First Name"].astype(str) + " " + pool["Last Name"].astype(str)).map(_tidy)
+    pos = pool["LPOS"] if "LPOS" in pool else pool["slot"]
+    out = pd.DataFrame(
+        {"ID": pool["ID"].to_numpy(), "Player": names.to_numpy(), "Pos": pos.to_numpy(), "Age": pool["Age"].to_numpy(),
+         "Lev": pool["team_level"].to_numpy(), "Inj": marks["text"].reindex(pool["ID"]).to_numpy(),
+         "days": marks["days"].reindex(pool["ID"]).to_numpy()}
+    )  # fmt: skip
+    return out.sort_values("days", ascending=False).drop(columns="days").reset_index(drop=True)

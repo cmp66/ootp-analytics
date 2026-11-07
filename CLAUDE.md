@@ -65,7 +65,7 @@ keeping, and tell the user to pull on the other machine.
   sending a major leaguer down. Moves respect the age and pro-years limits of each level (a 26 year old does not go down to a level
   with maximum age 25), `max_players` and the `pitchers` target (a target, +-1, because pitchers get hurt) per level in
   `config/saves.toml`. INT (international complex) is `no_demotion`: players are placed there automatically. Winter leagues are
-  `ladder = false` and not managed yet (a separate work item). Injured players (`INJ` Yes) are not moved. Every level needs 2 catchers, 5 infielders (2B, 3B, SS: a first baseman does not count), 4 outfielders and a
+  `ladder = false` and not managed yet (a separate work item). Injured players (`INJ` Yes) are not moved; over 14 days (`[injuries]`) they are on the injured list: left out of the plan and the depth charts. Every level needs 2 catchers, 5 infielders (2B, 3B, SS: a first baseman does not count), 4 outfielders and a
   rotation (6 SP in the minors, 5 in the majors; the MLB season roster is 13 pitchers: 5 starters, 8 relievers). AAA has no age
   limit and is the last stop for prospects and the cover for injuries; lower down prospect status counts for more and a filler is
   just a filler.
