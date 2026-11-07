@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 from streamlit.testing.v1 import AppTest
@@ -550,20 +549,14 @@ def test_the_management_page_lists_the_moves_of_every_league_and_survives_a_leag
     assert not app.exception
 
 
-def test_the_management_page_says_who_plays_at_every_level_and_the_sliders_change_the_plan():
+def test_the_management_page_summarizes_who_plays_and_the_sliders_change_the_plan():
     app = AppTest.from_file(str(SCREENS / "minor_management.py"), default_timeout=180).run()
     assert not app.exception
     if len(app.dataframe) < 4:
         pytest.skip("the league has no minor leaguers on the ladder (an export without the minor league lists)")
-    tables = [
-        t.value
-        for t in app.dataframe
-        if {"Slot", "Primary", "Value", "Dev", "Learn", "Hit", "Now"} <= set(t.value.columns)
-    ]
-    assert tables, "no lineup table"
-    slots = set().union(*[set(t["Slot"]) for t in tables])
-    assert {"SS", "BENCH", "SP"} <= slots and (tables[0]["Reason"] != "").all()
-    assert any("Who plays" in m.value for m in app.markdown)
+    assert not any(
+        {"Slot", "Primary"} <= set(t.value.columns) for t in app.dataframe
+    )  # the lineups are on the depth chart
     summary = next(
         t.value for t in app.dataframe if {"Off primary", "Differs from chart", "Playing value"} <= set(t.value.columns)
     )
@@ -573,26 +566,6 @@ def test_the_management_page_says_who_plays_at_every_level_and_the_sliders_chang
     assert not app.exception
     weight.set_value(2.0).run()
     assert not app.exception
-
-
-def test_the_lineup_table_orders_the_slots_and_marks_a_player_away_from_his_position():
-    from viewer.screens import minor_management as page  # noqa: PLC0415
-
-    placed = pd.DataFrame(
-        {"Level": "AA", "Slot": ["BENCH", "SS", "2B", "SP"], "ID": [1, 2, 3, 4], "Player": list("abcd"), "Age": 21.0,
-         "Primary": ["SS", "SS", "SS", "SP"], "total": 5.0, "development": 3.0, "learning": 1.0, "hit": 0.5, "current": 1.5,
-         "Reason": "x", "Grow": [np.nan, 1.0, -1.0, 0.5]}
-    )  # fmt: skip
-    out = page.lineup_table(placed)
-    assert out["Slot"].tolist() == ["SS", "2B", "BENCH", "SP"][:0] or out["Slot"].tolist() == [
-        "2B",
-        "SS",
-        "BENCH",
-        "SP",
-    ]
-    assert {"Value", "Dev", "Learn", "Hit", "Now", "Grow"} <= set(out.columns)
-    html = page.styled(out).to_html()
-    assert html.count("#e08a1e") == 1  # only the 2B of a shortstop is off his position
 
 
 def test_prospects_are_the_better_ceilings_with_development_left_and_the_rest_is_filler():
@@ -782,6 +755,7 @@ def test_the_lineup_against_each_side_picks_the_better_hitter():
 def test_depth_chart_page_offers_the_overall_lineup_and_the_two_sides():
     app = AppTest.from_file(DEPTH, default_timeout=120).run()
     assert not app.exception
+    next(box for box in app.selectbox if box.label == "Players").select("As is").run()  # the plan has no handedness
     lineup = next(box for box in app.selectbox if box.label == "Lineup")
     assert list(lineup.options) == ["Lineup: Overall", "Lineup: vs RHP", "Lineup: vs LHP"]
     for choice in ("vs RHP", "vs LHP"):
@@ -789,6 +763,43 @@ def test_depth_chart_page_offers_the_overall_lineup_and_the_two_sides():
         assert not app.exception
     app.selectbox[3].select("Floor (10 years)").run()  # the projections have no split: back to the overall chart
     assert not app.exception
+
+
+def test_the_planned_chart_starts_the_planned_players_orders_the_rest_by_playing_value_and_marks_the_off_position():
+    from viewer import depth
+
+    frame = platoon_frame()
+    frame["Last Name"] = ["a", "b", "c", "d"]
+    placed = pd.DataFrame(
+        {"Level": "MLB", "Slot": ["LF", "RF", "BENCH", "BENCH", "SP"], "ID": [2, 3, 1, 4, 9],
+         "Player": ["P b", "P c", "P a", "P d", "P x"], "Primary": ["RF", "RF", "LF", "RF", "SP"], "total": 5.0,
+         "Reason": ["plays LF", "plays RF", "bench", "bench", "rotation"]}
+    )  # fmt: skip
+    offered = pd.DataFrame(
+        {"Level": "MLB", "ID": [1, 1, 4], "slot": ["LF", "RF", "RF"], "total": [3.0, 2.0, 1.0]}
+    )  # P a and P d are the backups
+    chart = depth.planned_chart(frame, "ORG", "MLB", placed, offered)
+    assert (
+        chart["LF"]["ID"].tolist()[0] == 2 and chart["RF"]["ID"].tolist()[0] == 3
+    )  # the plan's starters, not the values'
+    assert chart["LF"]["ID"].tolist() == [2, 1] and chart["RF"]["ID"].tolist() == [3, 4]  # P a is placed once, at LF
+    assert chart["LF"]["Off"].tolist() == [True, False] and chart["RF"]["Off"].tolist()[0] is False
+    assert "plays LF" in chart["LF"]["Note"].iloc[0] and chart["SP"]["Player"].tolist() == ["P x"]
+    with pytest.raises(ValueError):
+        depth.planned_chart(frame, "ORG", "AAA", placed, offered)
+
+
+def test_the_planned_chart_of_several_levels_lists_the_starters_of_each_level_from_the_top():
+    from viewer import depth
+
+    frame = platoon_frame()
+    frame.loc[frame["ID"] == 3, "team_level"] = "AAA"
+    placed = pd.DataFrame(
+        {"Level": ["MLB", "AAA"], "Slot": ["RF", "RF"], "ID": [1, 3], "Player": ["P a", "P c"], "Primary": "RF", "total": 5.0,
+         "Reason": "x"}
+    )  # fmt: skip
+    chart = depth.planned_chart(frame, "ORG", depth.WHOLE, placed, placed.rename(columns={"Slot": "slot"}))
+    assert chart["RF"]["ID"].tolist() == [1, 3] and chart["RF"]["Lev"].tolist() == ["MLB", "AAA"]
 
 
 def test_the_rule_5_page_lists_the_draft_eligible_players_the_roster_room_and_the_players_to_draft():
