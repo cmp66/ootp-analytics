@@ -114,11 +114,11 @@ def assign_pass(values: pd.DataFrame, places: dict[str, int], listed: pd.Series 
     return [(int(values.index[r]), columns[c]) for r, c in zip(rows, cols) if matrix[r, c] > NOT_ALLOWED / 2]
 
 
-def fill(pool: pd.DataFrame, column: str, places: dict[str, int], depth: int) -> dict[str, list[int]]:
-    """Slot -> player IDs in depth order: `depth` passes of assign_pass, each over the players the earlier passes left."""
-    values = pool[pool["slot"].isin(places)].pivot_table(index="ID", columns="slot", values=column, aggfunc="max")
-    values = values.reindex(columns=list(places))
-    listed = pool.drop_duplicates("ID").set_index("ID")["LPOS"] if "LPOS" in pool.columns else None
+def passes(
+    values: pd.DataFrame, places: dict[str, int], depth: int, listed: pd.Series | None = None
+) -> dict[str, list[int]]:
+    """Slot -> player IDs in depth order: `depth` passes of assign_pass over `values` (a row per player, a column per slot), each
+    over the players the earlier passes left."""
     order: dict[str, list[int]] = {slot: [] for slot in places}
     for _ in range(depth):
         picked = assign_pass(values, places, listed)
@@ -130,6 +130,14 @@ def fill(pool: pd.DataFrame, column: str, places: dict[str, int], depth: int) ->
             order[slot].append(player)
         values = values.drop(index=[player for player, _ in picked])
     return order
+
+
+def fill(pool: pd.DataFrame, column: str, places: dict[str, int], depth: int) -> dict[str, list[int]]:
+    """Slot -> player IDs in depth order: `depth` passes of assign_pass, each over the players the earlier passes left."""
+    values = pool[pool["slot"].isin(places)].pivot_table(index="ID", columns="slot", values=column, aggfunc="max")
+    values = values.reindex(columns=list(places))
+    listed = pool.drop_duplicates("ID").set_index("ID")["LPOS"] if "LPOS" in pool.columns else None
+    return passes(values, places, depth, listed)
 
 
 def _pool(frame: pd.DataFrame, org: str, show: str) -> pd.DataFrame:
@@ -191,3 +199,94 @@ def depth_chart(
     pitchers = fill(pool[~pool["ID"].isin(placed)], pitching, PITCHER_SLOTS, DEPTH_PITCHERS // PITCHER_SLOTS["SP"])
     columns = {slot: pitching if slot in PITCHER_SLOTS else column for slot in CHART_SLOTS}
     return _chart(pool, hitters | pitchers, columns, limits)
+
+
+def _planned_order(placed: pd.DataFrame, offered: pd.DataFrame, levels: list[str]) -> tuple[dict, dict]:
+    """Slot -> player IDs in depth order, and ID -> the level, for the players of `levels` as the plan places them.
+
+    One level: the starter of every lineup slot is the plan's; the backups are the players of the level the plan has on the bench
+    (or at another slot), by passes over their playing values at the slots they can play; the rotation and the bullpen are the
+    plan's, the best first. Several levels: the starters of each level from the top down (a box is as deep as the levels shown),
+    and the rotation and bullpen of the top level first."""
+    order: dict[str, list[int]] = {slot: [] for slot in CHART_SLOTS}
+    where = dict(zip(placed["ID"], placed["Level"]))
+    single = len(levels) == 1
+    for level in levels:
+        here = placed[placed["Level"] == level]
+        starters = here[here["Slot"].isin(HITTER_SLOTS)]
+        for slot, player in zip(starters["Slot"], starters["ID"]):
+            order[slot].append(int(player))
+        if single:
+            values = offered[(offered["Level"] == level) & offered["slot"].isin(HITTER_SLOTS)]
+            values = values[~values["ID"].isin(starters["ID"])].pivot_table(
+                index="ID", columns="slot", values="total", aggfunc="max"
+            )
+            later = passes(values.reindex(columns=HITTER_SLOTS), dict.fromkeys(HITTER_SLOTS, 1), DEPTH_HITTERS - 1)
+            for slot, ids in later.items():
+                order[slot] += ids
+        for slot in PITCHER_SLOTS:
+            ranked = here[here["Slot"] == slot].sort_values("total", ascending=False)
+            order[slot] += [int(i) for i in ranked["ID"]]
+    for slot in PITCHER_SLOTS:
+        order[slot] = order[slot][:DEPTH_PITCHERS]
+    return order, where
+
+
+def planned_chart(
+    frame: pd.DataFrame,
+    org: str,
+    show: str,
+    placed: pd.DataFrame,
+    offered: pd.DataFrame,
+    limits: dict | None = None,
+    column: str = "value_now",
+) -> dict[str, pd.DataFrame]:
+    """The depth chart of the plan (`lineup.placement`): slot -> its players in depth order, with the columns of `depth_chart`
+    and, for the plan, Note (why he plays there, and the level he comes from) and Off (at a slot other than the position he is
+    trained at). The level shown (`Lev`) is the one the plan puts him at; `Value` is the value now at the slot, as in the
+    other chart. `show` as in `depth_chart`; the levels are the plan's, not the files'."""
+    options = show_options(frame, org)
+    if show not in options:
+        raise ValueError(f"unknown choice {show!r}; known: {options}")
+    present = [level for level in ["MLB", *LEVEL_ORDER] if level in set(placed["Level"])]
+    present += sorted(set(placed["Level"]) - set(present))
+    levels = [show] if show not in SHOW else [level for level in present if show == WHOLE or level != "MLB"]
+    levels = [level for level in levels if level in set(placed["Level"])]
+    order, where = _planned_order(placed, offered, levels)
+    pool = queries.select_pool(frame, "org", org)
+    pool = pool[pool["slot"].isin(CHART_SLOTS)]
+    reasons = placed.set_index(["ID", "Slot"])
+    chart = {}
+    for slot in CHART_SLOTS:
+        ids = order[slot]
+        rows = pool[pool["slot"] == slot].drop_duplicates("ID").set_index("ID").reindex(ids)
+        known = placed.drop_duplicates("ID").set_index("ID")
+        names = pd.Series([known.at[i, "Player"] for i in ids], index=ids, dtype=object)
+        if slot in PITCHER_SLOTS:
+            hand = rows["T"].map(HANDS).fillna("").add("HP ").where(rows["T"].isin(HANDS), "")
+            names = hand.astype(str) + names
+        planned = rows.assign(team_level=[where[i] for i in ids])
+        note, off = [], []
+        for i in ids:
+            row = reasons.loc[(i, slot)] if (i, slot) in reasons.index else None
+            if row is None:  # a backup: he plays where the others are, the plan has him on the bench
+                row = known.loc[i]
+                text = f"{slot} backup: the plan has him on the bench of {row['Level']}"
+            else:
+                text = str(row["Reason"])
+            was = pool[pool["ID"] == i]["team_level"]
+            moved = was.iloc[0] if not was.empty else None
+            note.append(text + (f"; moves from {moved}" if moved and moved != where[i] else ""))
+            off.append(bool(row is not None and slot in HITTER_SLOTS and row["Primary"] not in ("", slot)))
+        chart[slot] = pd.DataFrame(
+            {
+                "ID": ids,
+                "Player": names.to_numpy(),
+                "Lev": [where[i] for i in ids],
+                "Value": rows[column].to_numpy() if column in rows else np.full(len(ids), np.nan),
+                "Flag": limit_flags(planned, limits or {}),
+                "Note": note,
+                "Off": off,
+            }
+        )
+    return chart

@@ -103,9 +103,24 @@ def lineups(
     settings: playing.Playing | None = None,
     growth: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
+    """The placement of `placement` without the values of the other slots."""
+    return placement(table, frame, ratings, levels, rules, settings, growth)[0]
+
+
+def placement(
+    table: pd.DataFrame,
+    frame: pd.DataFrame,
+    ratings: pd.DataFrame,
+    levels: dict[str, LevelLimits],
+    rules: minors.Rules,
+    settings: playing.Playing | None = None,
+    growth: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """The slot of every player of the plan at the level he is at after it (`Final`; a player who leaves the organization is not
     placed). Columns: Level, Slot, ID, Player, Age, Primary (the position he is trained at), development, learning, hit, current,
     total, Reason and Old (the slot the depth chart's placement by current value gives him, "" when it gives him none).
+    Second: the value of every slot each player could play at his level (Level, ID, slot, total, reason, primary), which the depth
+    chart orders its backups by.
     """
     settings = settings or playing.load_playing()
     rungs = minors.ladder(levels)
@@ -115,11 +130,12 @@ def lineups(
     players = inputs(kept, frame, ratings, growth)
     ages = median_ages(frame, kept)
     names = kept.set_index("ID")["Player"]
-    rows = []
+    rows, offered = [], []
     for level, group in kept.groupby("Final"):
         place = rungs.index(level)
         mine = players[players["ID"].isin(group["ID"])]
         utility = playing.slot_utilities(mine, ages.get(level, float(group["Age"].median())), place, settings)
+        offered.append(utility[["ID", "slot", "total", "reason", "primary"]].assign(Level=level))
         pool = frame[frame["ID"].isin(group["ID"]) & frame["slot"].isin(LINEUP)]
         old = {i: slot for slot, ids in depth.fill(pool, "value_now", dict.fromkeys(LINEUP, 1), 1).items() for i in ids}
         placed = _hitters(group, utility) + _pitchers(group, utility, roster._starters(level, rules))
@@ -148,7 +164,10 @@ def lineups(
         "Reason",
         "Old",
     ]
-    return pd.DataFrame(rows, columns=columns)
+    values = (
+        pd.concat(offered, ignore_index=True) if offered else pd.DataFrame(columns=["ID", "slot", "total", "Level"])
+    )
+    return pd.DataFrame(rows, columns=columns), values
 
 
 def comparison(result: pd.DataFrame) -> pd.DataFrame:
