@@ -17,7 +17,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from util.update_config import load_update_config  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
-from viewer import data_cache, league, overview, player_card  # noqa: E402
+from viewer import data_cache, injuries, league, overview, player_card  # noqa: E402
 
 ROW_HEIGHT = 21  # pixels of a table row; lower it if the screen does not fit
 HEADER_HEIGHT = 36
@@ -72,7 +72,8 @@ def styled(frame: pd.DataFrame):
     formats = {c: "{:.1f}" for c in RUN_COLUMNS if c in frame} | {c: f for c, f in NUMBER_FORMATS.items() if c in frame}
     style = frame.style.format(formats, na_rep="")
     style = style.map(run_color, subset=[c for c in RUN_COLUMNS if c in frame])
-    return style.apply(lambda row: ["font-weight: 700" if row["Lev"] == "MLB" else "" for _ in row], axis=1)
+    style = style.apply(lambda row: ["font-weight: 700" if row["Lev"] == "MLB" else "" for _ in row], axis=1)
+    return injuries.paint(style, frame, ("Player",))  # the injury text is not a column here: the cards are narrow
 
 
 COLUMN_WIDTHS = {  # pixels: the three narrow cards must fit their columns without clipping or a sideways scrollbar
@@ -119,7 +120,7 @@ def show(
             frame = rebuild(chosen)
     else:
         st.html(bar)
-    shown = [c for c in frame.columns if c not in ("ID", "Slot")]
+    shown = [c for c in frame.columns if c not in ("ID", "Slot", "Inj")]
     event = st.dataframe(
         styled(frame),
         hide_index=True,
@@ -227,19 +228,26 @@ def render(page: str = "org") -> None:
             "position (Off + Def + Run). Click a header to sort everybody listed, a player for his ratings."
         )
     frame = league.park_frame(save, season, frame, park_team, park_on)  # Park = what the park changes in the value
+    if not data_cache.injury_marks(save, season).empty:
+        st.html(injuries.legend_html())
     pool_name = {ALL_ORGS: "all_orgs", FREE_AGENTS: "free_agents"}.get(org, POOL_NAMES.get(page, "org"))
     owner, with_all = None if org in (ALL_ORGS, FREE_AGENTS) else org, org == ALL_ORGS
     tables = overview.pool_overview(
         frame, pool_name, owner, mode, minors_only=page == "minors", window=window, with_org=with_all
     )
+    marks = data_cache.injury_marks(save, season)
+    tables = {title: injuries.add(rows, marks) for title, rows in tables.items()}
     generation = st.session_state.setdefault("generation", 0)  # a new key clears the row selection of every table
     picked = None
 
     def table(title, kind, rows, column=None, positions=None):
         def rebuild(chosen):
-            return overview.pool_overview(frame, pool_name, owner, mode, page == "minors", window, with_all, chosen)[
-                title
-            ]
+            return injuries.add(
+                overview.pool_overview(frame, pool_name, owner, mode, page == "minors", window, with_all, chosen)[
+                    title
+                ],
+                marks,
+            )
 
         nonlocal picked
         with column if column is not None else st.container():

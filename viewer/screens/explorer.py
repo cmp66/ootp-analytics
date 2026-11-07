@@ -15,7 +15,7 @@ from streamlit.errors import StreamlitPageNotFoundError  # noqa: E402
 
 from util.update_config import load_update_config  # noqa: E402
 from util.seasons import served_seasons  # noqa: E402
-from viewer import data_cache, league, queries, report  # noqa: E402
+from viewer import data_cache, injuries, league, queries, report  # noqa: E402
 from viewer.screens import org_view  # noqa: E402
 
 METRICS = {
@@ -51,8 +51,12 @@ def load(save: str, season: int) -> pd.DataFrame:
 def show(frame: pd.DataFrame, key: str, slot: str | None = None):
     """A list; returns (ID, slot, name) of the player clicked, if any (`slot` for a position table, which has no slot column)."""
     config_columns = {c: st.column_config.NumberColumn(format=f) for c, f in COLUMN_FORMATS.items() if c in frame}
+    shown_frame = frame
+    if "Inj" in frame.columns:  # injured players: the injury text in its color (a styled table takes its own formats)
+        formats = {c: "{:" + f[1:] + "}" for c, f in COLUMN_FORMATS.items() if c in frame}
+        shown_frame = injuries.paint(frame.style.format(formats, na_rep=""), frame, ("Inj",))
     event = st.dataframe(
-        frame,
+        shown_frame,
         hide_index=True,
         width="stretch",
         column_config=config_columns,
@@ -104,6 +108,7 @@ def main() -> None:
     except FileNotFoundError:
         st.error(f"{save} {season} has no outlook files yet: run `python scripts/update_all.py {save}`.")
         return
+    marks = data_cache.injury_marks(save, season)
 
     name = st.sidebar.selectbox("List", list(specs), format_func=lambda n: specs[n].title)
     spec = specs[name]
@@ -172,13 +177,15 @@ def main() -> None:
     with st.expander("What the filters select", expanded=False):
         for label, text in report_spec.filters:
             st.write(f"**{label}:** {text}")
+    if not marks.empty:
+        st.html(injuries.legend_html())
     list_tab, position_tab = st.tabs(["Ordered list", "By position"])
     generation = st.session_state.setdefault(
         "explorer_generation", 0
     )  # a new key clears the row selection of every table
     picked = None
     with list_tab:
-        picked = show(ordered, f"explorer-{name}-list-{generation}")
+        picked = show(injuries.add(ordered, marks), f"explorer-{name}-list-{generation}")
         st.download_button(
             "Download csv",
             ordered.drop(columns=["ID"]).to_csv(index=False),
@@ -188,7 +195,7 @@ def main() -> None:
     with position_tab:
         for slot in blocks:
             st.subheader(f"{slot} ({len(pool[pool['slot'] == slot])} players)")
-            picked = picked or show(blocks[slot], f"explorer-{name}-{slot}-{generation}", slot)
+            picked = picked or show(injuries.add(blocks[slot], marks), f"explorer-{name}-{slot}-{generation}", slot)
     if picked:
         st.session_state["explorer_generation"] = generation + 1
         player_id, slot, player_name = picked
